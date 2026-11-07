@@ -25,17 +25,18 @@
 
 Les trackers en ligne donnent des chiffres. Valtracker va plus loin sur un point précis : comprendre où et pourquoi tu meurs. Chaque match est analysé mort par mort, à partir des positions de tous les joueurs au moment du kill, pour faire ressortir tes défauts récurrents.
 
-## Fonctionnalités prévues pour la V1
+## Fonctionnalités
 
 **Statistiques**
-- Aperçu de l'acte ou global : rang, RR, ACS, dégâts par round, K/D, headshot, KAST, DDΔ, first bloods, clutchs.
-- Comparaison avec tes lobbys, avec tes 20 derniers matchs ou avec un rang cible.
-- Filtres par acte, map, agent, rôle, période, solo ou en groupe.
-- Pages Agents, Maps, Armes et Duels.
+- Aperçu de l'acte ou global : rang, RR, ACS, dégâts par round, K/D, KAD, headshot, win rate.
+- Comparaison de chaque statistique avec la moyenne de tes lobbys.
+- Tes défauts du moment sur tes 20 derniers matchs : morts non tradées, morts isolé, first deaths.
 
 **Analyse des matchs**
-- Score sur 100 pour chacun des 10 joueurs, calculé selon le rôle.
+- Score sur 100 pour chacun des 10 joueurs, calculé selon le rôle de l'agent.
+- Placement, badges, niveau de ton équipe et RR gagné ou perdu.
 - Timeline des rounds avec l'économie des deux équipes.
+- Détail de chaque round : toutes les actions dans l'ordre, issue, cérémonie et économie des 10 joueurs.
 - Défauts détectés à chaque mort : mort non tradée, joueur isolé, first death, full buy perdu, même spot répété.
 - Revue guidée : chaque mort rejouée sur la minimap avec la position de tous les joueurs.
 
@@ -46,13 +47,19 @@ Les trackers en ligne donnent des chiffres. Valtracker va plus loin sur un point
 **Progression**
 - Courbe de RR, jauge de forme, projection de rang.
 - Détection du tilt selon l'heure et les séries de défaites.
-- Records personnels et bilans de session.
+- Records de la période.
 
 **Confort**
 - Premier lancement guidé en trois étapes, puis une visite de l'application, relançable depuis les paramètres.
 - Synchronisation automatique au lancement puis toutes les 10 minutes.
-- Plusieurs comptes Riot, thème sombre et clair, français et anglais.
-- Mises à jour automatiques.
+- Plusieurs comptes Riot, thème sombre et clair.
+- Mises à jour proposées au lancement et installées en un clic.
+
+**À venir**
+- Pages Agents, Maps, Armes et Duels.
+- Journal de notes et de tags sur tes matchs.
+- Filtres par map, agent, rôle et période sur l'accueil.
+- Version anglaise.
 
 ## Ce que Valtracker ne fait pas
 
