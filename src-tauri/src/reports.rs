@@ -86,6 +86,7 @@ pub fn warm(app: &AppHandle, puuid: String) {
             ]);
         }
         list.extend([Report::Overview(Filters::default()), Report::Progression(None)]);
+        list.extend(played_maps(&conn, &puuid).into_iter().map(Report::MapHistory));
         for report in list {
             let key = report.key(&puuid);
             if state.cached_json(&key).is_some() {
@@ -97,4 +98,17 @@ pub fn warm(app: &AppHandle, puuid: String) {
             }
         }
     });
+}
+
+fn played_maps(conn: &rusqlite::Connection, puuid: &str) -> Vec<String> {
+    let Ok(mut stmt) = conn.prepare(
+        "SELECT COALESCE(m.map_id, m.map_name, '') AS map FROM match_players p JOIN matches m ON m.match_id = p.match_id
+         WHERE p.puuid = ?1 AND m.queue = 'competitive' AND map <> ''
+         GROUP BY map ORDER BY MAX(m.started_at) DESC",
+    ) else {
+        return Vec::new();
+    };
+    stmt.query_map([puuid], |row| row.get::<_, String>(0))
+        .map(|rows| rows.filter_map(Result::ok).collect())
+        .unwrap_or_default()
 }
