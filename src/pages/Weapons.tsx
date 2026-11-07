@@ -1,5 +1,6 @@
 import "../styles/weapons.css";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { flushSync } from "react-dom";
 import { AbilityArt, Art, SpikeGlyph } from "../components/GameArt";
 import { Icon } from "../components/Icon";
 import { SeasonPicker } from "../components/SeasonPicker";
@@ -38,6 +39,29 @@ const HISTORY_PAGE = 10;
 
 const meters = (value: number | null) => (value === null ? "-" : `${fmt(value, 1)} m`);
 const plural = (count: number, one: string, many: string) => `${fmt(count)} ${(lang() === "en" ? count !== 1 : count > 1) ? many : one}`;
+
+const DETAIL_INLINE_MAX = 860;
+
+function useBelow(limit: number): [(node: HTMLDivElement | null) => (() => void) | undefined, boolean] {
+  const [below, setBelow] = useState(false);
+  const ref = useCallback(
+    (node: HTMLDivElement | null) => {
+      if (!node) return undefined;
+      let current = node.getBoundingClientRect().width <= limit;
+      setBelow(current);
+      const observer = new ResizeObserver(([entry]) => {
+        const next = entry.contentRect.width <= limit;
+        if (next === current) return;
+        current = next;
+        flushSync(() => setBelow(next));
+      });
+      observer.observe(node);
+      return () => observer.disconnect();
+    },
+    [limit],
+  );
+  return [ref, below];
+}
 
 function displayName(name: string): string {
   if (name === ABILITIES) return t("Capacités", "Abilities");
@@ -123,6 +147,7 @@ export function Weapons({ account, onOpenRound }: Props) {
   const [view, setView] = useState<"arsenal" | "killers">("arsenal");
   const [historyOpen, setHistoryOpen] = useState(false);
   const catalog = useAgentCatalog();
+  const [wrapRef, narrow] = useBelow(DETAIL_INLINE_MAX);
 
   useEffect(() => {
     document.querySelector(".main")?.scrollTo({ top: 0 });
@@ -304,7 +329,7 @@ export function Weapons({ account, onOpenRound }: Props) {
             (data.weapons.length === 0 ? (
               <div className="empty">{t("Aucun kill enregistré sur cette période.", "No kills recorded in this period.")}</div>
             ) : (
-              <div className="weapons-wrap">
+              <div className="weapons-wrap" ref={wrapRef}>
                 <div className="weapons-layout">
                   <div className="stack" style={{ gap: 10, minWidth: 0 }}>
                     <div className="weapons-table weapons-pane" role="list">
@@ -344,7 +369,7 @@ export function Weapons({ account, onOpenRound }: Props) {
                               <span className="weapon-col-dist">{meters(item.avgKillDistance)}</span>
                               <span>{item.killsPerRoundHeld === null ? "-" : fmt(item.killsPerRoundHeld, 2)}</span>
                             </button>
-                            {active && (
+                            {active && narrow && (
                               <div className="weapon-inline">
                                 <WeaponDetail
                                   weapon={item}
@@ -365,7 +390,7 @@ export function Weapons({ account, onOpenRound }: Props) {
                       )}
                     </span>
                   </div>
-                  {weapon && (
+                  {weapon && !narrow && (
                     <aside className="weapons-side weapons-pane panel" aria-label={t(`Détail ${displayName(weapon.name)}`, `${displayName(weapon.name)} details`)}>
                       <WeaponDetail
                         weapon={weapon}
