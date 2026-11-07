@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { CommandPalette, useCommandPaletteShortcut } from "./components/CommandPalette";
 import { Shell, type Page, type SyncView, type TourTarget } from "./components/Shell";
 import { TitleBar } from "./components/TitleBar";
 import { Tour } from "./components/Tour";
@@ -33,7 +34,10 @@ export default function App() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [tourOpen, setTourOpen] = useState(false);
   const [tourTarget, setTourTarget] = useState<TourTarget | null>(null);
+  const [paletteOpen, setPaletteOpen] = useState(false);
   const launched = useRef(false);
+
+  useCommandPaletteShortcut(setPaletteOpen);
 
   const load = useCallback(async () => {
     const data = await api.bootstrap();
@@ -157,6 +161,7 @@ export default function App() {
         sync={sync}
         onSync={runSync}
         tourTarget={tourOpen ? tourTarget : null}
+        onSearch={() => setPaletteOpen(true)}
       >
         {page === "home" && account && <Home account={account} refreshKey={refreshKey} onOpenMatch={showMatch} />}
         {page === "matches" && account && !openMatch && <Matches account={account} refreshKey={refreshKey} onOpen={showMatch} />}
@@ -178,6 +183,18 @@ export default function App() {
         {soon && <Soon title={soon.title} text={soon.text} />}
       </Shell>
       {tourOpen && <Tour onTarget={setTourTarget} onClose={closeTour} />}
+      <CommandPalette
+        open={paletteOpen}
+        onClose={() => setPaletteOpen(false)}
+        account={account}
+        theme={theme}
+        syncing={sync.running}
+        onNavigate={navigate}
+        onOpenMatch={showMatch}
+        onToggleTheme={() => changeTheme(theme === "dark" ? "light" : "dark")}
+        onSync={runSync}
+        onReplayTour={() => setTourOpen(true)}
+      />
       <UpdateBanner />
     </>
   );

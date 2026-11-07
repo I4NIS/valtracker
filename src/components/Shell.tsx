@@ -1,3 +1,4 @@
+import "../styles/palette.css";
 import type { ReactNode } from "react";
 import type { Account, Theme } from "../lib/api";
 import { timeAgo } from "../lib/format";
@@ -61,6 +62,7 @@ type Props = {
   sync: SyncView;
   onSync: () => void;
   tourTarget: TourTarget | null;
+  onSearch?: () => void;
   children: ReactNode;
 };
 
@@ -73,7 +75,7 @@ function syncText(sync: SyncView): string {
   return `Synchronisé ${timeAgo(sync.lastSyncAt)}`;
 }
 
-export function Shell({ page, onNavigate, account, theme, onToggleTheme, sync, onSync, tourTarget, children }: Props) {
+export function Shell({ page, onNavigate, account, theme, onToggleTheme, sync, onSync, tourTarget, onSearch, children }: Props) {
   const target = (id: TourTarget) => (tourTarget === id ? " tour-target" : "");
 
   return (
@@ -116,6 +118,31 @@ export function Shell({ page, onNavigate, account, theme, onToggleTheme, sync, o
   
         <main className="main">
           <div className="topbar">
+            {onSearch && (
+              <button
+                type="button"
+                className="search-pill"
+                onClick={onSearch}
+                aria-label="Rechercher"
+                aria-keyshortcuts="Control+K"
+                title="Rechercher (Ctrl K)"
+              >
+                <svg
+                  width="15"
+                  height="15"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  aria-hidden="true"
+                >
+                  <path d="M4 11a7 7 0 1 0 14 0a7 7 0 1 0-14 0M20 20l-4-4" />
+                </svg>
+                <span>Rechercher</span>
+                <kbd>Ctrl K</kbd>
+              </button>
+            )}
             <span className={`sync-status${sync.error && !sync.running ? " error" : ""}`} role="status">
               <span className={`dot${sync.running ? " running" : ""}`} />
               {syncText(sync)}
