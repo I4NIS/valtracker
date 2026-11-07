@@ -19,6 +19,7 @@ mod state;
 mod stats;
 mod storage;
 mod sync;
+mod tray;
 
 use tauri::Manager;
 
@@ -48,8 +49,10 @@ pub fn run() {
                 }
             });
             sync::spawn_auto_sync(app.handle().clone());
+            tray::install(app)?;
             Ok(())
         })
+        .on_window_event(tray::on_window_event)
         .invoke_handler(tauri::generate_handler![
             commands::bootstrap,
             commands::save_api_key,
