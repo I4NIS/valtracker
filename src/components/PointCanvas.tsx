@@ -17,6 +17,8 @@ type Props = {
 const DOT = 5;
 const BLOB = 64;
 const BLOB_FOCUS = 1.15;
+const BLOB_REFERENCE = 600;
+const BLOB_MIN_SCALE = 0.5;
 const DIM = 0.12;
 const DURATION = 200;
 const RING = "rgba(8, 9, 12, 0.6)";
@@ -108,7 +110,7 @@ export function PointCanvas({ points, focus, className, color, glow, opacity = 1
     const at = (point: CanvasPoint) => ({ x: current.bleed + point.x * inner.width, y: current.bleed + point.y * inner.height });
     if (current.glow) {
       const image = sprite(current.glow, ratio);
-      const full = BLOB * BLOB_FOCUS;
+      const full = BLOB * BLOB_FOCUS * Math.min(1, Math.max(BLOB_MIN_SCALE, inner.width / BLOB_REFERENCE));
       list.forEach((point, index) => {
         const spot = at(point);
         const side = full * (state.glow[index] / BLOB_FOCUS);
