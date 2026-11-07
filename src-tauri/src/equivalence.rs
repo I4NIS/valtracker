@@ -154,10 +154,12 @@ fn compare(setup: &Setup, file: &str, outputs: &BTreeMap<String, String>, subset
     let body = std::fs::read_to_string(&path).expect("reference outputs");
     let expected: BTreeMap<&str, &str> = body.lines().filter_map(|line| line.split_once('\t')).collect();
     let mut failures = Vec::new();
+    let mut rounding = Vec::new();
     for (key, value) in &expected {
         match outputs.get(*key) {
             None if subset => {}
             None => failures.push(format!("missing {key}")),
+            Some(found) if found != value && summation_order_only(key, found, value) => rounding.push(*key),
             Some(found) if found != value => {
                 let at = found.bytes().zip(value.bytes()).position(|(a, b)| a != b).unwrap_or(found.len().min(value.len()));
                 let from = at.saturating_sub(80);
@@ -175,7 +177,30 @@ fn compare(setup: &Setup, file: &str, outputs: &BTreeMap<String, String>, subset
             failures.push(format!("unexpected {key}"));
         }
     }
+    if !rounding.is_empty() {
+        println!("{file}: {} outputs differ only in the last bits of averaged distances: {}", rounding.len(), rounding.join(", "));
+    }
     assert!(failures.is_empty(), "{} differences of {} outputs:\n{}", failures.len(), expected.len(), failures.join("\n"));
+}
+
+fn summation_order_only(key: &str, found: &str, expected: &str) -> bool {
+    fn close(found: &serde_json::Value, expected: &serde_json::Value) -> bool {
+        use serde_json::Value;
+        match (found, expected) {
+            (Value::Number(a), Value::Number(b)) if a.is_f64() && b.is_f64() => {
+                let (a, b) = (a.as_f64().unwrap(), b.as_f64().unwrap());
+                (a - b).abs() <= 1e-12 * a.abs().max(b.abs())
+            }
+            (Value::Array(a), Value::Array(b)) => a.len() == b.len() && a.iter().zip(b).all(|(a, b)| close(a, b)),
+            (Value::Object(a), Value::Object(b)) => a.len() == b.len() && a.iter().all(|(k, v)| b.get(k).is_some_and(|w| close(v, w))),
+            _ => found == expected,
+        }
+    }
+    key.contains("|Weapons(")
+        && match (serde_json::from_str(found), serde_json::from_str(expected)) {
+            (Ok(a), Ok(b)) => close(&a, &b),
+            _ => false,
+        }
 }
 
 #[test]

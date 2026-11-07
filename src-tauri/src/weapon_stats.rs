@@ -326,7 +326,7 @@ const MATCHES_SQL: &str = "FROM match_players p JOIN matches m ON m.match_id = p
 pub fn report(conn: &Connection, puuid: &str, season: Option<&str>) -> AppResult<WeaponReport> {
     let mut tallies: HashMap<String, Tally> = HashMap::new();
     let mut analyzed_matches = 0;
-    let mut stmt = conn.prepare(&format!("SELECT m.raw {MATCHES_SQL}"))?;
+    let mut stmt = conn.prepare(&format!("SELECT m.raw {MATCHES_SQL} ORDER BY p.match_id"))?;
     let mut rows = stmt.query(params![puuid, COMPETITIVE, season])?;
     while let Some(row) = rows.next()? {
         let raw = row.get_ref(0)?.as_bytes().map_err(rusqlite::Error::from)?;
@@ -343,7 +343,7 @@ pub fn report(conn: &Connection, puuid: &str, season: Option<&str>) -> AppResult
 pub fn report_from(conn: &Connection, puuid: &str, season: Option<&str>, known: &HashMap<String, WeaponFacts>) -> AppResult<WeaponReport> {
     let mut tallies: HashMap<String, Tally> = HashMap::new();
     let mut analyzed_matches = 0;
-    let mut stmt = conn.prepare(&format!("SELECT m.match_id {MATCHES_SQL}"))?;
+    let mut stmt = conn.prepare(&format!("SELECT m.match_id {MATCHES_SQL} ORDER BY p.match_id"))?;
     let mut rows = stmt.query(params![puuid, COMPETITIVE, season])?;
     while let Some(row) = rows.next()? {
         if let Some(found) = known.get(row.get_ref(0)?.as_str().map_err(rusqlite::Error::from)?) {
