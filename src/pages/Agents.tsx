@@ -41,7 +41,10 @@ const RECENT_OFFSET = 550;
 const RECENT_MIN_HEIGHT = 1000;
 const TREND_GAMES = 20;
 
-const RING_RADIUS = 20;
+const RING_BOX = 56;
+const RING_CENTER = RING_BOX / 2;
+const RING_STROKE = 4;
+const RING_RADIUS = RING_CENTER - RING_STROKE / 2 - 1;
 const RING_LENGTH = 2 * Math.PI * RING_RADIUS;
 
 const matchCount = (count: number) => t(`${count} ${count > 1 ? "matchs" : "match"}`, `${count} ${count === 1 ? "match" : "matches"}`);
@@ -170,7 +173,7 @@ function AgentsSkeleton({ large }: { large: boolean }) {
               <SkeletonLine width="40%" size={12} />
               <SkeletonLine width="34%" size={12} />
             </div>
-            <SkeletonBlock width={52} height={52} radius="50%" />
+            <SkeletonBlock width={54} height={54} radius="50%" />
           </div>
           <div className="agent-card-stats">
             {repeat(4, (stat) => (
@@ -186,24 +189,39 @@ function AgentsSkeleton({ large }: { large: boolean }) {
   );
 }
 
-function WinRing({ value }: { value: number }) {
+function WinRing({ value, size }: { value: number; size: number }) {
   const tone = winTone(value);
+  const share = Math.min(100, Math.max(0, value));
   return (
-    <svg className="agent-ring" width="52" height="52" viewBox="0 0 52 52" role="img" aria-label={t(`${fmt(value)} % de victoires`, `${fmt(value)}% win rate`)}>
-      <circle cx="26" cy="26" r={RING_RADIUS} fill="none" stroke="var(--field)" strokeWidth="5" />
-      <circle
-        cx="26"
-        cy="26"
-        r={RING_RADIUS}
-        fill="none"
-        stroke={tone === "win" ? "var(--win)" : "var(--bad)"}
-        strokeWidth="5"
-        strokeLinecap="round"
-        strokeDasharray={`${(Math.min(100, Math.max(0, value)) / 100) * RING_LENGTH} ${RING_LENGTH}`}
-        transform="rotate(-90 26 26)"
-      />
-      <text x="26" y="30" textAnchor="middle" fill="var(--text)" fontSize="12" fontWeight="700">
-        {fmt(value)}%
+    <svg
+      className="agent-ring"
+      width={size}
+      height={size}
+      viewBox={`0 0 ${RING_BOX} ${RING_BOX}`}
+      role="img"
+      aria-label={t(`${fmt(value)} % de victoires`, `${fmt(value)}% win rate`)}
+    >
+      <circle cx={RING_CENTER} cy={RING_CENTER} r={RING_RADIUS} fill="none" stroke="var(--line)" strokeWidth={RING_STROKE} />
+      {share > 0 && (
+        <circle
+          cx={RING_CENTER}
+          cy={RING_CENTER}
+          r={RING_RADIUS}
+          fill="none"
+          stroke={tone === "win" ? "var(--win)" : "var(--bad)"}
+          strokeWidth={RING_STROKE}
+          strokeLinecap={share >= 100 ? "butt" : "round"}
+          strokeDasharray={`${(share / 100) * RING_LENGTH} ${RING_LENGTH}`}
+          transform={`rotate(-90 ${RING_CENTER} ${RING_CENTER})`}
+        />
+      )}
+      <text x={RING_CENTER} y={RING_CENTER} textAnchor="middle" dominantBaseline="central" fill="var(--text)" fontWeight="700">
+        <tspan fontSize={value >= 99.5 ? 12.5 : 14} letterSpacing="-0.3">
+          {fmt(value)}
+        </tspan>
+        <tspan fontSize="8" fill="var(--text-2)" dx="1">
+          %
+        </tspan>
       </text>
     </svg>
   );
@@ -240,7 +258,7 @@ function AgentCard({ agent, share, info, large, onSelect }: CardProps) {
             {matchCount(agent.matches)}
           </span>
         </div>
-        <WinRing value={agent.winPct} />
+        <WinRing value={agent.winPct} size={large ? 64 : 54} />
       </div>
       <div className="agent-card-stats">
         <div>
@@ -277,10 +295,6 @@ function AgentCard({ agent, share, info, large, onSelect }: CardProps) {
               <strong className={openings ? (agent.firstBloods >= agent.firstDeaths ? "" : "bad") : "faint"}>
                 {openings ? pct((agent.firstBloods * 100) / openings, 0) : "-"}
               </strong>
-            </div>
-            <div>
-              <span className="label">Rounds</span>
-              <strong>{fmt(agent.rounds)}</strong>
             </div>
             <div className="agent-card-best">
               <span className="label">{t("Meilleure map", "Best map")}</span>
