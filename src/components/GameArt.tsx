@@ -2,6 +2,7 @@ import "../styles/game.css";
 import { useState, type ReactNode } from "react";
 import { findAbility, MELEE_ID, weaponArt, type Ability, type Catalog } from "../lib/gameAssets";
 import { t } from "../lib/i18n";
+import { useThumb } from "../lib/thumbs";
 
 type ArtProps = {
   src: string | undefined;
@@ -34,6 +35,12 @@ export function Art({ src, width, height, alt, className, mono, eager, title, fa
       onError={() => setFailed(src)}
     />
   );
+}
+
+export function ThumbArt(props: ArtProps) {
+  const small = useThumb(props.src, props.width, props.height);
+  if (props.src && small === undefined) return null;
+  return <Art {...props} src={small} />;
 }
 
 export function AbilityArt({ ability, size, className }: { ability: Ability | null; size: number; className?: string }) {

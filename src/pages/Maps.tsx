@@ -1,6 +1,6 @@
 import "../styles/maps.css";
 import { useEffect, useMemo, useState } from "react";
-import { Art } from "../components/GameArt";
+import { Art, ThumbArt } from "../components/GameArt";
 import { Icon } from "../components/Icon";
 import { MapHistoryView } from "../components/MapHistoryView";
 import { SeasonPicker } from "../components/SeasonPicker";
@@ -101,7 +101,7 @@ export function Maps({ account, onOpenRound }: Props) {
                 onFocus={() => warm(map.mapId)}
                 onClick={() => choose(map.mapId)}
               >
-                <Art src={map.splash ?? mapArt(map.mapId, "splash")} width={380} height={256} alt="" className="mapstat-card-art" />
+                <ThumbArt src={map.splash ?? mapArt(map.mapId, "splash")} width={384} height={128} alt="" className="mapstat-card-art" />
                 {map.rrMatches > 0 && (
                   <span className={`mapstat-card-rr ${rrTone(map.rrNet)}`}>{signed(map.rrNet)} RR</span>
                 )}

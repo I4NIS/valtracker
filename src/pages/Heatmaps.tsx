@@ -1,5 +1,6 @@
 import "../styles/heatmap.css";
 import { useEffect, useMemo, useState } from "react";
+import { ThumbArt } from "../components/GameArt";
 import { SeasonPicker } from "../components/SeasonPicker";
 import type { Account, HeatPoint, Heatmap } from "../lib/api";
 import { agentIcon, seasonLabel } from "../lib/assets";
@@ -249,7 +250,7 @@ export function Heatmaps({ account }: Props) {
                 aria-pressed={data.mapId === map.id}
                 onClick={() => changeMap(map.id)}
               >
-                {map.image && <img src={map.image} alt="" />}
+                <ThumbArt src={map.image ?? undefined} width={256} height={64} alt="" fallback={null} />
                 <span className="map-card-text">
                   <strong>{map.name}</strong>
                   <span>{matchCount(map.matches)}</span>
