@@ -3,7 +3,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEve
 import { ExportRecapButton } from "../components/ExportRecap";
 import { SeasonPicker } from "../components/SeasonPicker";
 import type { Account, GameSummary, RrPoint } from "../lib/api";
-import { seasonLabel, tierNameById } from "../lib/assets";
+import { tierNameById } from "../lib/assets";
 import { fmt, fullDate, pct, signed, tradeWindowText } from "../lib/format";
 import { locale, t } from "../lib/i18n";
 import { useQuery } from "../lib/query";
@@ -35,18 +35,16 @@ export function Progression({ account }: Props) {
   const ranked = (data?.rr ?? []).filter((point) => (point.tier ?? 0) >= 3).length;
 
   return (
-    <div className="content">
-      <div className="stack">
-        <span className="eyebrow">{season ? seasonLabel(season) : t("Toutes les saisons", "All seasons")}</span>
+    <div className="content prog">
+      <header className="page-head">
         <h1 className="title">Progression</h1>
-      </div>
-
-      <div className="row between wrap" style={{ gap: 12 }}>
-        <SeasonPicker puuid={account.puuid} value={season} onChange={setSeason} />
-        {season !== undefined && (
-          <ExportRecapButton kind="act" account={account} season={season} label={season ? t("Exporter le récap de l'acte", "Export Act recap") : t("Exporter le récap de l'acte en cours", "Export current Act recap")} />
-        )}
-      </div>
+        <div className="page-head-tools">
+          <SeasonPicker puuid={account.puuid} value={season} onChange={setSeason} />
+          {season !== undefined && (
+            <ExportRecapButton kind="act" account={account} season={season} label={season ? t("Exporter le récap de l'acte", "Export Act recap") : t("Exporter le récap de l'acte en cours", "Export current Act recap")} />
+          )}
+        </div>
+      </header>
 
       {error && <p className="form-error">{error}</p>}
 
@@ -56,9 +54,9 @@ export function Progression({ account }: Props) {
         <div className="empty">{t("Aucun match compétitif synchronisé sur cette période.", "No competitive matches synced for this period.")}</div>
       ) : (
         <>
-          <div className="stat-grid" style={{ alignItems: "start" }}>
+          <div className="stat-grid prog-stats" style={{ alignItems: "start" }}>
             <div className="row" style={{ gap: 18 }}>
-              <svg width="140" height="84" viewBox="0 0 220 130" role="img" aria-label={t(`Forme ${form} sur 100`, `Form ${form} out of 100`)}>
+              <svg width="120" height="72" viewBox="0 0 220 130" role="img" aria-label={t(`Forme ${form} sur 100`, `Form ${form} out of 100`)}>
                 <path d="M20 118a90 90 0 0 1 180 0" fill="none" stroke="var(--field)" strokeWidth="14" strokeLinecap="round" />
                 <path
                   d="M20 118a90 90 0 0 1 180 0"
@@ -123,15 +121,32 @@ export function Progression({ account }: Props) {
             </div>
           </div>
 
-          <section className="panel stack" style={{ gap: 16 }}>
-            <div className="row between wrap">
-              <h2 className="section-title">RR</h2>
-              <span className="faint" style={{ fontSize: 13 }}>
-                {t(`${ranked} matchs classés`, `${ranked} ranked ${ranked === 1 ? "match" : "matches"}`)}
-              </span>
-            </div>
-            <RrChart points={data.rr} />
-          </section>
+          <div className="prog-main">
+            <section className="panel stack" style={{ gap: 12 }}>
+              <div className="section-head">
+                <h2 className="section-title">RR</h2>
+                <span className="faint">
+                  {t(`${ranked} matchs classés`, `${ranked} ranked ${ranked === 1 ? "match" : "matches"}`)}
+                </span>
+              </div>
+              <RrChart points={data.rr} />
+            </section>
+
+            <section className="stack" style={{ gap: 12 }}>
+              <h2 className="section-title">Records</h2>
+              <div className="records">
+                {records.map((record) => (
+                  <div key={record.label}>
+                    <span className="label">{record.label}</span>
+                    <strong>{record.value}</strong>
+                    <span className="faint" style={{ fontSize: 12 }}>
+                      {record.sub}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </section>
+          </div>
 
           <div className="stat-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 40 }}>
             <BarChart
@@ -159,21 +174,6 @@ export function Progression({ account }: Props) {
               )}
             />
           </div>
-
-          <section className="stack" style={{ gap: 12 }}>
-            <h2 className="section-title">Records</h2>
-            <div className="records">
-              {records.map((record) => (
-                <div key={record.label}>
-                  <span className="label">{record.label}</span>
-                  <strong>{record.value}</strong>
-                  <span className="faint" style={{ fontSize: 13 }}>
-                    {record.sub}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </section>
         </>
       )}
     </div>
@@ -428,9 +428,9 @@ function RrChart({ points }: { points: RrPoint[] }) {
 function BarChart({ title, average: avg, values, reference, note }: { title: string; average: string; values: number[]; reference: number; note: string }) {
   const max = Math.max(1, ...values, reference) * 1.1;
   return (
-    <div className="stack" style={{ gap: 12 }}>
+    <div className="stack" style={{ gap: 10 }}>
       <div className="row between" style={{ alignItems: "baseline" }}>
-        <strong style={{ fontSize: 17, letterSpacing: "-0.02em" }}>{title}</strong>
+        <strong style={{ fontSize: 16, letterSpacing: "-0.02em" }}>{title}</strong>
         <span style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-0.03em" }}>{avg}</span>
       </div>
       <div className="bars-chart">

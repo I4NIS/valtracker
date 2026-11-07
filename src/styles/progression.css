@@ -103,3 +103,46 @@
   padding-left: 90px;
   font-size: 12px;
 }
+
+.prog-stats {
+  gap: 24px 32px;
+}
+
+.prog-main {
+  display: grid;
+  grid-template-columns: minmax(0, 2.3fr) minmax(220px, 1fr);
+  gap: 24px 32px;
+  align-items: start;
+}
+
+.prog-main .panel {
+  padding: 18px 20px;
+}
+
+.prog-main .records {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+}
+
+.prog-main .records > div {
+  gap: 1px;
+  padding: 10px 14px;
+}
+
+.prog-main .records strong {
+  font-size: 17px;
+}
+
+.prog .bars-chart {
+  height: 80px;
+}
+
+@container main (max-width: 900px) {
+  .prog-main {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .prog-main .records {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  }
+}
