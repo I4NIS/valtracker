@@ -1,0 +1,448 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Valtracker pour Windows</title>
+<meta name="description" content="Tes stats Valorant, tes matchs et chacune de tes morts, sur ton PC. Gratuit, pour Windows 10 et 11.">
+<meta name="theme-color" content="#0e0f12">
+<meta property="og:title" content="Valtracker">
+<meta property="og:description" content="Tes stats Valorant, tes matchs et chacune de tes morts, sur ton PC.">
+<meta property="og:image" content="https://i4nis.github.io/valtracker/screenshots/accueil.webp">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="apple-touch-icon" href="icon.png">
+<style>
+:root {
+  --app: #0e0f12;
+  --panel: #16171b;
+  --raised: #1d1f24;
+  --line: #2b2e35;
+  --text: #f2f3f5;
+  --text-2: #a8adb7;
+  --text-3: #8a909b;
+  --accent: #ff4655;
+  --accent-2: #a61e2b;
+  --on-accent: #0b0d10;
+  --radius: 16px;
+  color-scheme: dark;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--app);
+  color: var(--text);
+  font-family: "Inter Variable", "Inter", system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+a { color: inherit; }
+
+img { display: block; max-width: 100%; height: auto; }
+
+.wrap {
+  width: 100%;
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 0 16px;
+}
+
+@media (min-width: 720px) {
+  .wrap { padding: 0 32px; }
+}
+
+.top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-top: 20px;
+  padding-bottom: 20px;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+  font-size: 17px;
+  letter-spacing: -0.01em;
+  text-decoration: none;
+}
+
+.top-link {
+  color: var(--text-2);
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+  padding: 8px 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.top-link:hover { color: var(--text); border-color: var(--text-3); }
+
+.hero {
+  text-align: center;
+  padding-top: 48px;
+  padding-bottom: 8px;
+}
+
+@media (min-width: 720px) {
+  .hero { padding-top: 72px; }
+}
+
+.hero-logo { margin: 0 auto 20px; }
+
+h1 {
+  margin: 0;
+  font-size: clamp(40px, 9vw, 64px);
+  line-height: 1.05;
+  letter-spacing: -0.035em;
+  font-weight: 800;
+}
+
+.lead {
+  margin: 16px auto 0;
+  max-width: 34ch;
+  color: var(--text-2);
+  font-size: clamp(17px, 2.6vw, 20px);
+  line-height: 1.45;
+}
+
+.cta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin-top: 32px;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 0 28px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 17px;
+  font-weight: 700;
+  text-decoration: none;
+  box-shadow: 0 10px 32px rgba(255, 70, 85, 0.28);
+  transition: transform 0.15s, box-shadow 0.15s, background 0.15s;
+}
+
+.btn:hover {
+  background: #ff5a68;
+  transform: translateY(-1px);
+  box-shadow: 0 14px 40px rgba(255, 70, 85, 0.36);
+}
+
+.btn:focus-visible, .top-link:focus-visible, .foot a:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 3px;
+}
+
+.btn svg { flex: none; }
+
+.cta-note {
+  margin: 0;
+  color: var(--text-3);
+  font-size: 14px;
+}
+
+.shot {
+  position: relative;
+  margin: 56px auto 0;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  background: var(--panel);
+  overflow: hidden;
+  box-shadow: 0 40px 120px -40px rgba(255, 70, 85, 0.35), 0 24px 60px rgba(0, 0, 0, 0.45);
+}
+
+.shot img { width: 100%; }
+
+section.wrap { margin-top: 112px; }
+
+@media (max-width: 719px) {
+  section.wrap { margin-top: 80px; }
+}
+
+h2 {
+  margin: 0;
+  font-size: clamp(26px, 5vw, 34px);
+  line-height: 1.15;
+  letter-spacing: -0.025em;
+  font-weight: 750;
+}
+
+.section-lead {
+  margin: 10px 0 0;
+  color: var(--text-2);
+  max-width: 52ch;
+}
+
+.tiles {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+  margin-top: 32px;
+}
+
+@media (min-width: 860px) {
+  .tiles { grid-template-columns: repeat(3, 1fr); }
+}
+
+.tile {
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  background: var(--panel);
+  overflow: hidden;
+}
+
+.tile-img {
+  aspect-ratio: 16 / 9;
+  background: var(--raised);
+  border-bottom: 1px solid var(--line);
+  overflow: hidden;
+}
+
+.tile-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: left top;
+}
+
+.tile-body { padding: 20px 22px 24px; }
+
+h3 {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+
+.tile-body p {
+  margin: 6px 0 0;
+  color: var(--text-2);
+  font-size: 15px;
+}
+
+.steps {
+  list-style: none;
+  margin: 32px 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+  counter-reset: step;
+}
+
+@media (min-width: 860px) {
+  .steps { grid-template-columns: repeat(3, 1fr); }
+}
+
+.steps li {
+  counter-increment: step;
+  padding: 22px;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  background: var(--panel);
+}
+
+.steps li::before {
+  content: counter(step);
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  margin-bottom: 14px;
+  border-radius: 999px;
+  background: rgba(255, 70, 85, 0.14);
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.steps p {
+  margin: 6px 0 0;
+  color: var(--text-2);
+  font-size: 15px;
+}
+
+.steps a {
+  color: var(--text);
+  text-decoration-color: var(--accent);
+  text-underline-offset: 3px;
+}
+
+.notes {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+@media (min-width: 860px) {
+  .notes { grid-template-columns: 1fr 1fr; }
+}
+
+.note {
+  margin: 0;
+  padding: 18px 22px;
+  border-radius: var(--radius);
+  background: var(--raised);
+  color: var(--text-2);
+  font-size: 14px;
+}
+
+.note strong { color: var(--text); font-weight: 600; }
+
+.end {
+  text-align: center;
+}
+
+.end .cta { margin-top: 24px; }
+
+.foot {
+  margin-top: 96px;
+  padding-top: 28px;
+  padding-bottom: 40px;
+  border-top: 1px solid var(--line);
+  color: var(--text-3);
+  font-size: 13px;
+}
+
+.foot-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  margin-bottom: 14px;
+}
+
+.foot-links a {
+  color: var(--text-2);
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.foot-links a:hover { color: var(--text); }
+
+.foot p { margin: 0; max-width: 80ch; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; }
+}
+</style>
+</head>
+<body>
+<header class="wrap top">
+  <a class="brand" href="./" aria-label="Valtracker">
+    <svg width="26" height="26" viewBox="0 0 64 64" aria-hidden="true"><path d="M6 10H19L32 40V56Z" fill="#FF4655"/><path d="M58 10H45L32 40V56Z" fill="#A61E2B"/></svg>
+    Valtracker
+  </a>
+  <a class="top-link" href="https://github.com/I4NIS/valtracker">GitHub</a>
+</header>
+
+<main>
+  <div class="wrap hero">
+    <svg class="hero-logo" width="72" height="72" viewBox="0 0 64 64" aria-hidden="true"><path d="M6 10H19L32 40V56Z" fill="#FF4655"/><path d="M58 10H45L32 40V56Z" fill="#A61E2B"/></svg>
+    <h1>Valtracker</h1>
+    <p class="lead">Tes stats Valorant, tes matchs et chacune de tes morts, sur ton PC.</p>
+    <div class="cta">
+      <a class="btn" href="https://github.com/I4NIS/valtracker/releases/latest/download/Valtracker-setup.exe">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v12"/><path d="m6 10 6 6 6-6"/><path d="M5 20h14"/></svg>
+        Télécharger pour Windows
+      </a>
+      <p class="cta-note">Windows 10 et 11, gratuit</p>
+    </div>
+    <div class="shot">
+      <img src="screenshots/accueil.webp" width="1440" height="900" alt="Accueil de Valtracker : rang, win rate, statistiques de l'acte et derniers matchs">
+    </div>
+  </div>
+
+  <section class="wrap" aria-labelledby="features">
+    <h2 id="features">Ce que tu y trouves</h2>
+    <p class="section-lead">Chaque partie classée est analysée dès qu'elle est terminée.</p>
+    <div class="tiles">
+      <article class="tile">
+        <div class="tile-img"><img src="screenshots/tuile-morts.webp" width="1120" height="630" loading="lazy" alt="Revue des morts sur la minimap"></div>
+        <div class="tile-body">
+          <h3>Chaque mort analysée</h3>
+          <p>Rejouée sur la minimap, avec la position de tous les joueurs au moment du kill.</p>
+        </div>
+      </article>
+      <article class="tile">
+        <div class="tile-img"><img src="screenshots/tuile-map.webp" width="1112" height="612" loading="lazy" alt="Détail d'une map avec les zones de mort"></div>
+        <div class="tile-body">
+          <h3>Tes maps en détail</h3>
+          <p>Où tu meurs et où tu tues, zone par zone, avec l'historique de chaque mort.</p>
+        </div>
+      </article>
+      <article class="tile">
+        <div class="tile-img"><img src="screenshots/recap.webp" width="1600" height="900" loading="lazy" alt="Image récap d'une période"></div>
+        <div class="tile-body">
+          <h3>Des récaps à partager</h3>
+          <p>Un match, une période ou un acte en image, copiée en un clic.</p>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <section class="wrap" aria-labelledby="install">
+    <h2 id="install">Installation</h2>
+    <ol class="steps">
+      <li>
+        <h3>Télécharge</h3>
+        <p><a href="https://github.com/I4NIS/valtracker/releases/latest/download/Valtracker-setup.exe">Valtracker-setup.exe</a>, la dernière version.</p>
+      </li>
+      <li>
+        <h3>Lance le fichier</h3>
+        <p>L'installation ne demande aucun droit administrateur.</p>
+      </li>
+      <li>
+        <h3>Connecte ton compte</h3>
+        <p>Ton Riot ID et une clé API gratuite, à créer sur le <a href="https://api.henrikdev.xyz/dashboard/">tableau de bord HenrikDev</a>.</p>
+      </li>
+    </ol>
+    <div class="notes">
+      <p class="note"><strong>Rien ne tourne pendant tes parties.</strong> Valtracker ne lit jamais le jeu ni le client Valorant. Les données viennent de l'API HenrikDev, une fois les matchs terminés.</p>
+      <p class="note"><strong>Avertissement SmartScreen.</strong> L'application n'est pas encore signée. Clique sur « Informations complémentaires » puis « Exécuter quand même ».</p>
+    </div>
+  </section>
+
+  <section class="wrap end" aria-label="Téléchargement">
+    <h2>Gratuit, pour Windows 10 et 11</h2>
+    <div class="cta">
+      <a class="btn" href="https://github.com/I4NIS/valtracker/releases/latest/download/Valtracker-setup.exe">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v12"/><path d="m6 10 6 6 6-6"/><path d="M5 20h14"/></svg>
+        Télécharger pour Windows
+      </a>
+    </div>
+  </section>
+</main>
+
+<footer class="wrap foot">
+  <nav class="foot-links" aria-label="Liens">
+    <a href="https://github.com/I4NIS/valtracker">Code source sur GitHub</a>
+    <a href="https://github.com/I4NIS/valtracker/releases">Toutes les versions</a>
+  </nav>
+  <p>Valtracker n'est pas approuvé par Riot Games. Riot Games, Valorant et toutes les propriétés associées sont des marques commerciales ou des marques déposées de Riot Games, Inc.</p>
+</footer>
+</body>
+</html>

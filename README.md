@@ -1,159 +1,116 @@
 <p align="center">
-  <img src="src-tauri/icons/128x128.png" width="96" alt="Logo Valtracker">
+  <img src="src-tauri/icons/128x128.png" width="88" alt="Logo Valtracker">
 </p>
 
 <h1 align="center">Valtracker</h1>
 
 <p align="center">
-  Suivi de performances Valorant pour Windows.<br>
-  Tes stats, tes matchs et l'analyse de chacune de tes morts. Pas de conseils, juste les faits.
+  Tes stats Valorant, tes matchs et chacune de tes morts, sur ton PC.
 </p>
 
 <p align="center">
-  <a href="https://github.com/I4NIS/valtracker/releases/latest/download/Valtracker-setup.exe"><img alt="Télécharger pour Windows" src="https://img.shields.io/badge/T%C3%A9l%C3%A9charger-Windows%20.exe-FF4655?style=for-the-badge"></a>
+  <a href="https://github.com/I4NIS/valtracker/releases/latest/download/Valtracker-setup.exe"><img alt="Télécharger pour Windows" src="https://img.shields.io/badge/T%C3%A9l%C3%A9charger%20pour%20Windows-FF4655?style=for-the-badge&logo=data:image/svg%2bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI%2BPHBhdGggZD0iTTYgMTBIMTlMMzIgNDBWNTZaIiBmaWxsPSIjZmZmIi8%2BPHBhdGggZD0iTTU4IDEwSDQ1TDMyIDQwVjU2WiIgZmlsbD0iI2ZmZiIgZmlsbC1vcGFjaXR5PSIuNyIvPjwvc3ZnPg%3D%3D"></a>
 </p>
 
 <p align="center">
-  <img alt="Dernière version" src="https://img.shields.io/github/v/release/I4NIS/valtracker?label=version&color=0E1116">
-  <img alt="Statut" src="https://img.shields.io/badge/statut-en%20d%C3%A9veloppement-FF4655">
-  <img alt="Plateforme" src="https://img.shields.io/badge/plateforme-Windows%2010%20%7C%2011-0E1116">
-  <img alt="Tauri" src="https://img.shields.io/badge/Tauri-2-24C8DB">
-  <img alt="Rust" src="https://img.shields.io/badge/Rust-stable-B7410E">
+  Windows 10 et 11, gratuit.<br>
+  <a href="https://i4nis.github.io/valtracker/">Page de téléchargement</a> &nbsp;|&nbsp; <a href="https://github.com/I4NIS/valtracker/releases">Toutes les versions</a>
 </p>
 
-## Pourquoi Valtracker
+<p align="center">
+  <img src="docs/screenshots/accueil.webp" alt="Accueil de Valtracker : rang, win rate, statistiques de l'acte et derniers matchs">
+</p>
 
-Les trackers en ligne donnent des chiffres. Valtracker va plus loin sur un point précis : comprendre où et pourquoi tu meurs. Chaque match est analysé mort par mort, à partir des positions de tous les joueurs au moment du kill, pour faire ressortir tes défauts récurrents.
+## Chaque match en détail
 
-## Fonctionnalités
+Score sur 100 pour les 10 joueurs, économie de chaque round et défauts relevés sur tes morts.
 
-**Statistiques**
-- Aperçu de l'acte ou global : rang, RR, ACS, dégâts par round, K/D, KAD, headshot, win rate.
-- Filtres sur l'accueil : map, agent, rôle, 7 ou 30 derniers jours, solo ou en groupe.
-- Comparaison de chaque statistique avec la moyenne de tes lobbys.
-- Tes défauts du moment sur tes 20 derniers matchs : morts non tradées, morts isolé, first deaths.
+<img src="docs/screenshots/match.webp" alt="Détail d'un match : score, rounds et tableau des deux équipes">
 
-**Analyse des matchs**
-- Score sur 100 pour chacun des 10 joueurs, calculé selon le rôle de l'agent.
-- Placement, badges, niveau de ton équipe et RR gagné ou perdu.
-- Timeline des rounds avec l'économie des deux équipes.
-- Détail de chaque round : toutes les actions dans l'ordre, issue, cérémonie et économie des 10 joueurs.
-- Défauts détectés à chaque mort : mort non tradée, joueur isolé, first death, full buy perdu, même spot répété.
-- Seuils d'analyse réglables dans les paramètres : fenêtre de trade, distance d'isolement, full buy, morts au même spot.
-- Revue guidée : chaque mort rejouée sur la minimap avec la position de tous les joueurs.
+## Chaque mort analysée
 
-**Heatmaps**
-- Tes morts, tes kills et la position de tes tueurs, par map.
-- Filtres par côté et par moment du round, avec le nom officiel des zones.
+Chaque mort rejouée sur la minimap, avec la position de tous les joueurs au moment du kill.
 
-**Agents, maps, armes et duels**
-- Stats par agent et par rôle, avec le détail de chaque agent : ouvertures et résultats par map.
-- Win rate, RR net, attaque et défense, plants par site, pistols et retakes sur chaque map.
-- Kills par arme, distance des duels, répartition tête, corps, jambes et armes qui te tuent.
-- Duels d'ouverture, clutchs de 1v1 à 1v5, matchups contre chaque agent, distance des duels et rivaux. Un clic sur un clutch ouvre le match au round concerné.
-- Visuels du jeu partout : armes, portraits d'agents, capacités, maps.
+<img src="docs/screenshots/revue-des-morts.webp" alt="Revue des morts : minimap, tueur, distance et défauts détectés">
 
-**Images récap**
-- Récap d'un match, de plusieurs matchs choisis, d'une période, de ta dernière session ou d'un acte complet, en image 1600x900.
-- Un menu d'export accessible depuis la barre du haut, avec l'aperçu de l'image avant de l'exporter.
-- Le récap d'acte ajoute des stats insolites : temps de jeu, balles dans les pieds, aces, plus long kill, némésis.
-- Un clic copie l'image, prête à coller sur Discord. Le bouton Télécharger l'enregistre ensuite dans ton dossier Téléchargements.
+## Tes maps en détail
 
-**Journal**
-- Une note et des tags sur chaque match.
-- Tes résultats avec et sans chaque tag.
-- Favoris : un match, un round ou une de tes morts, en un clic sur l'étoile, puis retrouvés dans le journal.
+Où tu meurs et où tu tues, zone par zone, avec l'historique de toutes tes morts sur la map.
 
-**Progression**
-- Courbe de RR, jauge de forme, projection de rang.
-- Détection du tilt selon l'heure et les séries de défaites.
-- Records de la période.
+<img src="docs/screenshots/map.webp" alt="Détail d'une map : zones de mort et historique">
 
-**Confort**
-- Premier lancement guidé en trois étapes, puis une visite de l'application, relançable depuis les paramètres.
-- Synchronisation automatique au lancement puis toutes les 10 minutes, en remontant le plus loin possible dans ton historique compétitif.
-- Icône dans la barre des tâches : fermer la fenêtre la réduit et la synchro continue. Pas de démarrage avec Windows.
-- Notification Windows après l'analyse d'un nouveau match, désactivable dans les paramètres.
-- Export et import de la base locale depuis les paramètres.
-- Pages instantanées : les statistiques sont précalculées au lancement et après chaque synchro.
-- Recherche rapide avec Ctrl+K : pages, actions et matchs.
-- Plusieurs comptes Riot, avec une vue combinée de tous tes comptes sur l'accueil et les matchs.
-- Thème sombre et clair.
-- Mises à jour proposées au lancement et installées en un clic.
+## Tes armes
 
-**À venir**
-- Version anglaise.
+Kills, headshots et distance des duels pour chaque arme, et les armes qui te tuent.
 
-## Ce que Valtracker ne fait pas
+<img src="docs/screenshots/armes.webp" alt="Page Armes : arsenal, répartition tête, corps, jambes et distance des kills">
 
-Valtracker ne lit jamais le jeu ni le client Valorant, et ne tourne pas en parallèle de tes parties. Toutes les données viennent de l'API HenrikDev, une fois les matchs terminés. Rien n'est injecté, rien n'est lu en mémoire.
+## Ta progression
+
+Courbe de RR, forme récente, projection et records de la période.
+
+<img src="docs/screenshots/progression.webp" alt="Page Progression : courbe de RR, forme, projection et records">
+
+## Des récaps à partager
+
+Un match, une période, une session ou un acte complet en image 1600×900, copiée en un clic.
+
+<img src="docs/screenshots/recap.webp" alt="Image récap d'une période">
 
 ## Installation
 
-**[Télécharger Valtracker pour Windows](https://github.com/I4NIS/valtracker/releases/latest/download/Valtracker-setup.exe)**, puis lance le fichier. Aucun droit administrateur n'est nécessaire. Toutes les versions sont listées dans l'onglet [Releases](https://github.com/I4NIS/valtracker/releases).
+1. [Télécharge Valtracker](https://github.com/I4NIS/valtracker/releases/latest/download/Valtracker-setup.exe).
+2. Lance le fichier. Aucun droit administrateur n'est demandé.
+3. Entre ton Riot ID et une clé API HenrikDev, gratuite, à créer sur le [tableau de bord HenrikDev](https://api.henrikdev.xyz/dashboard/).
 
-À chaque lancement, Valtracker vérifie s'il existe une nouvelle version et propose de l'installer en un clic.
+Les nouvelles versions sont proposées au lancement et s'installent en un clic.
 
-Au premier lancement, Valtracker demande :
-1. ton Riot ID, par exemple `Pseudo#TAG` ;
-2. ta région ;
-3. une clé API HenrikDev, gratuite, à créer sur le [tableau de bord HenrikDev](https://api.henrikdev.xyz/dashboard/).
+**Avertissement SmartScreen.** L'application n'est pas encore signée, Windows peut afficher un avertissement au premier lancement. Clique sur « Informations complémentaires » puis « Exécuter quand même ».
 
-Tant que l'application n'est pas signée, Windows peut afficher un avertissement SmartScreen. Clique sur « Informations complémentaires » puis « Exécuter quand même ».
+## Ce que Valtracker ne fait pas
 
-## Développement
+Valtracker ne lit jamais le jeu ni le client Valorant, et ne tourne pas en parallèle de tes parties. Toutes les données viennent de l'API HenrikDev, une fois les matchs terminés. Rien n'est injecté, rien n'est lu en mémoire. Tout reste en local sur ton PC.
+
+<details>
+<summary><strong>Développement</strong></summary>
 
 ### Prérequis
 
 - [Node.js](https://nodejs.org/) 20 ou plus récent
 - [Rust](https://www.rust-lang.org/tools/install) stable, installé avec rustup
-- [Build Tools Visual Studio](https://visualstudio.microsoft.com/visual-cpp-build-tools/) avec la charge de travail « Développement Desktop en C++ »
+- [Build Tools Visual Studio](https://visualstudio.microsoft.com/visual-cpp-build-tools/) avec « Développement Desktop en C++ »
 - WebView2, déjà présent sur Windows 10 et 11
 
-### Lancer en mode développement
+### Lancer et construire
 
 ```bash
 npm install
-npm run tauri dev
+npm run tauri dev     # mode développement
+npm run tauri build   # installateur dans src-tauri/target/release/bundle/nsis/
 ```
 
-La première compilation Rust prend quelques minutes, les suivantes sont rapides.
+### Publier une version
 
-### Construire l'installateur
-
-```bash
-npm run tauri build
-```
-
-L'installateur est généré dans `src-tauri/target/release/bundle/nsis/`.
-
-### Publier une nouvelle version
-
-1. Change le numéro de version dans `package.json`. L'application le reprend automatiquement.
-2. Commite, puis crée et pousse un tag :
+Change la version dans `package.json`, commite, puis pousse un tag :
 
 ```bash
 git tag v0.2.0
 git push origin v0.2.0
 ```
 
-Le workflow GitHub Actions compile l'installateur, le signe, publie la release avec `Valtracker-setup.exe` et le fichier `latest.json` utilisé par la mise à jour automatique.
+Le workflow GitHub Actions compile et signe l'installateur, puis publie la release avec `Valtracker-setup.exe` et le `latest.json` de la mise à jour automatique. Secrets requis : `TAURI_SIGNING_PRIVATE_KEY`, et `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` si la clé a un mot de passe.
 
-Le dépôt doit contenir le secret `TAURI_SIGNING_PRIVATE_KEY` (clé privée de signature des mises à jour), et `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` si la clé est protégée par un mot de passe.
-
-## Architecture
+### Architecture
 
 | Dossier | Rôle |
 | --- | --- |
 | `src/` | Interface en React et TypeScript |
-| `src-tauri/` | Cœur en Rust : synchronisation avec l'API, base SQLite locale, calcul des statistiques et analyse des morts |
+| `src-tauri/` | Cœur en Rust : synchronisation, base SQLite locale, statistiques et analyse des morts |
+| `docs/` | Page de téléchargement (GitHub Pages) et captures |
 
-Les données sont stockées en local dans une base SQLite. Le détail complet d'un match n'étant disponible que pour les matchs récents, chaque synchronisation l'enregistre immédiatement.
+Sources de données : [HenrikDev API](https://docs.henrikdev.xyz) pour les comptes et les matchs, [valorant-api.com](https://valorant-api.com) pour les visuels du jeu.
 
-## Sources de données
-
-- [HenrikDev API](https://docs.henrikdev.xyz) : compte, rang, historique de RR et matchs détaillés.
-- [valorant-api.com](https://valorant-api.com) : minimaps, zones des maps, icônes des agents, des armes et des rangs.
+</details>
 
 ## Mentions légales
 
