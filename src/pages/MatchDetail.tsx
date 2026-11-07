@@ -120,7 +120,7 @@ export function MatchDetail({ account, matchId, onBack }: Props) {
         ))}
       </div>
 
-      {tab === "review" && <DeathReview deaths={detail.deathReviews} minimap={detail.minimap} />}
+      {tab === "review" && <DeathReview deaths={detail.deathReviews} minimap={detail.minimap} rotation={detail.rotation} />}
       {tab === "rounds" && <RoundDetail rounds={detail.rounds} selected={roundIndex} onSelect={setRoundIndex} />}
       {tab === "summary" && (
         <>
