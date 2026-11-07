@@ -134,7 +134,7 @@ fn prepare(state: &AppState, games: Vec<Page>) -> AppResult<Vec<repo::PreparedMa
             Page::Parsed(game) => game,
         };
         if let Some(id) = repo::match_id(&game) {
-            if repo::has_match(&*state.conn()?, id)? {
+            if state.read(|conn| repo::has_match(conn, id))? {
                 continue;
             }
         }

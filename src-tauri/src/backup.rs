@@ -290,7 +290,9 @@ pub async fn import_database(app: AppHandle, path: String) -> AppResult<()> {
     let active = blocking(move || {
         let state = handle.state::<AppState>();
         let mut live = state.conn()?;
+        state.reset_readers();
         replace(&mut live, &state.db_path, &source)?;
+        state.reset_readers();
         crate::i18n::load(&live);
         db::get_setting(&live, ACTIVE_ACCOUNT_SETTING)
     })

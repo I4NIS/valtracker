@@ -239,12 +239,12 @@ pub fn tag_stats(conn: &Connection, puuid: &str) -> AppResult<Vec<TagStat>> {
     Ok(stats)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn get_note(state: State<'_, AppState>, puuid: String, match_id: String) -> AppResult<Option<Note>> {
     load(&*state.conn()?, &puuid, &match_id)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn save_note(state: State<'_, AppState>, puuid: String, match_id: String, note: String, tags: Vec<String>) -> AppResult<()> {
     store(&*state.conn()?, &puuid, &match_id, &note, tags)?;
     state.forget(crate::reports::Report::is_journal);

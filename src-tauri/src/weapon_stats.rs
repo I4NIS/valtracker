@@ -528,17 +528,20 @@ pub fn get_weapon_history(
     deaths: bool,
 ) -> AppResult<tauri::ipc::Response> {
     let season = season.as_deref();
-    if let Some(json) = state.cached_json(&history_key(&puuid, season, &weapon, deaths)) {
+    let key = history_key(&puuid, season, &weapon, deaths);
+    if let Some(json) = state.cached_json(&key) {
         return Ok(tauri::ipc::Response::new(json));
     }
-    if state.cached_json(&ready_key(&puuid, season)).is_some() {
-        return Ok(tauri::ipc::Response::new(String::from("[]")));
-    }
+    let mut found = None;
     let generation = state.generation();
-    let all = histories(&*state.conn()?, &puuid, season)?;
-    store_histories(&state, &puuid, season, &all, generation);
-    let list = all.get(&(weapon, deaths)).map(Vec::as_slice).unwrap_or_default();
-    let json = serde_json::to_string(list).map_err(|err| AppError::Invalid(err.to_string()))?;
+    state.cached(ready_key(&puuid, season), |conn| {
+        let all = histories(conn, &puuid, season)?;
+        store_histories(&state, &puuid, season, &all, generation);
+        let list = all.get(&(weapon, deaths)).map(Vec::as_slice).unwrap_or_default();
+        found = Some(serde_json::to_string(list).map_err(|err| AppError::Invalid(err.to_string()))?);
+        Ok("true".into())
+    })?;
+    let json = found.or_else(|| state.cached_json(&key)).unwrap_or_else(|| String::from("[]"));
     Ok(tauri::ipc::Response::new(json))
 }
 
