@@ -4,13 +4,14 @@ import { ExportRecapButton } from "../components/ExportRecap";
 import { SeasonPicker } from "../components/SeasonPicker";
 import type { Account, GameSummary, RrPoint } from "../lib/api";
 import { tierNameById } from "../lib/assets";
-import { fmt, fullDate, pct, signed, tradeWindowText } from "../lib/format";
-import { locale, t } from "../lib/i18n";
+import { fmt, formatDate, fullDate, pct, signed, tradeWindowText } from "../lib/format";
+import { t } from "../lib/i18n";
 import { useQuery } from "../lib/query";
 import { defaultSeason, queries } from "../lib/queries";
 
 const RECENT = 20;
 const GAUGE_LENGTH = 283;
+const DAY_SHORT: Intl.DateTimeFormatOptions = { day: "numeric", month: "short" };
 
 type Props = {
   account: Account;
@@ -356,7 +357,7 @@ function RrChart({ points }: { points: RrPoint[] }) {
   const change = point?.change ?? null;
   const first = new Date(valid[0].date);
   const last = new Date(valid[valid.length - 1].date);
-  const short = (date: Date) => date.toLocaleDateString(locale(), { day: "numeric", month: "short" });
+  const short = (date: Date) => formatDate(date, DAY_SHORT);
 
   return (
     <div className="stack" style={{ gap: 8 }}>

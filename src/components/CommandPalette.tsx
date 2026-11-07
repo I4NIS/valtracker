@@ -3,8 +3,8 @@ import { useEffect, useId, useMemo, useRef, useState, type Dispatch, type Keyboa
 import { createPortal } from "react-dom";
 import { api, type Account, type RecentMatch, type Theme } from "../lib/api";
 import { agentIcon } from "../lib/assets";
-import { timeAgo } from "../lib/format";
-import { locale, t } from "../lib/i18n";
+import { formatDate, timeAgo } from "../lib/format";
+import { t } from "../lib/i18n";
 import { Icon, type IconName } from "./Icon";
 import type { Page } from "./Shell";
 
@@ -43,6 +43,8 @@ const PAGES = (): { page: Page; label: string; icon: IconName; keywords: string 
 
 const MATCH_LIMIT = 50;
 
+const LONG_DATE: Intl.DateTimeFormatOptions = { weekday: "long", day: "numeric", month: "long", year: "numeric" };
+
 function normalize(text: string): string {
   return text.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 }
@@ -71,8 +73,8 @@ function dateWords(iso: string): string {
   yesterday.setDate(now.getDate() - 1);
   const parts = [
     timeAgo(iso, now),
-    date.toLocaleDateString(locale(), { weekday: "long", day: "numeric", month: "long", year: "numeric" }),
-    date.toLocaleDateString(locale()),
+    formatDate(date, LONG_DATE),
+    formatDate(date),
     `${date.getDate()}/${date.getMonth() + 1}`,
   ];
   if (date.toDateString() === now.toDateString()) parts.push(t("aujourd'hui aujourdhui", "today"));
