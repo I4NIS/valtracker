@@ -5,7 +5,7 @@ import { Logo } from "../components/Logo";
 import { TitleBar } from "../components/TitleBar";
 import { api, errorMessage, onSyncProgress, type Account, type SyncProgress } from "../lib/api";
 import { HENRIK_DASHBOARD, REGIONS, tierLabel } from "../lib/assets";
-import { lang, t } from "../lib/i18n";
+import { t } from "../lib/i18n";
 
 type Step = "welcome" | "key" | "account" | "sync";
 
@@ -15,15 +15,8 @@ const STAGES = ["Rang", "Historique de RR", "Matchs compétitifs", "Matchs plus 
 
 const STAGES_EN = ["Rank", "RR history", "Competitive matches", "Older matches"];
 
-const STAGE_WORDS_EN = [["rank"], ["rr"], ["competitive", "matches"], ["older"]];
-
 function stageIndex(stage: string): number {
-  if (lang() !== "en") return STAGES.findIndex((item) => stage.startsWith(item));
-  const text = stage.toLowerCase();
-  for (let i = STAGE_WORDS_EN.length - 1; i >= 0; i -= 1) {
-    if (STAGE_WORDS_EN[i].some((word) => text.includes(word))) return i;
-  }
-  return STAGES.findIndex((item) => stage.startsWith(item));
+  return STAGES.findIndex((item, i) => stage.startsWith(item) || stage.startsWith(STAGES_EN[i]));
 }
 
 type Props = {
