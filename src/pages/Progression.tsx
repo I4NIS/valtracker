@@ -10,18 +10,20 @@ import { fmt, formatDate, fullDate, pct, signed, tradeWindowText } from "../lib/
 import { t } from "../lib/i18n";
 import { useQuery } from "../lib/query";
 import { defaultSeason, queries } from "../lib/queries";
+import { Acts } from "./ProgressionActs";
 import { Comparison, Habits, InsightsSkeleton } from "./ProgressionInsights";
 
 const RECENT = 20;
 const GAUGE_LENGTH = 283;
 const DAY_SHORT: Intl.DateTimeFormatOptions = { day: "numeric", month: "short" };
 
-type Tab = "overview" | "habits" | "compare";
+type Tab = "overview" | "habits" | "compare" | "acts";
 
 const TABS = (): { id: Tab; label: string }[] => [
   { id: "overview", label: t("Vue d'ensemble", "Overview") },
   { id: "habits", label: t("Habitudes", "Habits") },
   { id: "compare", label: t("Comparaison", "Comparison") },
+  { id: "acts", label: t("Actes", "Acts") },
 ];
 
 type Props = {
@@ -67,7 +69,7 @@ export function Progression({ account }: Props) {
             ))}
           </div>
         </div>
-        <div className="page-head-tools">
+        <div className={`page-head-tools${tab === "acts" ? " is-hidden" : ""}`}>
           <SeasonPicker puuid={account.puuid} value={season} onChange={setSeason} />
           {season !== undefined && (
             <ExportRecapButton kind="act" className="prog-export" account={account} season={season} label={season ? t("Exporter le récap de l'acte", "Export Act recap") : t("Exporter le récap de l'acte en cours", "Export current Act recap")} />
@@ -75,9 +77,11 @@ export function Progression({ account }: Props) {
         </div>
       </header>
 
-      {error && <p className="form-error">{error}</p>}
+      {error && tab !== "acts" && <p className="form-error">{error}</p>}
 
-      {!data ? (
+      {tab === "acts" ? (
+        <Acts puuid={account.puuid} />
+      ) : !data ? (
         error ? null : tab === "overview" ? <ProgressionSkeleton /> : <InsightsSkeleton />
       ) : games.length === 0 ? (
         <div className="empty">{t("Aucun match compétitif synchronisé sur cette période.", "No competitive matches synced for this period.")}</div>

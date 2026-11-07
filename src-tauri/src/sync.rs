@@ -54,10 +54,10 @@ async fn sync(app: &AppHandle, state: &AppState, puuid: &str) -> AppResult<SyncR
 
     emit(app, puuid, tr("Rang", "Rank"), 0, true, None);
     let mmr = api.mmr(region, platform, puuid).await?;
-    {
+    let seasons_changed = {
         let conn = state.conn()?;
-        repo::update_rank(&conn, puuid, &mmr)?;
-    }
+        repo::update_rank(&conn, puuid, &mmr)?
+    };
 
     emit(app, puuid, tr("Historique de RR", "RR history"), 0, true, None);
     let history = api.mmr_history(region, platform, puuid).await?;
@@ -73,7 +73,7 @@ async fn sync(app: &AppHandle, state: &AppState, puuid: &str) -> AppResult<SyncR
         }
     }
     new_matches += backfill(app, state, &api, region, puuid, new_matches).await;
-    if new_matches > 0 || history_changed {
+    if new_matches > 0 || history_changed || seasons_changed {
         refreshed(app, state, puuid);
     }
 

@@ -234,6 +234,25 @@ ALTER TABLE mmr_history ADD COLUMN match_length INTEGER;
 ALTER TABLE mmr_history ADD COLUMN competitive_movement TEXT;
 ALTER TABLE mmr_history ADD COLUMN queue_id TEXT;
 ALTER TABLE accounts ADD COLUMN rank_state TEXT;
+
+CREATE TABLE account_seasons (
+    puuid TEXT NOT NULL REFERENCES accounts(puuid) ON DELETE CASCADE,
+    season_id TEXT NOT NULL,
+    season_short TEXT,
+    position INTEGER NOT NULL,
+    games INTEGER NOT NULL DEFAULT 0,
+    wins INTEGER NOT NULL DEFAULT 0,
+    end_tier INTEGER,
+    end_tier_name TEXT,
+    end_rr INTEGER,
+    ranking_schema TEXT,
+    act_rank_tier INTEGER,
+    act_rank_name TEXT,
+    act_wins TEXT NOT NULL DEFAULT '[]',
+    leaderboard_rank INTEGER,
+    prestige TEXT,
+    PRIMARY KEY (puuid, season_id)
+) WITHOUT ROWID;
 "];
 
 const REBUILT_AT: i64 = 10;

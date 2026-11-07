@@ -1,5 +1,54 @@
+import { invoke } from "@tauri-apps/api/core";
 import { fmt, signed } from "./format";
 import { t } from "./i18n";
+
+export type TierRef = { id: number | null; name: string | null };
+
+export type Act = {
+  seasonId: string;
+  seasonShort: string | null;
+  games: number;
+  wins: number;
+  endTier: number | null;
+  endTierName: string | null;
+  endRr: number | null;
+  rankingSchema: string | null;
+  actRankTier: number | null;
+  actRankName: string | null;
+  actWins: TierRef[];
+  leaderboardRank: number | null;
+};
+
+export const getActs = (puuid: string) => invoke<Act[]>("get_acts", { puuid });
+
+const FAMILIES = ["iron", "bronze", "silver", "gold", "platinum", "diamond", "ascendant", "immortal"];
+
+export const RANK_COLORS: Record<string, string> = {
+  iron: "#6f7275",
+  bronze: "#a8774a",
+  silver: "#b9c2c6",
+  gold: "#e2b13c",
+  platinum: "#3aa4b3",
+  diamond: "#c27de6",
+  ascendant: "#3cb878",
+  immortal: "#c63a5c",
+  radiant: "#f3dd8c",
+};
+
+export function rankFamily(name: string | null | undefined): string | null {
+  const word = (name ?? "").trim().split(" ")[0]?.toLowerCase() ?? "";
+  if (word === "radiant") return "radiant";
+  return FAMILIES.includes(word) ? word : null;
+}
+
+export function tierFromName(name: string | null | undefined): number | null {
+  const family = rankFamily(name);
+  if (family === null) return null;
+  if (family === "radiant") return 27;
+  const division = Number((name ?? "").trim().split(" ")[1] ?? 1);
+  const step = Number.isFinite(division) ? Math.min(3, Math.max(1, division)) : 1;
+  return 3 + FAMILIES.indexOf(family) * 3 + step - 1;
+}
 
 export type RrDetail = {
   change: number | null;

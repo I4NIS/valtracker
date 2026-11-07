@@ -6,6 +6,7 @@ import { favorites } from "./favorites";
 import { journal } from "./journal";
 import { getMapHistory, getMapStats } from "./mapStats";
 import { peek, prefetch, type Query } from "./query";
+import { getActs } from "./ranked";
 import { getWeaponHistory, getWeaponStats } from "./weapons";
 
 type Season = string | null;
@@ -56,6 +57,7 @@ export const queries = {
   tags: (puuid: string) => ({ key: `journal|tags|${puuid}`, fetch: () => journal.listTags(puuid) }),
   note: (puuid: string, matchId: string) => ({ key: `journal|note|${puuid}|${matchId}`, fetch: () => journal.getNote(puuid, matchId) }),
   favorites: (puuid: string) => ({ key: `journal|favorites|${puuid}`, fetch: () => favorites.list(puuid) }),
+  acts: (puuid: string) => ({ key: `acts|${puuid}`, fetch: () => getActs(puuid) }),
 } satisfies Record<string, (...args: never[]) => Query<unknown>>;
 
 export function defaultSeason(puuid: string): Season | undefined {
@@ -114,5 +116,6 @@ function accountOnly(puuid: string, current: Season): Query<unknown>[] {
     queries.maps(puuid, current),
     queries.weapons(puuid, current),
     queries.duels(puuid, current),
+    queries.acts(puuid),
   ];
 }

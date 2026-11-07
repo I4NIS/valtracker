@@ -2,7 +2,8 @@ use rusqlite::{Connection, OptionalExtension, params};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::error::AppResult;
+use crate::error::{AppError, AppResult};
+use crate::state::AppState;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -159,6 +160,125 @@ pub fn breakdown(conn: &Connection, puuid: &str, season: Option<&str>) -> AppRes
     )?)
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct TierRef {
+    pub id: Option<i64>,
+    pub name: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Act {
+    pub season_id: String,
+    pub season_short: Option<String>,
+    pub games: i64,
+    pub wins: i64,
+    pub end_tier: Option<i64>,
+    pub end_tier_name: Option<String>,
+    pub end_rr: Option<i64>,
+    pub ranking_schema: Option<String>,
+    pub act_rank_tier: Option<i64>,
+    pub act_rank_name: Option<String>,
+    pub act_wins: Vec<TierRef>,
+    pub leaderboard_rank: Option<i64>,
+}
+
+fn tier_ref(value: &Value) -> TierRef {
+    TierRef {
+        id: value.get("id").and_then(Value::as_i64),
+        name: value.get("name").and_then(Value::as_str).map(str::to_string),
+    }
+}
+
+fn seasons_fingerprint(conn: &Connection, puuid: &str) -> AppResult<Option<String>> {
+    Ok(conn.query_row(
+        "SELECT group_concat(season_id || ':' || games || ':' || wins || ':' || coalesce(end_tier, '') || ':' || coalesce(end_rr, '')
+                || ':' || coalesce(end_tier_name, '') || ':' || coalesce(act_rank_name, '') || ':' || act_wins || ':' || coalesce(leaderboard_rank, '')
+                || ':' || coalesce(prestige, ''), '|')
+         FROM (SELECT * FROM account_seasons WHERE puuid = ?1 ORDER BY position)",
+        params![puuid],
+        |row| row.get(0),
+    )?)
+}
+
+pub fn store_seasons(conn: &Connection, puuid: &str, mmr: &Value) -> AppResult<bool> {
+    let Some(seasons) = mmr.get("seasonal").and_then(Value::as_array) else {
+        return Ok(false);
+    };
+    let before = seasons_fingerprint(conn, puuid)?;
+    let tx = conn.unchecked_transaction()?;
+    tx.execute("DELETE FROM account_seasons WHERE puuid = ?1", params![puuid])?;
+    {
+        let mut stmt = tx.prepare(
+            "INSERT OR REPLACE INTO account_seasons
+                (puuid, season_id, season_short, position, games, wins, end_tier, end_tier_name, end_rr, ranking_schema,
+                 act_rank_tier, act_rank_name, act_wins, leaderboard_rank, prestige)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
+        )?;
+        for (position, season) in seasons.iter().enumerate() {
+            let Some(season_id) = season.pointer("/season/id").and_then(Value::as_str) else {
+                continue;
+            };
+            let wins: Vec<TierRef> = season.get("act_wins").and_then(Value::as_array).map(|list| list.iter().map(tier_ref).collect()).unwrap_or_default();
+            let prestige = season.get("prestige").filter(|value| value.is_object()).map(Value::to_string);
+            stmt.execute(params![
+                puuid,
+                season_id,
+                season.pointer("/season/short").and_then(Value::as_str),
+                position as i64,
+                season.get("games").and_then(Value::as_i64).unwrap_or(0),
+                season.get("wins").and_then(Value::as_i64).unwrap_or(0),
+                season.pointer("/end_tier/id").and_then(Value::as_i64),
+                season.pointer("/end_tier/name").and_then(Value::as_str),
+                season.get("end_rr").and_then(Value::as_i64),
+                season.get("ranking_schema").and_then(Value::as_str),
+                season.pointer("/act_rank/id").and_then(Value::as_i64),
+                season.pointer("/act_rank/name").and_then(Value::as_str),
+                serde_json::to_string(&wins).unwrap_or_else(|_| "[]".into()),
+                season.pointer("/leaderboard_placement/rank").and_then(Value::as_i64),
+                prestige,
+            ])?;
+        }
+    }
+    tx.commit()?;
+    Ok(seasons_fingerprint(conn, puuid)? != before)
+}
+
+pub fn acts(conn: &Connection, puuid: &str) -> AppResult<Vec<Act>> {
+    let mut stmt = conn.prepare(
+        "SELECT season_id, season_short, games, wins, end_tier, end_tier_name, end_rr, ranking_schema,
+                act_rank_tier, act_rank_name, act_wins, leaderboard_rank
+         FROM account_seasons WHERE puuid = ?1 ORDER BY position DESC",
+    )?;
+    let acts = stmt
+        .query_map(params![puuid], |row| {
+            Ok(Act {
+                season_id: row.get(0)?,
+                season_short: row.get(1)?,
+                games: row.get(2)?,
+                wins: row.get(3)?,
+                end_tier: row.get(4)?,
+                end_tier_name: row.get(5)?,
+                end_rr: row.get(6)?,
+                ranking_schema: row.get(7)?,
+                act_rank_tier: row.get(8)?,
+                act_rank_name: row.get(9)?,
+                act_wins: serde_json::from_str(&row.get::<_, String>(10)?).unwrap_or_default(),
+                leaderboard_rank: row.get(11)?,
+            })
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(acts)
+}
+
+#[tauri::command(async)]
+pub fn get_acts(state: tauri::State<'_, AppState>, puuid: String) -> AppResult<tauri::ipc::Response> {
+    state.cached(format!("{puuid}|Acts"), |conn| {
+        serde_json::to_string(&acts(conn, &puuid)?).map_err(|err| AppError::Invalid(err.to_string()))
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -201,6 +321,31 @@ mod tests {
         assert_eq!(state.last_derank_protected, Some(true));
         assert_eq!(state.last_placement, None);
         assert!(RankState::from_mmr(&json!({})).is_none());
+    }
+
+    #[test]
+    fn stores_every_act_and_reports_changes() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch("PRAGMA foreign_keys = ON;").unwrap();
+        db::migrate(&conn).unwrap();
+        conn.execute("INSERT INTO accounts (puuid, name, tag, region) VALUES ('me', 'Moi', 'EUW', 'eu')", []).unwrap();
+        let mmr = json!({"seasonal": [
+            {"season": {"id": "s1", "short": "e8a1"}, "games": 30, "wins": 17, "end_tier": {"id": 15, "name": "Platinum 1"}, "end_rr": 40,
+             "ranking_schema": "ascendant", "act_wins": [{"id": 15, "name": "Platinum 1"}, {"id": 14, "name": "Gold 3"}], "act_rank": {"id": 15, "name": "Platinum 1"},
+             "wins_with_placements": 18, "games_needed_for_rating": 0, "leaderboard_placement": null, "prestige": null},
+            {"season": {"id": "s2", "short": "e8a2"}, "games": 5, "wins": 2, "end_tier": {"id": 14, "name": "Gold 3"}, "end_rr": 12,
+             "ranking_schema": "ascendant", "act_wins": [], "act_rank": {"id": 0, "name": "Unrated"}, "wins_with_placements": 2, "games_needed_for_rating": 0}
+        ]});
+        assert!(store_seasons(&conn, "me", &mmr).unwrap());
+        assert!(!store_seasons(&conn, "me", &mmr).unwrap());
+        assert!(!store_seasons(&conn, "me", &json!({"current": {}})).unwrap());
+        let list = acts(&conn, "me").unwrap();
+        assert_eq!(list.len(), 2);
+        assert_eq!(list[0].season_short.as_deref(), Some("e8a2"));
+        assert_eq!(list[1].act_wins.len(), 2);
+        assert_eq!(list[1].act_wins[1].name.as_deref(), Some("Gold 3"));
+        conn.execute("DELETE FROM accounts WHERE puuid = 'me'", []).unwrap();
+        assert!(acts(&conn, "me").unwrap().is_empty());
     }
 
     #[test]

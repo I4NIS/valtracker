@@ -122,6 +122,7 @@ pub fn run() {
             backup::import_database,
             thresholds::get_thresholds,
             thresholds::set_thresholds,
+            ranked::get_acts,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

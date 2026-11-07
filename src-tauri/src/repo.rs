@@ -82,7 +82,7 @@ pub fn delete_account(conn: &Connection, puuid: &str) -> AppResult<()> {
     Ok(())
 }
 
-pub fn update_rank(conn: &Connection, puuid: &str, mmr: &Value) -> AppResult<()> {
+pub fn update_rank(conn: &Connection, puuid: &str, mmr: &Value) -> AppResult<bool> {
     conn.execute(
         "UPDATE accounts SET tier = ?2, tier_name = ?3, rr = ?4, elo = ?5,
             peak_tier = ?6, peak_tier_name = ?7, peak_season = ?8, rank_state = ?9
@@ -99,7 +99,7 @@ pub fn update_rank(conn: &Connection, puuid: &str, mmr: &Value) -> AppResult<()>
             crate::ranked::RankState::from_mmr(mmr).and_then(|state| serde_json::to_string(&state).ok()),
         ],
     )?;
-    Ok(())
+    crate::ranked::store_seasons(conn, puuid, mmr)
 }
 
 pub fn set_last_sync(conn: &Connection, puuid: &str, at: &str) -> AppResult<()> {
