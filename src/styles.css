@@ -1239,6 +1239,129 @@ a {
   background: var(--bad);
 }
 
+.heat-blob {
+  position: absolute;
+  width: 64px;
+  height: 64px;
+  margin: -32px 0 0 -32px;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.heat-dot {
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  margin: -2.5px 0 0 -2.5px;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.chip-count {
+  margin-left: 4px;
+  opacity: 0.6;
+}
+
+.big-number {
+  font-size: 52px;
+  font-weight: 700;
+  letter-spacing: -0.05em;
+  line-height: 1;
+}
+
+.zone-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 0;
+}
+
+.rr-chart {
+  position: relative;
+  height: 240px;
+}
+
+.rr-chart svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.rr-chart .grid {
+  stroke: var(--line);
+  stroke-width: 1;
+  stroke-dasharray: 6 6;
+  vector-effect: non-scaling-stroke;
+}
+
+.rr-chart .rr-line {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 3;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.rr-label {
+  position: absolute;
+  left: 0;
+  transform: translateY(-120%);
+  color: var(--text-3);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.bars-chart {
+  position: relative;
+  height: 100px;
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+}
+
+.bars-chart span {
+  flex: 1 1 0;
+  border-radius: 3px;
+}
+
+.bars-chart span.up {
+  background: var(--good);
+}
+
+.bars-chart span.down {
+  background: var(--bad);
+}
+
+.bars-chart i {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 1px dashed var(--text-3);
+  pointer-events: none;
+}
+
+.records {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.records > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 16px;
+  border-radius: 14px;
+  background: var(--raised);
+}
+
+.records strong {
+  font-size: 18px;
+  letter-spacing: -0.02em;
+}
+
 @container main (max-width: 1000px) {
   .summary-grid,
   .review {
