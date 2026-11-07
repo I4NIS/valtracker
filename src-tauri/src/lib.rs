@@ -36,6 +36,8 @@ use tauri::Manager;
 
 use crate::state::AppState;
 
+const STARTUP_WARM_DELAY: std::time::Duration = std::time::Duration::from_secs(4);
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     http::install_crypto();
@@ -54,6 +56,8 @@ pub fn run() {
             let conn = db::open(&path)?;
             i18n::load(&conn);
             app.manage(AppState::new(conn, path));
+            app.manage(reports::Warmer::default());
+            reports::start(app.handle().clone());
             let handle = app.handle().clone();
             tauri::async_runtime::spawn_blocking(move || {
                 let active = handle.state::<AppState>().conn().ok().and_then(|conn| {
@@ -63,6 +67,8 @@ pub fn run() {
                 if let Some(puuid) = active {
                     reports::warm(&handle, puuid);
                 }
+                std::thread::sleep(STARTUP_WARM_DELAY);
+                reports::ready(&handle);
             });
             sync::spawn_auto_sync(app.handle().clone());
             tray::install(app)?;

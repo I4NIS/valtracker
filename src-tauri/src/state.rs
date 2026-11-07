@@ -44,6 +44,10 @@ pub struct Claim<'a> {
 }
 
 impl Claim<'_> {
+    pub fn generation(&self) -> u64 {
+        self.generation
+    }
+
     pub fn store(self, json: String) {
         self.state.store_json(self.key.clone(), json, self.generation);
     }
@@ -280,6 +284,19 @@ impl AppState {
         let flight = Arc::new(Flight::default());
         cache.flights.insert(key.to_string(), flight.clone());
         Slot::Claimed(Claim { state: self, key: key.to_string(), generation: cache.generation, flight })
+    }
+
+    #[cfg(test)]
+    pub fn cached_entries(&self) -> (Vec<(String, String)>, usize) {
+        let cache = self.cache();
+        (cache.entries.map.iter().map(|(key, entry)| (key.clone(), entry.json.clone())).collect(), cache.entries.bytes)
+    }
+
+    pub fn claim(&self, key: &str) -> Option<Claim<'_>> {
+        match self.slot(key) {
+            Slot::Claimed(claim) => Some(claim),
+            _ => None,
+        }
     }
 
     pub fn cached(&self, key: String, compute: impl FnOnce(&Connection) -> AppResult<String>) -> AppResult<Response> {

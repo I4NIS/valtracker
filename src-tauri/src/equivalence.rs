@@ -200,6 +200,62 @@ pub fn histories(puuid: &str, season: Option<&str>, all: &weapon_stats::Historie
 }
 
 #[test]
+fn warm_cache_matches_the_reference() {
+    use crate::reports::Report;
+    let Some(setup) = setup("warm") else {
+        return;
+    };
+    crate::i18n::set("fr");
+    let state = crate::state::AppState::new(db::open(&setup.path).unwrap(), setup.path.clone());
+    let mut outputs = BTreeMap::new();
+    for puuid in puuids(&setup.conn) {
+        crate::reports::run(&state, &puuid, &|| false);
+        let current = seasons(&setup.conn, &puuid).first().cloned().flatten();
+        let mut expected = vec![
+            (Report::Overview(Filters::season(current.as_deref())), format!("Overview({current:?})")),
+            (Report::Overview(Filters::default()), "Overview(None)".to_string()),
+            (Report::Recent(Filters::default(), 10, 0), "Recent(10,0)".into()),
+            (Report::Recent(Filters::default(), 20, 0), "Recent(20,0)".into()),
+            (Report::FilterOptions, "FilterOptions".into()),
+            (Report::Flaws, "Flaws".into()),
+            (Report::Notes, "Notes".into()),
+            (Report::Tags, "Tags".into()),
+            (Report::Favorites, "Favorites".into()),
+        ];
+        for season in [current.clone(), None] {
+            expected.extend([
+                (Report::Progression(season.clone()), format!("Progression({season:?})")),
+                (Report::Agents(season.clone()), format!("Agents({season:?})")),
+                (Report::Maps(season.clone()), format!("Maps({season:?})")),
+                (Report::Weapons(season.clone()), format!("Weapons({season:?})")),
+                (Report::Duels(season.clone()), format!("Duels({season:?})")),
+            ]);
+        }
+        for map in maps(&setup.conn, &puuid).into_iter().filter(|map| !map.is_empty()) {
+            expected.push((Report::MapHistory(map.clone()), format!("MapHistory({map})")));
+        }
+        let (entries, _) = state.cached_entries();
+        let entries: BTreeMap<String, String> = entries.into_iter().collect();
+        for (report, name) in expected {
+            let json = entries.get(&report.key(&puuid)).unwrap_or_else(|| panic!("{report:?} was not warmed"));
+            outputs.insert(format!("{puuid}|{name}"), json.clone());
+        }
+        let mut histories = 0;
+        for (key, json) in &entries {
+            let parts: Vec<&str> = key.split('|').collect();
+            if let [owner, group, weapon, deaths] = parts[..] {
+                let season = group.trim_start_matches("WeaponHistories(").trim_end_matches(')');
+                let season = if season == "None" { season.to_string() } else { format!("{season})") };
+                outputs.insert(format!("{owner}|WeaponHistory({season},{}|{deaths})", weapon.trim_matches('"')), json.clone());
+                histories += 1;
+            }
+        }
+        assert!(histories > 0 || current.is_none());
+    }
+    check_subset(&setup, "reports.tsv", &outputs);
+}
+
+#[test]
 fn one_pass_scan_matches_the_reference() {
     let Some(setup) = setup("scan") else {
         return;

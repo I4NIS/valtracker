@@ -547,7 +547,7 @@ fn history_key(puuid: &str, season: Option<&str>, weapon: &str, deaths: bool) ->
     format!("{}|{weapon:?}|{deaths}", ready_key(puuid, season))
 }
 
-fn ready_key(puuid: &str, season: Option<&str>) -> String {
+pub fn ready_key(puuid: &str, season: Option<&str>) -> String {
     format!("{puuid}|WeaponHistories({season:?})")
 }
 

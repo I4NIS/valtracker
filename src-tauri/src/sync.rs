@@ -30,6 +30,7 @@ pub async fn run(app: &AppHandle, puuid: &str) -> AppResult<SyncReport> {
     let error = result.as_ref().err().map(ToString::to_string);
     let new_matches = result.as_ref().map_or(0, |report| report.new_matches);
     emit(app, puuid, tr("Terminé", "Done"), new_matches, false, error);
+    crate::reports::ready(app);
     result
 }
 
@@ -66,19 +67,15 @@ async fn sync(app: &AppHandle, state: &AppState, puuid: &str) -> AppResult<SyncR
     }
 
     let mut new_matches = sync_mode(app, &api, region, platform, puuid, COMPETITIVE, tr("Matchs compétitifs", "Competitive matches"), 0).await?;
-    if new_matches > 0 {
-        refreshed(app, state, puuid);
-        if had_matches {
-            if let Ok(conn) = state.conn() {
-                let _ = notify::new_matches(app, &conn, puuid, new_matches);
-            }
+    if new_matches > 0 && had_matches {
+        if let Ok(conn) = state.conn() {
+            let _ = notify::new_matches(app, &conn, puuid, new_matches);
         }
     }
-    let older = backfill(app, state, &api, region, puuid, new_matches).await;
-    if older > 0 {
+    new_matches += backfill(app, state, &api, region, puuid, new_matches).await;
+    if new_matches > 0 {
         refreshed(app, state, puuid);
     }
-    new_matches += older;
 
     let finished_at = now_iso();
     {
