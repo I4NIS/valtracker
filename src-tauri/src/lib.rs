@@ -70,6 +70,7 @@ pub fn run() {
             agent_stats::get_agent_stats,
             map_stats::get_map_stats,
             weapon_stats::get_weapon_stats,
+            weapon_stats::get_weapon_history,
             duels::get_duels,
             journal::get_note,
             journal::save_note,
