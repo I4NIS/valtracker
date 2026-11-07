@@ -33,30 +33,30 @@ export function Journal({ account, onOpenMatch }: Props) {
 
   return (
     <div className="content">
-      <div className="stack">
-        <span className="eyebrow">{t("Tes notes personnelles", "Your personal notes")}</span>
-        <h1 className="title">Journal</h1>
-        <p className="muted">
-          {view === "notes"
-            ? t("Tes notes et tags sur tes matchs, et tes résultats avec et sans chaque tag.", "Your notes and tags on your matches, and your results with and without each tag.")
-            : t("Les matchs, rounds et morts que tu as mis en favori.", "The matches, rounds and deaths you marked as favorites.")}
-        </p>
-      </div>
-
-      <div className="segmented" role="tablist" aria-label={t("Sections du journal", "Journal sections")} style={{ alignSelf: "flex-start" }}>
-        <button type="button" role="tab" aria-selected={view === "notes"} className={view === "notes" ? "active" : undefined} onClick={() => setView("notes")}>
-          Notes
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={view === "favorites"}
-          className={view === "favorites" ? "active" : undefined}
-          onClick={() => setView("favorites")}
-        >
-          {t("Favoris", "Favorites")}
-        </button>
-      </div>
+      <header className="page-head">
+        <div className="page-head-title">
+          <h1 className="title">Journal</h1>
+          <span className="faint">
+            {view === "notes"
+              ? t("Tes notes et tags, et tes résultats avec et sans chaque tag", "Your notes and tags, and your results with and without each tag")
+              : t("Les matchs, rounds et morts que tu as mis en favori", "The matches, rounds and deaths you marked as favorites")}
+          </span>
+        </div>
+        <div className="segmented" role="tablist" aria-label={t("Sections du journal", "Journal sections")}>
+          <button type="button" role="tab" aria-selected={view === "notes"} className={view === "notes" ? "active" : undefined} onClick={() => setView("notes")}>
+            Notes
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={view === "favorites"}
+            className={view === "favorites" ? "active" : undefined}
+            onClick={() => setView("favorites")}
+          >
+            {t("Favoris", "Favorites")}
+          </button>
+        </div>
+      </header>
 
       {view === "notes" ? (
         <NotesView account={account} onOpenMatch={onOpenMatch} />
