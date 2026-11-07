@@ -206,6 +206,6 @@ pub fn map_stats(conn: &Connection, puuid: &str, season: Option<&str>) -> AppRes
 }
 
 #[tauri::command(async)]
-pub fn get_map_stats(state: tauri::State<'_, AppState>, puuid: String, season: Option<String>) -> AppResult<Vec<MapStat>> {
-    map_stats(&*state.conn()?, &puuid, season.as_deref())
+pub fn get_map_stats(state: tauri::State<'_, AppState>, puuid: String, season: Option<String>) -> AppResult<tauri::ipc::Response> {
+    crate::reports::Report::Maps(season).serve(&state, &puuid)
 }

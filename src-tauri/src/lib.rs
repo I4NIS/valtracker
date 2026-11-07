@@ -12,6 +12,7 @@ mod heatmap;
 mod henrik;
 mod models;
 mod progression;
+mod reports;
 mod repo;
 mod state;
 mod stats;
@@ -31,12 +32,17 @@ pub fn run() {
         .setup(|app| {
             let dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&dir)?;
-            let conn = db::open(&dir.join("valtracker.db"))?;
-            app.manage(AppState::new(conn));
+            let path = dir.join("valtracker.db");
+            let conn = db::open(&path)?;
+            app.manage(AppState::new(conn, path));
             let handle = app.handle().clone();
             tauri::async_runtime::spawn_blocking(move || {
-                if let Ok(conn) = handle.state::<AppState>().conn() {
+                let active = handle.state::<AppState>().conn().ok().and_then(|conn| {
                     let _ = storage::compact_existing(&conn);
+                    db::get_setting(&conn, sync::ACTIVE_ACCOUNT_SETTING).ok().flatten()
+                });
+                if let Some(puuid) = active {
+                    reports::warm(&handle, puuid);
                 }
             });
             sync::spawn_auto_sync(app.handle().clone());

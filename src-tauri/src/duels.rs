@@ -118,8 +118,8 @@ pub struct DuelReport {
 }
 
 #[tauri::command(async)]
-pub fn get_duels(state: tauri::State<'_, crate::state::AppState>, puuid: String, season: Option<String>) -> AppResult<DuelReport> {
-    duels(&*state.conn()?, &puuid, season.as_deref())
+pub fn get_duels(state: tauri::State<'_, crate::state::AppState>, puuid: String, season: Option<String>) -> AppResult<tauri::ipc::Response> {
+    crate::reports::Report::Duels(season).serve(&state, &puuid)
 }
 
 fn rate(part: i64, total: i64) -> f64 {

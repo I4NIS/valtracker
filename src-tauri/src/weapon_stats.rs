@@ -282,6 +282,6 @@ pub fn report(conn: &Connection, puuid: &str, season: Option<&str>) -> AppResult
 }
 
 #[tauri::command(async)]
-pub fn get_weapon_stats(state: tauri::State<'_, AppState>, puuid: String, season: Option<String>) -> AppResult<WeaponReport> {
-    report(&*state.conn()?, &puuid, season.as_deref())
+pub fn get_weapon_stats(state: tauri::State<'_, AppState>, puuid: String, season: Option<String>) -> AppResult<tauri::ipc::Response> {
+    crate::reports::Report::Weapons(season).serve(&state, &puuid)
 }

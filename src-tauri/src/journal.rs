@@ -245,15 +245,17 @@ pub fn get_note(state: State<'_, AppState>, puuid: String, match_id: String) -> 
 
 #[tauri::command]
 pub fn save_note(state: State<'_, AppState>, puuid: String, match_id: String, note: String, tags: Vec<String>) -> AppResult<()> {
-    store(&*state.conn()?, &puuid, &match_id, &note, tags)
+    store(&*state.conn()?, &puuid, &match_id, &note, tags)?;
+    state.forget(crate::reports::Report::is_journal);
+    Ok(())
 }
 
 #[tauri::command(async)]
-pub fn list_notes(state: State<'_, AppState>, puuid: String) -> AppResult<Vec<NoteEntry>> {
-    entries(&*state.conn()?, &puuid)
+pub fn list_notes(state: State<'_, AppState>, puuid: String) -> AppResult<tauri::ipc::Response> {
+    crate::reports::Report::Notes.serve(&state, &puuid)
 }
 
 #[tauri::command(async)]
-pub fn list_tags(state: State<'_, AppState>, puuid: String) -> AppResult<Vec<TagStat>> {
-    tag_stats(&*state.conn()?, &puuid)
+pub fn list_tags(state: State<'_, AppState>, puuid: String) -> AppResult<tauri::ipc::Response> {
+    crate::reports::Report::Tags.serve(&state, &puuid)
 }

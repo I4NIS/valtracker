@@ -59,7 +59,14 @@ async fn sync(app: &AppHandle, state: &AppState, puuid: &str) -> AppResult<SyncR
     }
 
     let mut new_matches = sync_mode(app, state, &api, region, platform, puuid, COMPETITIVE, "compétitifs", 0).await?;
-    new_matches += backfill(app, state, &api, region, puuid, new_matches).await;
+    if new_matches > 0 {
+        refreshed(app, state, puuid);
+    }
+    let older = backfill(app, state, &api, region, puuid, new_matches).await;
+    if older > 0 {
+        refreshed(app, state, puuid);
+    }
+    new_matches += older;
 
     let finished_at = now_iso();
     {
@@ -165,6 +172,12 @@ pub fn spawn_auto_sync(app: AppHandle) {
             }
         }
     });
+}
+
+fn refreshed(app: &AppHandle, state: &AppState, puuid: &str) {
+    state.invalidate();
+    let _ = app.emit("data-changed", puuid);
+    crate::reports::warm(app, puuid.to_string());
 }
 
 fn emit(app: &AppHandle, puuid: &str, stage: &str, new_matches: usize, running: bool, error: Option<String>) {
