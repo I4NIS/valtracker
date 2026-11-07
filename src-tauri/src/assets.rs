@@ -12,6 +12,19 @@ const MAPS_URL: &str = "https://valorant-api.com/v1/maps";
 const AGENTS_URL: &str = "https://valorant-api.com/v1/agents?isPlayableCharacter=true";
 pub const REFRESHED_SETTING: &str = "assets_refreshed_at";
 const REFRESH_EVERY_SECS: i64 = 3 * 24 * 3600;
+const MEDIA_ORIGIN: &str = "https://media.valorant-api.com/";
+
+pub fn trusted_image(url: Option<String>) -> Option<String> {
+    url.filter(|url| is_trusted_image(url))
+}
+
+fn is_trusted_image(url: &str) -> bool {
+    url.starts_with(MEDIA_ORIGIN) && url.chars().all(|c| c.is_ascii_graphic() && !matches!(c, '"' | '\'' | '(' | ')' | '\\'))
+}
+
+fn image_field(value: &Value) -> Option<&str> {
+    value.as_str().filter(|url| is_trusted_image(url))
+}
 
 pub struct Callout {
     pub name: String,
@@ -111,14 +124,14 @@ fn store(conn: &mut Connection, maps: &Value, agents: &Value) -> AppResult<()> {
             params![
                 uuid,
                 name,
-                map["displayIcon"].as_str(),
+                image_field(&map["displayIcon"]),
                 map["xMultiplier"].as_f64().unwrap_or(0.0),
                 map["yMultiplier"].as_f64().unwrap_or(0.0),
                 map["xScalarToAdd"].as_f64().unwrap_or(0.0),
                 map["yScalarToAdd"].as_f64().unwrap_or(0.0),
                 Value::Array(callouts).to_string(),
-                map["splash"].as_str(),
-                map["listViewIcon"].as_str(),
+                image_field(&map["splash"]),
+                image_field(&map["listViewIcon"]),
             ],
         )?;
     }
@@ -128,7 +141,7 @@ fn store(conn: &mut Connection, maps: &Value, agents: &Value) -> AppResult<()> {
         };
         tx.execute(
             "INSERT OR REPLACE INTO agents (uuid, name, role, icon) VALUES (?1, ?2, ?3, ?4)",
-            params![uuid, name, agent.pointer("/role/displayName").and_then(Value::as_str), agent["displayIcon"].as_str()],
+            params![uuid, name, agent.pointer("/role/displayName").and_then(Value::as_str), image_field(&agent["displayIcon"])],
         )?;
     }
     tx.commit()?;
@@ -156,8 +169,8 @@ pub fn load_map(conn: &Connection, map_id: &str) -> AppResult<Option<MapData>> {
         })
         .collect();
     Ok(Some(MapData {
-        display_icon: row.get(0)?,
-        splash: row.get(6)?,
+        display_icon: trusted_image(row.get(0)?),
+        splash: trusted_image(row.get(6)?),
         x_multiplier: row.get(1)?,
         y_multiplier: row.get(2)?,
         x_scalar: row.get(3)?,
@@ -178,4 +191,25 @@ fn unix_now() -> i64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map_or(0, |duration| duration.as_secs() as i64)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn serves_only_valorant_api_media() {
+        let url = "https://media.valorant-api.com/maps/abc/splash.png";
+        assert_eq!(trusted_image(Some(url.into())).as_deref(), Some(url));
+        for rejected in [
+            "http://media.valorant-api.com/maps/abc/splash.png",
+            "https://media.valorant-api.com.evil.example/a.png",
+            "https://evil.example/a.png",
+            "javascript:alert(1)",
+            "https://media.valorant-api.com/a.png\") url(\"https://evil.example/b.png",
+        ] {
+            assert_eq!(trusted_image(Some(rejected.into())), None);
+        }
+        assert_eq!(trusted_image(None), None);
+    }
 }

@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::io::Read;
 
+use crate::assets;
 use crate::error::AppResult;
 use crate::i18n::tr;
 use crate::progression;
@@ -227,7 +228,7 @@ pub fn agent_stats(conn: &Connection, puuid: &str, season: Option<&str>) -> AppR
 
     let mut stmt = conn.prepare("SELECT uuid, COALESCE(list_icon, splash) FROM maps")?;
     let map_images = stmt
-        .query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, Option<String>>(1)?)))?
+        .query_map([], |row| Ok((row.get::<_, String>(0)?, assets::trusted_image(row.get(1)?))))?
         .collect::<Result<HashMap<_, _>, _>>()?;
     drop(stmt);
 

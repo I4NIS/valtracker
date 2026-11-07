@@ -72,7 +72,7 @@ pub fn heatmap(conn: &Connection, puuid: &str, filters: &Filters) -> AppResult<H
     )?;
     let maps = stmt
         .query_map(params![puuid, filters.season, filters.queue], |row| {
-            Ok(MapOption { id: row.get(0)?, name: row.get(1)?, matches: row.get(2)?, image: row.get(3)? })
+            Ok(MapOption { id: row.get(0)?, name: row.get(1)?, matches: row.get(2)?, image: assets::trusted_image(row.get(3)?) })
         })?
         .collect::<Result<Vec<_>, _>>()?;
     drop(stmt);

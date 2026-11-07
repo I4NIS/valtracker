@@ -9,6 +9,7 @@ use tauri_plugin_clipboard_manager::ClipboardExt;
 use tauri_plugin_opener::OpenerExt;
 
 use crate::analysis::{int, point, text};
+use crate::assets;
 use crate::error::{AppError, AppResult};
 use crate::i18n::tr;
 use crate::progression;
@@ -231,8 +232,8 @@ fn match_from_row(row: &Row) -> rusqlite::Result<RecapMatch> {
         length_ms: row.get(3)?,
         map_id: row.get(4)?,
         map_name: row.get(5)?,
-        map_image: row.get(6)?,
-        splash: row.get(7)?,
+        map_image: assets::trusted_image(row.get(6)?),
+        splash: assets::trusted_image(row.get(7)?),
         agent_id: row.get(8)?,
         agent_name: row.get(9)?,
         tier: row.get(10)?,
