@@ -3,6 +3,7 @@ use serde_json::Value;
 
 use crate::error::AppResult;
 use crate::models::Account;
+use crate::storage;
 
 const ACCOUNT_COLUMNS: &str = "puuid, name, tag, region, platform, account_level, card_id, tier, tier_name, rr, peak_tier, peak_tier_name, peak_season, last_sync_at";
 
@@ -175,7 +176,7 @@ pub fn insert_match(conn: &mut Connection, game: &Value) -> AppResult<bool> {
             text(game, "/metadata/season/short"),
             rounds,
             game.pointer("/metadata/game_length_in_ms").and_then(Value::as_i64),
-            game.to_string(),
+            storage::encode(game)?,
         ],
     )?;
     if inserted == 0 {

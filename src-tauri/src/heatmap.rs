@@ -5,6 +5,7 @@ use serde_json::Value;
 use crate::analysis::{attack_side, attacks_first, int, point, text};
 use crate::assets;
 use crate::error::AppResult;
+use crate::storage;
 
 const EARLY_ROUND_MS: i64 = 20_000;
 
@@ -69,7 +70,7 @@ pub fn heatmap(conn: &Connection, puuid: &str, map_id: Option<&str>, season: Opt
          WHERE p.puuid = ?1 AND m.map_id = ?2 AND (?3 IS NULL OR m.season_short = ?3)",
     )?;
     let raws = stmt
-        .query_map(params![puuid, selected, season], |row| row.get::<_, String>(0))?
+        .query_map(params![puuid, selected, season], |row| Ok(row.get_ref(0)?.as_bytes()?.to_vec()))?
         .collect::<Result<Vec<_>, _>>()?;
     drop(stmt);
 
@@ -77,7 +78,7 @@ pub fn heatmap(conn: &Connection, puuid: &str, map_id: Option<&str>, season: Opt
     let matches = raws.len() as i64;
     if let Some(map) = &data {
         for raw in raws {
-            let Ok(game) = serde_json::from_str::<Value>(&raw) else {
+            let Some(game) = storage::decode(&raw) else {
                 continue;
             };
             collect(&game, puuid, map, &mut points);

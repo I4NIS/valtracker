@@ -1,12 +1,12 @@
 use rusqlite::{Connection, OptionalExtension, params};
 use serde::Serialize;
-use serde_json::Value;
 use std::collections::HashMap;
 
 use crate::analysis::{self, ISOLATION_METERS};
 use crate::assets;
 use crate::error::AppResult;
 use crate::stats;
+use crate::storage;
 
 const COMPETITIVE: &str = "competitive";
 const RECENT_MATCHES: i64 = 20;
@@ -89,10 +89,7 @@ fn summary(conn: &Connection, roles: &HashMap<String, String>, puuid: &str, matc
     if cached.is_some() {
         return Ok(cached);
     }
-    let raw: Option<String> = conn
-        .query_row("SELECT raw FROM matches WHERE match_id = ?1", params![match_id], |row| row.get(0))
-        .optional()?;
-    let Some(game) = raw.and_then(|raw| serde_json::from_str::<Value>(&raw).ok()) else {
+    let Some(game) = storage::load_game(conn, match_id)? else {
         return Ok(None);
     };
     let Some(detail) = analysis::analyze(&game, puuid, None, roles) else {
