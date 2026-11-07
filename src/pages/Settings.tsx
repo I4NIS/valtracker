@@ -1,6 +1,7 @@
 import "../styles/settings.css";
+import { getVersion } from "@tauri-apps/api/app";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Icon } from "../components/Icon";
 import { api, errorMessage, type Account, type ImportCandidate, type Theme, type Thresholds } from "../lib/api";
 import { fmt } from "../lib/format";
@@ -19,6 +20,8 @@ const SECTIONS = (): { id: Section; label: string }[] => [
   { id: "analysis", label: t("Seuils d'analyse", "Analysis thresholds") },
   { id: "data", label: t("Données", "Data") },
 ];
+
+const RELEASES_URL = "https://github.com/I4NIS/valtracker/releases";
 
 let rememberedSection: Section = "general";
 
@@ -58,6 +61,11 @@ export function Settings({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [section, setSection] = useState<Section>(rememberedSection);
+  const [version, setVersion] = useState<string | null>(null);
+
+  useEffect(() => {
+    getVersion().then(setVersion, () => setVersion(null));
+  }, []);
 
   const pick = (next: Section) => {
     rememberedSection = next;
@@ -180,6 +188,24 @@ export function Settings({
                 <div className="row">
                   <button type="button" className="btn btn-secondary" onClick={onReplayTour}>
                     {t("Revoir le tutoriel", "Replay the tour")}
+                  </button>
+                </div>
+              </section>
+
+              <section className="stack" style={{ gap: 14 }}>
+                <h2 className="section-title">{t("Version", "Version")}</h2>
+                <div className="panel settings-toggle">
+                  <span className="stack" style={{ gap: 2, minWidth: 0 }}>
+                    <strong>Valtracker {version ?? ""}</strong>
+                    <span className="hint">
+                      {t(
+                        "Les mises à jour s'installent depuis GitHub au lancement.",
+                        "Updates install from GitHub at launch.",
+                      )}
+                    </span>
+                  </span>
+                  <button type="button" className="btn btn-secondary" onClick={() => void openUrl(RELEASES_URL)}>
+                    {t("Notes de version", "Release notes")}
                   </button>
                 </div>
               </section>

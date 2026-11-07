@@ -11,7 +11,7 @@
     "core:window:allow-close",
     {
       "identifier": "opener:allow-open-url",
-      "allow": [{ "url": "https://api.henrikdev.xyz/dashboard*" }]
+      "allow": [{ "url": "https://api.henrikdev.xyz/dashboard*" }, { "url": "https://github.com/I4NIS/valtracker/releases*" }]
     },
     "updater:default",
     "process:allow-restart"
