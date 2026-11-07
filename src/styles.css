@@ -630,25 +630,6 @@ a {
   background: var(--accent);
 }
 
-.hero {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 56px;
-}
-
-.hero-stat {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.hero-stat .value {
-  font-size: 26px;
-  font-weight: 700;
-  letter-spacing: -0.03em;
-}
-
 .stat-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -1304,13 +1285,6 @@ a {
   background: var(--bad);
 }
 
-.summary-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr);
-  gap: 48px;
-  align-items: start;
-}
-
 .score-row {
   display: grid;
   grid-template-columns: 36px minmax(0, 1.8fr) 24px 40px minmax(72px, 0.9fr) 40px 40px 44px;
@@ -1830,7 +1804,6 @@ a {
 }
 
 @container main (max-width: 1000px) {
-  .summary-grid,
   .summary-teams,
   .review {
     grid-template-columns: minmax(0, 1fr);
@@ -1898,10 +1871,6 @@ a {
 
   .section-title {
     font-size: 17px;
-  }
-
-  .hero {
-    gap: 28px;
   }
 
   .rank-name {
