@@ -1,6 +1,7 @@
-use rusqlite::{OptionalExtension, params};
+use rusqlite::{Connection, OptionalExtension, params};
 use serde::Serialize;
 use serde_json::Value;
+use tauri::ipc::Response;
 use tauri::{AppHandle, State};
 
 use crate::analysis::{self, MatchDetail};
@@ -9,8 +10,8 @@ use crate::db;
 use crate::error::{AppError, AppResult};
 use crate::heatmap::{self, Heatmap};
 use crate::henrik::Henrik;
-use crate::progression::{self, Progression, RecentFlaws};
-use crate::models::{Account, Overview, RecentMatch, Season, SyncReport};
+use crate::models::{Account, Season, SyncReport};
+use crate::reports::Report;
 use crate::repo;
 use crate::state::AppState;
 use crate::stats;
@@ -105,8 +106,8 @@ pub async fn sync_account(app: AppHandle, puuid: String) -> AppResult<SyncReport
 }
 
 #[tauri::command(async)]
-pub fn get_overview(state: State<'_, AppState>, puuid: String, season: Option<String>) -> AppResult<Overview> {
-    stats::overview(&*state.conn()?, &puuid, season.as_deref())
+pub fn get_overview(state: State<'_, AppState>, puuid: String, season: Option<String>) -> AppResult<Response> {
+    Report::Overview(season).serve(&state, &puuid)
 }
 
 #[tauri::command(async)]
@@ -115,18 +116,24 @@ pub fn get_recent_matches(
     puuid: String,
     limit: Option<i64>,
     offset: Option<i64>,
-) -> AppResult<Vec<RecentMatch>> {
-    stats::recent_matches(&*state.conn()?, &puuid, limit.unwrap_or(10).clamp(1, 100), offset.unwrap_or(0).max(0))
+) -> AppResult<Response> {
+    Report::Recent(limit.unwrap_or(10).clamp(1, 100), offset.unwrap_or(0).max(0)).serve(&state, &puuid)
 }
 
 #[tauri::command(async)]
-pub fn get_match(state: State<'_, AppState>, puuid: String, match_id: String) -> AppResult<MatchDetail> {
-    let conn = state.conn()?;
-    let game = storage::load_game(&conn, &match_id)?.ok_or_else(|| AppError::Invalid("Match introuvable".into()))?;
+pub fn get_match(state: State<'_, AppState>, puuid: String, match_id: String) -> AppResult<Response> {
+    state.cached(format!("{puuid}|Match({match_id})"), |conn| {
+        let detail = match_detail(conn, &puuid, &match_id)?;
+        serde_json::to_string(&detail).map_err(|err| AppError::Invalid(err.to_string()))
+    })
+}
+
+fn match_detail(conn: &Connection, puuid: &str, match_id: &str) -> AppResult<MatchDetail> {
+    let game = storage::load_game(conn, match_id)?.ok_or_else(|| AppError::Invalid("Match introuvable".into()))?;
     let map_id = game.pointer("/metadata/map/id").and_then(Value::as_str).unwrap_or_default();
-    let map = assets::load_map(&conn, map_id)?;
-    let roles = assets::agent_roles(&conn)?;
-    let mut detail = analysis::analyze(&game, &puuid, map.as_ref(), &roles)
+    let map = assets::load_map(conn, map_id)?;
+    let roles = assets::agent_roles(conn)?;
+    let mut detail = analysis::analyze(&game, puuid, map.as_ref(), &roles)
         .ok_or_else(|| AppError::Invalid("Impossible d'analyser ce match".into()))?;
     if let Some((change, rr)) = conn
         .query_row(
@@ -143,13 +150,13 @@ pub fn get_match(state: State<'_, AppState>, puuid: String, match_id: String) ->
 }
 
 #[tauri::command(async)]
-pub fn get_progression(state: State<'_, AppState>, puuid: String, season: Option<String>) -> AppResult<Progression> {
-    progression::progression(&*state.conn()?, &puuid, season.as_deref())
+pub fn get_progression(state: State<'_, AppState>, puuid: String, season: Option<String>) -> AppResult<Response> {
+    Report::Progression(season).serve(&state, &puuid)
 }
 
 #[tauri::command(async)]
-pub fn get_recent_flaws(state: State<'_, AppState>, puuid: String) -> AppResult<RecentFlaws> {
-    progression::recent_flaws(&*state.conn()?, &puuid)
+pub fn get_recent_flaws(state: State<'_, AppState>, puuid: String) -> AppResult<Response> {
+    Report::Flaws.serve(&state, &puuid)
 }
 
 #[tauri::command(async)]
@@ -160,7 +167,8 @@ pub fn get_heatmap(
     season: Option<String>,
     agent_id: Option<String>,
     limit: Option<i64>,
-) -> AppResult<Heatmap> {
+) -> AppResult<Response> {
+    let key = format!("{puuid}|Heatmap({map_id:?},{season:?},{agent_id:?},{limit:?})");
     let filters = heatmap::Filters {
         map_id: map_id.as_deref(),
         season: season.as_deref(),
@@ -168,7 +176,10 @@ pub fn get_heatmap(
         queue: Some("competitive"),
         limit,
     };
-    heatmap::heatmap(&*state.conn()?, &puuid, &filters)
+    state.cached(key, |conn| {
+        let heatmap = heatmap::heatmap(conn, &puuid, &filters)?;
+        serde_json::to_string(&heatmap).map_err(|err| AppError::Invalid(err.to_string()))
+    })
 }
 
 #[tauri::command]

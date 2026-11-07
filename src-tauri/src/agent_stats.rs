@@ -340,6 +340,6 @@ pub fn agent_stats(conn: &Connection, puuid: &str, season: Option<&str>) -> AppR
 }
 
 #[tauri::command(async)]
-pub fn get_agent_stats(state: tauri::State<'_, AppState>, puuid: String, season: Option<String>) -> AppResult<Vec<AgentStat>> {
-    agent_stats(&*state.conn()?, &puuid, season.as_deref())
+pub fn get_agent_stats(state: tauri::State<'_, AppState>, puuid: String, season: Option<String>) -> AppResult<tauri::ipc::Response> {
+    crate::reports::Report::Agents(season).serve(&state, &puuid)
 }
