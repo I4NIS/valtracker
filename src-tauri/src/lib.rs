@@ -1,3 +1,4 @@
+mod analysis;
 mod assets;
 mod commands;
 mod db;
@@ -36,6 +37,7 @@ pub fn run() {
             commands::sync_account,
             commands::get_overview,
             commands::get_recent_matches,
+            commands::get_match,
             commands::get_seasons,
             commands::set_preference,
         ])
