@@ -34,7 +34,7 @@ function Person({ who, sub }: { who: Who; sub?: string }) {
       <Art src={agentIcon(who.agentId)} width={32} height={32} alt="" />
       <span className="stack" style={{ gap: 0, minWidth: 0 }}>
         <strong className={`ellipsis ${who.me ? "me-text" : who.ally ? "ally-text" : "enemy-text"}`}>{whoName(who)}</strong>
-        {detail && <span className="faint ellipsis" style={{ fontSize: 12 }}>{detail}</span>}
+        {detail && <span className="faint" style={{ fontSize: 12 }}>{detail}</span>}
       </span>
     </span>
   );
