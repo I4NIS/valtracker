@@ -16,9 +16,10 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2", features = ["image-png", "tray-icon"] }
 tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+serde_json = { version = "1", features = ["raw_value"] }
 rusqlite = { version = "0.41.1", features = ["bundled", "backup"] }
-reqwest = { version = "0.13.5", features = ["json"] }
+reqwest = { version = "0.13.5", default-features = false, features = ["json", "rustls-no-provider", "system-proxy"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
 tokio = { version = "1.54.1", features = ["time", "sync"] }
 thiserror = "2.0.21"
 tauri-plugin-updater = "2.14.1"
@@ -28,6 +29,9 @@ flate2 = "1.1.11"
 tauri-plugin-notification = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-single-instance = "2"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_System_Threading"] }
 
 [profile.release]
 codegen-units = 1

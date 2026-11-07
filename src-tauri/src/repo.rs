@@ -153,69 +153,182 @@ pub fn mark_unavailable(conn: &Connection, match_id: &str) -> AppResult<()> {
     Ok(())
 }
 
-pub fn insert_match(conn: &mut Connection, game: &Value) -> AppResult<bool> {
-    let Some(match_id) = text(game, "/metadata/match_id") else {
-        return Ok(false);
+struct PlayerRow {
+    puuid: String,
+    name: Option<String>,
+    tag: Option<String>,
+    team: String,
+    agent_id: Option<String>,
+    agent_name: Option<String>,
+    tier: Option<i64>,
+    stats: [i64; 9],
+    won: bool,
+    rounds_won: i64,
+    rounds_lost: i64,
+}
+
+pub struct PreparedMatch {
+    match_id: String,
+    started_at: String,
+    map_id: Option<String>,
+    map_name: Option<String>,
+    queue: Option<String>,
+    season_id: Option<String>,
+    season_short: Option<String>,
+    rounds: i64,
+    game_length_ms: Option<i64>,
+    raw: Vec<u8>,
+    players: Vec<PlayerRow>,
+}
+
+fn owned(value: &Value, pointer: &str) -> Option<String> {
+    text(value, pointer).map(str::to_string)
+}
+
+pub fn match_id(game: &Value) -> Option<&str> {
+    text(game, "/metadata/match_id")
+}
+
+pub fn has_match(conn: &Connection, match_id: &str) -> AppResult<bool> {
+    Ok(conn.query_row("SELECT 1 FROM matches WHERE match_id = ?1", params![match_id], |_| Ok(())).optional()?.is_some())
+}
+
+pub fn prepare_match(game: Value) -> AppResult<Option<PreparedMatch>> {
+    let Some(match_id) = owned(&game, "/metadata/match_id") else {
+        return Ok(None);
     };
     let rounds = game.pointer("/rounds").and_then(Value::as_array).map_or(0, Vec::len) as i64;
-    if rounds == 0 || text(game, "/metadata/queue/id") != Some("competitive") {
-        return Ok(false);
+    if rounds == 0 || text(&game, "/metadata/queue/id") != Some("competitive") {
+        return Ok(None);
     }
-    let tx = conn.transaction()?;
-    let inserted = tx.execute(
+    let empty = Vec::new();
+    let teams = game.pointer("/teams").and_then(Value::as_array).unwrap_or(&empty);
+    let players = game
+        .pointer("/players")
+        .and_then(Value::as_array)
+        .unwrap_or(&empty)
+        .iter()
+        .map(|player| {
+            let team_id = text(player, "/team_id").unwrap_or_default();
+            let team = teams.iter().find(|team| text(team, "/team_id") == Some(team_id));
+            PlayerRow {
+                puuid: text(player, "/puuid").unwrap_or_default().to_string(),
+                name: owned(player, "/name"),
+                tag: owned(player, "/tag"),
+                team: team_id.to_string(),
+                agent_id: owned(player, "/agent/id"),
+                agent_name: owned(player, "/agent/name"),
+                tier: player.pointer("/tier/id").and_then(Value::as_i64),
+                stats: [
+                    int(player, "/stats/score"),
+                    int(player, "/stats/kills"),
+                    int(player, "/stats/deaths"),
+                    int(player, "/stats/assists"),
+                    int(player, "/stats/headshots"),
+                    int(player, "/stats/bodyshots"),
+                    int(player, "/stats/legshots"),
+                    int(player, "/stats/damage/dealt"),
+                    int(player, "/stats/damage/received"),
+                ],
+                won: team.and_then(|team| team.pointer("/won")).and_then(Value::as_bool).unwrap_or(false),
+                rounds_won: team.map_or(0, |team| int(team, "/rounds/won")),
+                rounds_lost: team.map_or(0, |team| int(team, "/rounds/lost")),
+            }
+        })
+        .collect();
+    let started_at = text(&game, "/metadata/started_at").unwrap_or_default().to_string();
+    let map_id = owned(&game, "/metadata/map/id");
+    let map_name = owned(&game, "/metadata/map/name");
+    let queue = owned(&game, "/metadata/queue/id");
+    let season_id = owned(&game, "/metadata/season/id");
+    let season_short = owned(&game, "/metadata/season/short");
+    let game_length_ms = game.pointer("/metadata/game_length_in_ms").and_then(Value::as_i64);
+    Ok(Some(PreparedMatch {
+        match_id,
+        started_at,
+        map_id,
+        map_name,
+        queue,
+        season_id,
+        season_short,
+        rounds,
+        game_length_ms,
+        raw: storage::encode(game)?,
+        players,
+    }))
+}
+
+pub fn insert_prepared(conn: &Connection, game: &PreparedMatch) -> AppResult<bool> {
+    let inserted = conn.execute(
         "INSERT OR IGNORE INTO matches
             (match_id, started_at, map_id, map_name, queue, season_id, season_short, rounds, game_length_ms, raw)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
         params![
-            match_id,
-            text(game, "/metadata/started_at").unwrap_or_default(),
-            text(game, "/metadata/map/id"),
-            text(game, "/metadata/map/name"),
-            text(game, "/metadata/queue/id"),
-            text(game, "/metadata/season/id"),
-            text(game, "/metadata/season/short"),
-            rounds,
-            game.pointer("/metadata/game_length_in_ms").and_then(Value::as_i64),
-            storage::encode(game)?,
+            game.match_id,
+            game.started_at,
+            game.map_id,
+            game.map_name,
+            game.queue,
+            game.season_id,
+            game.season_short,
+            game.rounds,
+            game.game_length_ms,
+            game.raw,
         ],
     )?;
     if inserted == 0 {
         return Ok(false);
     }
-    let empty = Vec::new();
-    let teams = game.pointer("/teams").and_then(Value::as_array).unwrap_or(&empty);
-    for player in game.pointer("/players").and_then(Value::as_array).unwrap_or(&empty) {
-        let team_id = text(player, "/team_id").unwrap_or_default();
-        let team = teams.iter().find(|team| text(team, "/team_id") == Some(team_id));
-        tx.execute(
-            "INSERT OR REPLACE INTO match_players
-                (match_id, puuid, name, tag, team, agent_id, agent_name, tier, score, kills, deaths, assists,
-                 headshots, bodyshots, legshots, damage_dealt, damage_received, won, rounds_won, rounds_lost)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20)",
-            params![
-                match_id,
-                text(player, "/puuid").unwrap_or_default(),
-                text(player, "/name"),
-                text(player, "/tag"),
-                team_id,
-                text(player, "/agent/id"),
-                text(player, "/agent/name"),
-                player.pointer("/tier/id").and_then(Value::as_i64),
-                int(player, "/stats/score"),
-                int(player, "/stats/kills"),
-                int(player, "/stats/deaths"),
-                int(player, "/stats/assists"),
-                int(player, "/stats/headshots"),
-                int(player, "/stats/bodyshots"),
-                int(player, "/stats/legshots"),
-                int(player, "/stats/damage/dealt"),
-                int(player, "/stats/damage/received"),
-                team.and_then(|team| team.pointer("/won")).and_then(Value::as_bool).unwrap_or(false),
-                team.map_or(0, |team| int(team, "/rounds/won")),
-                team.map_or(0, |team| int(team, "/rounds/lost")),
-            ],
-        )?;
+    let mut stmt = conn.prepare_cached(
+        "INSERT OR REPLACE INTO match_players
+            (match_id, puuid, name, tag, team, agent_id, agent_name, tier, score, kills, deaths, assists,
+             headshots, bodyshots, legshots, damage_dealt, damage_received, won, rounds_won, rounds_lost)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20)",
+    )?;
+    for player in &game.players {
+        let [score, kills, deaths, assists, headshots, bodyshots, legshots, dealt, received] = player.stats;
+        stmt.execute(params![
+            game.match_id,
+            player.puuid,
+            player.name,
+            player.tag,
+            player.team,
+            player.agent_id,
+            player.agent_name,
+            player.tier,
+            score,
+            kills,
+            deaths,
+            assists,
+            headshots,
+            bodyshots,
+            legshots,
+            dealt,
+            received,
+            player.won,
+            player.rounds_won,
+            player.rounds_lost,
+        ])?;
+    }
+    Ok(true)
+}
+
+pub fn insert_all(conn: &mut Connection, games: &[PreparedMatch]) -> AppResult<usize> {
+    let tx = conn.transaction()?;
+    let mut added = 0;
+    for game in games {
+        if insert_prepared(&tx, game)? {
+            added += 1;
+        }
     }
     tx.commit()?;
-    Ok(true)
+    Ok(added)
+}
+
+#[cfg(test)]
+pub fn insert_match(conn: &mut Connection, game: Value) -> AppResult<bool> {
+    let Some(game) = prepare_match(game)? else {
+        return Ok(false);
+    };
+    Ok(insert_all(conn, std::slice::from_ref(&game))? == 1)
 }

@@ -65,6 +65,12 @@ struct PartyPlayer {
 
 static GROUPED: LazyLock<Mutex<HashMap<(String, String), bool>>> = LazyLock::new(Mutex::default);
 
+pub fn forget_groups() {
+    if let Ok(mut cache) = GROUPED.lock() {
+        *cache = HashMap::new();
+    }
+}
+
 fn ratio(numerator: f64, denominator: f64) -> f64 {
     if denominator > 0.0 { numerator / denominator } else { 0.0 }
 }
@@ -408,7 +414,7 @@ mod tests {
             ],
             "rounds": rounds,
         });
-        assert!(crate::repo::insert_match(conn, &value).unwrap());
+        assert!(crate::repo::insert_match(conn, value).unwrap());
     }
 
     fn database() -> (Connection, std::path::PathBuf) {

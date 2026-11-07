@@ -109,22 +109,15 @@ pub fn map_history(conn: &Connection, puuid: &str, map_id: &str) -> AppResult<Ma
          ORDER BY m.started_at DESC
          LIMIT ?4",
     )?;
-    let rows = stmt
-        .query_map(params![puuid, COMPETITIVE, map_id, MATCH_LIMIT], |row| {
-            Ok((
-                row.get::<_, String>(0)?,
-                row.get::<_, String>(1)?,
-                row.get::<_, Option<String>>(2)?,
-                row.get_ref(3)?.as_bytes()?.to_vec(),
-            ))
-        })?
-        .collect::<Result<Vec<_>, _>>()?;
-    drop(stmt);
+    let mut rows = stmt.query(params![puuid, COMPETITIVE, map_id, MATCH_LIMIT])?;
 
     let mut games = Vec::new();
     let mut actions = Vec::new();
-    for (match_id, started_at, season, raw) in rows {
-        let Some(game) = storage::decode(&raw) else {
+    while let Some(row) = rows.next()? {
+        let match_id: String = row.get(0)?;
+        let started_at: String = row.get(1)?;
+        let season: Option<String> = row.get(2)?;
+        let Some(game) = storage::decode(row.get_ref(3)?.as_bytes().map_err(rusqlite::Error::from)?) else {
             continue;
         };
         let Some(detail) = analysis::analyze(&game, puuid, map.as_ref(), &roles, &thresholds) else {

@@ -1,13 +1,12 @@
 use rusqlite::{Connection, params};
 use serde::Serialize;
-use serde_json::Value;
 use std::collections::{HashMap, HashSet};
 
-use crate::analysis::{attack_side, attacks_first, int, point, text};
+use crate::analysis::attack_side;
 use crate::assets;
 use crate::error::AppResult;
+use crate::game::{self, Game, Kill};
 use crate::i18n::tr;
-use crate::storage;
 
 const COMPETITIVE: &str = "competitive";
 const UNITS_PER_METER: f64 = 100.0;
@@ -197,56 +196,52 @@ struct Player<'a> {
     card: Option<&'a str>,
 }
 
-struct GameRow {
-    match_id: String,
-    started_at: String,
-    map_id: Option<String>,
-    map_name: Option<String>,
-    raw: Vec<u8>,
+pub struct GameRow {
+    pub match_id: String,
+    pub started_at: String,
+    pub map_id: Option<String>,
+    pub map_name: Option<String>,
+}
+
+#[derive(Default)]
+pub struct DuelAcc {
+    totals: Totals,
+}
+
+impl DuelAcc {
+    pub fn add(&mut self, game: &Game, puuid: &str, row: &GameRow) {
+        collect(game, puuid, row, &mut self.totals);
+    }
+
+    pub fn finish(self, roles: &HashMap<String, String>) -> DuelReport {
+        report(self.totals, roles)
+    }
 }
 
 pub fn duels(conn: &Connection, puuid: &str, season: Option<&str>) -> AppResult<DuelReport> {
+    let roles = assets::agent_roles(conn)?;
     let mut stmt = conn.prepare(
         "SELECT m.match_id, m.started_at, m.map_id, m.map_name, m.raw
          FROM match_players p JOIN matches m ON m.match_id = p.match_id
          WHERE p.puuid = ?1 AND m.queue = ?2 AND (?3 IS NULL OR m.season_short = ?3)
          ORDER BY m.started_at DESC",
     )?;
-    let rows = stmt
-        .query_map(params![puuid, COMPETITIVE, season], |row| {
-            Ok(GameRow {
-                match_id: row.get(0)?,
-                started_at: row.get(1)?,
-                map_id: row.get(2)?,
-                map_name: row.get(3)?,
-                raw: row.get_ref(4)?.as_bytes()?.to_vec(),
-            })
-        })?
-        .collect::<Result<Vec<_>, _>>()?;
-    drop(stmt);
-    let roles = assets::agent_roles(conn)?;
-
-    let mut totals = Totals::default();
-    for row in &rows {
-        let Some(game) = storage::decode(&row.raw) else {
-            continue;
-        };
-        collect(&game, puuid, row, &mut totals);
+    let mut rows = stmt.query(params![puuid, COMPETITIVE, season])?;
+    let mut acc = DuelAcc::default();
+    while let Some(row) = rows.next()? {
+        let info = GameRow { match_id: row.get(0)?, started_at: row.get(1)?, map_id: row.get(2)?, map_name: row.get(3)? };
+        let raw = row.get_ref(4)?.as_bytes().map_err(rusqlite::Error::from)?;
+        game::with_game(raw, |game| acc.add(game, puuid, &info));
     }
-    Ok(report(totals, &roles))
+    Ok(acc.finish(&roles))
 }
 
 fn distance(a: (f64, f64), b: (f64, f64)) -> f64 {
     ((a.0 - b.0).powi(2) + (a.1 - b.1).powi(2)).sqrt() / UNITS_PER_METER
 }
 
-fn killer_spot(kill: &Value) -> Option<(f64, f64)> {
-    let killer = text(kill, "/killer/puuid")?;
-    kill.pointer("/player_locations")
-        .and_then(Value::as_array)?
-        .iter()
-        .find(|entry| text(entry, "/player/puuid") == Some(killer))
-        .and_then(|entry| point(entry, "/location"))
+fn killer_spot(kill: &Kill) -> Option<(f64, f64)> {
+    kill.location_of(kill.killer.puuid.get()?)
 }
 
 fn bucket(meters: f64) -> usize {
@@ -259,23 +254,20 @@ fn bucket(meters: f64) -> usize {
     }
 }
 
-fn collect(game: &Value, puuid: &str, row: &GameRow, totals: &mut Totals) {
-    let empty = Vec::new();
+fn collect(game: &Game, puuid: &str, row: &GameRow, totals: &mut Totals) {
     let players: HashMap<&str, Player> = game
-        .pointer("/players")
-        .and_then(Value::as_array)
-        .unwrap_or(&empty)
+        .players
         .iter()
         .filter_map(|player| {
             Some((
-                text(player, "/puuid")?,
+                player.puuid.get()?,
                 Player {
-                    team: text(player, "/team_id")?,
-                    agent_id: text(player, "/agent/id"),
-                    agent_name: text(player, "/agent/name"),
-                    name: text(player, "/name").unwrap_or_default(),
-                    tag: text(player, "/tag").unwrap_or_default(),
-                    card: text(player, "/customization/card").filter(|card| !card.is_empty()),
+                    team: player.team_id.get()?,
+                    agent_id: player.agent.id.get(),
+                    agent_name: player.agent.name.get(),
+                    name: player.name.get().unwrap_or_default(),
+                    tag: player.tag.get().unwrap_or_default(),
+                    card: player.customization.card.get().filter(|card| !card.is_empty()),
                 },
             ))
         })
@@ -284,13 +276,13 @@ fn collect(game: &Value, puuid: &str, row: &GameRow, totals: &mut Totals) {
         return;
     };
     let my_team = me.team;
-    let rounds = game.pointer("/rounds").and_then(Value::as_array).unwrap_or(&empty);
+    let rounds = &game.rounds;
     if rounds.is_empty() {
         return;
     }
     totals.matches += 1;
     totals.rounds += rounds.len() as i64;
-    let attack_first = attacks_first(game, my_team);
+    let attack_first = game.attacks_first(my_team);
 
     let mut seen_agents: HashSet<&str> = HashSet::new();
     let mut seen_rivals: HashSet<&str> = HashSet::new();
@@ -321,17 +313,17 @@ fn collect(game: &Value, puuid: &str, row: &GameRow, totals: &mut Totals) {
         }
     }
 
-    let mut kills: Vec<&Value> = game.pointer("/kills").and_then(Value::as_array).unwrap_or(&empty).iter().collect();
-    kills.sort_by_key(|kill| (int(kill, "/round"), int(kill, "/time_in_round_in_ms")));
+    let mut kills: Vec<&Kill> = game.kills.iter().collect();
+    kills.sort_by_key(|kill| (kill.round(), kill.time()));
 
     let team_of = |id: Option<&str>| id.and_then(|id| players.get(id)).map(|player| player.team);
 
     for kill in &kills {
-        let killer = text(kill, "/killer/puuid");
-        let victim = text(kill, "/victim/puuid");
+        let killer = kill.killer.puuid.get();
+        let victim = kill.victim.puuid.get();
         let killer_team = team_of(killer);
         let victim_team = team_of(victim);
-        let spot = point(kill, "/location");
+        let spot = kill.location.get();
         let range = spot.zip(killer_spot(kill)).map(|(a, b)| bucket(distance(a, b)));
         if killer == Some(puuid) && victim != Some(puuid) && victim_team.is_some_and(|team| team != my_team) {
             totals.kills += 1;
@@ -358,16 +350,21 @@ fn collect(game: &Value, puuid: &str, row: &GameRow, totals: &mut Totals) {
         }
     }
 
+    let mut by_round: HashMap<usize, Vec<&Kill>> = HashMap::new();
+    for kill in &kills {
+        by_round.entry(kill.round() as usize).or_default().push(kill);
+    }
+    let no_kills: Vec<&Kill> = Vec::new();
     for (index, round) in rounds.iter().enumerate() {
-        let won = text(round, "/winning_team") == Some(my_team);
+        let won = round.winning_team.get() == Some(my_team);
         let side = if attack_side(index, attack_first) { 0 } else { 1 };
-        let round_kills: Vec<&Value> = kills.iter().copied().filter(|kill| int(kill, "/round") as usize == index).collect();
+        let round_kills = by_round.get(&index).unwrap_or(&no_kills);
 
         let tally = &mut totals.opening[side];
         tally.rounds += 1;
         if let Some(first) = round_kills.first() {
-            let killer = text(first, "/killer/puuid");
-            let victim = text(first, "/victim/puuid");
+            let killer = first.killer.puuid.get();
+            let victim = first.victim.puuid.get();
             if killer == Some(puuid) && victim != Some(puuid) && team_of(victim).is_some_and(|team| team != my_team) {
                 tally.first_kills += 1;
                 if won {
@@ -383,8 +380,8 @@ fn collect(game: &Value, puuid: &str, row: &GameRow, totals: &mut Totals) {
 
         let mut allies: HashSet<&str> = players.iter().filter(|(_, p)| p.team == my_team).map(|(id, _)| *id).collect();
         let mut enemies: HashSet<&str> = players.iter().filter(|(_, p)| p.team != my_team).map(|(id, _)| *id).collect();
-        for kill in &round_kills {
-            let Some(victim) = text(kill, "/victim/puuid") else {
+        for kill in round_kills {
+            let Some(victim) = kill.victim.puuid.get() else {
                 continue;
             };
             allies.remove(victim);
@@ -409,7 +406,7 @@ fn collect(game: &Value, puuid: &str, row: &GameRow, totals: &mut Totals) {
                     won,
                     kills: round_kills
                         .iter()
-                        .filter(|kill| text(kill, "/killer/puuid") == Some(puuid) && text(kill, "/victim/puuid") != Some(puuid))
+                        .filter(|kill| kill.killer.puuid.get() == Some(puuid) && kill.victim.puuid.get() != Some(puuid))
                         .count() as i64,
                     agent_id: me.agent_id.map(str::to_string),
                 });

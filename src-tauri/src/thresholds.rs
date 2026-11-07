@@ -81,7 +81,7 @@ impl Thresholds {
     }
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn get_thresholds(state: State<'_, AppState>) -> AppResult<ThresholdSettings> {
     Ok(ThresholdSettings { values: Thresholds::load(&*state.conn()?)?, defaults: Thresholds::default() })
 }

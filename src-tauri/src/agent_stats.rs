@@ -1,12 +1,12 @@
-use flate2::read::DeflateDecoder;
 use rusqlite::{Connection, params};
 use serde::de::IgnoredAny;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::io::Read;
 
 use crate::assets;
 use crate::error::AppResult;
+use crate::game::{Game, Int, Kill, List, Person, Text};
+use crate::storage;
 use crate::i18n::tr;
 use crate::progression;
 use crate::state::AppState;
@@ -114,65 +114,95 @@ fn ratio(numerator: f64, denominator: f64) -> f64 {
     if denominator > 0.0 { numerator / denominator } else { 0.0 }
 }
 
-#[derive(Deserialize)]
-struct Person {
-    #[serde(default)]
-    puuid: Option<String>,
-}
+pub type FirstKills = (i64, i64, i64);
 
-#[derive(Deserialize)]
-struct Kill {
-    #[serde(default)]
-    round: i64,
-    #[serde(default)]
-    time_in_round_in_ms: i64,
-    #[serde(default)]
-    killer: Option<Person>,
-    #[serde(default)]
-    victim: Option<Person>,
-}
-
-#[derive(Deserialize)]
-struct Game {
-    #[serde(default)]
-    rounds: Vec<IgnoredAny>,
-    #[serde(default)]
-    kills: Vec<Kill>,
-}
-
-fn parse(bytes: &[u8]) -> Option<Game> {
-    if bytes.first() == Some(&b'{') {
-        return serde_json::from_slice(bytes).ok();
-    }
-    let mut json = Vec::new();
-    DeflateDecoder::new(bytes).read_to_end(&mut json).ok()?;
-    serde_json::from_slice(&json).ok()
-}
-
-fn raw_game(conn: &Connection, match_id: &str) -> AppResult<Option<Game>> {
+fn stored_first_kills(conn: &Connection, match_id: &str, puuid: &str) -> AppResult<Option<FirstKills>> {
     let mut stmt = conn.prepare_cached("SELECT raw FROM matches WHERE match_id = ?1")?;
     let mut rows = stmt.query(params![match_id])?;
     let Some(row) = rows.next()? else {
         return Ok(None);
     };
-    Ok(parse(row.get_ref(0)?.as_bytes().map_err(rusqlite::Error::from)?))
+    let json = storage::inflate(row.get_ref(0)?.as_bytes().map_err(rusqlite::Error::from)?);
+    let game = json.as_deref().and_then(|json| serde_json::from_slice::<Timeline>(json).ok());
+    Ok(game.map(|game| count(game.kills.iter().map(|kill| (kill.round.value(), kill.time_in_round_in_ms.value(), &kill.killer, &kill.victim)), game.rounds.len(), puuid)))
 }
 
-fn first_kills(game: &Game, puuid: &str) -> (i64, i64, i64) {
-    let mut first: HashMap<i64, &Kill> = HashMap::new();
-    for kill in &game.kills {
-        let entry = first.entry(kill.round).or_insert(kill);
-        if kill.time_in_round_in_ms < entry.time_in_round_in_ms {
-            *entry = kill;
+#[derive(Default, Deserialize)]
+#[serde(default)]
+struct Who<'a> {
+    #[serde(borrow)]
+    puuid: Text<'a>,
+}
+
+#[derive(Default, Deserialize)]
+#[serde(default)]
+struct Timing<'a> {
+    round: Int,
+    time_in_round_in_ms: Int,
+    #[serde(borrow)]
+    killer: Who<'a>,
+    #[serde(borrow)]
+    victim: Who<'a>,
+}
+
+#[derive(Default, Deserialize)]
+#[serde(default)]
+struct Timeline<'a> {
+    rounds: List<IgnoredAny>,
+    #[serde(borrow)]
+    kills: List<Timing<'a>>,
+}
+
+fn count<'k, P: 'k>(kills: impl Iterator<Item = (i64, i64, &'k P, &'k P)>, rounds: usize, puuid: &str) -> FirstKills
+where
+    P: PuuidOf,
+{
+    let mut first: HashMap<i64, (i64, &P, &P)> = HashMap::new();
+    for (round, time, killer, victim) in kills {
+        let entry = first.entry(round).or_insert((time, killer, victim));
+        if time < entry.0 {
+            *entry = (time, killer, victim);
         }
     }
-    let is_me = |person: &Option<Person>| person.as_ref().and_then(|p| p.puuid.as_deref()) == Some(puuid);
-    let bloods = first.values().filter(|kill| is_me(&kill.killer)).count() as i64;
-    let deaths = first.values().filter(|kill| is_me(&kill.victim)).count() as i64;
-    (bloods, deaths, game.rounds.len() as i64)
+    let bloods = first.values().filter(|(_, killer, _)| killer.puuid() == Some(puuid)).count() as i64;
+    let deaths = first.values().filter(|(_, _, victim)| victim.puuid() == Some(puuid)).count() as i64;
+    (bloods, deaths, rounds as i64)
+}
+
+trait PuuidOf {
+    fn puuid(&self) -> Option<&str>;
+}
+
+impl PuuidOf for Who<'_> {
+    fn puuid(&self) -> Option<&str> {
+        self.puuid.get()
+    }
+}
+
+impl PuuidOf for Person<'_> {
+    fn puuid(&self) -> Option<&str> {
+        self.puuid.get()
+    }
+}
+
+pub fn first_kills(game: &Game, puuid: &str) -> FirstKills {
+    count(game.kills.iter().map(|kill: &Kill| (kill.round(), kill.time(), &kill.killer, &kill.victim)), game.rounds.len(), puuid)
 }
 
 pub fn agent_stats(conn: &Connection, puuid: &str, season: Option<&str>) -> AppResult<Vec<AgentStat>> {
+    agent_stats_with(conn, puuid, season, |conn, match_id| stored_first_kills(conn, match_id, puuid))
+}
+
+pub fn agent_stats_from(conn: &Connection, puuid: &str, season: Option<&str>, known: &HashMap<String, FirstKills>) -> AppResult<Vec<AgentStat>> {
+    agent_stats_with(conn, puuid, season, |_, match_id| Ok(known.get(match_id).copied()))
+}
+
+fn agent_stats_with(
+    conn: &Connection,
+    puuid: &str,
+    season: Option<&str>,
+    mut first: impl FnMut(&Connection, &str) -> AppResult<Option<FirstKills>>,
+) -> AppResult<Vec<AgentStat>> {
     let mut stmt = conn.prepare(
         "SELECT m.match_id, LOWER(p.agent_id), p.agent_name, m.map_id, m.map_name, p.won, m.rounds, p.kills, p.deaths,
                 p.assists, p.score, p.damage_dealt, p.headshots, p.headshots + p.bodyshots + p.legshots
@@ -267,7 +297,7 @@ pub fn agent_stats(conn: &Connection, puuid: &str, season: Option<&str>) -> AppR
             acc.summary_total += score;
             acc.summary_count += 1;
         }
-        if let Some((bloods, deaths, rounds)) = raw_game(conn, &row.match_id)?.map(|game| first_kills(&game, puuid)) {
+        if let Some((bloods, deaths, rounds)) = first(conn, &row.match_id)? {
             acc.first_bloods += bloods;
             acc.first_deaths += deaths;
             acc.first_rounds += rounds;

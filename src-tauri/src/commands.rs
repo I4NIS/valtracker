@@ -38,7 +38,7 @@ pub struct Bootstrap {
     combined: bool,
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn bootstrap(state: State<'_, AppState>) -> AppResult<Bootstrap> {
     let conn = state.conn()?;
     let accounts = repo::list_accounts(&conn)?;
@@ -58,7 +58,7 @@ pub fn bootstrap(state: State<'_, AppState>) -> AppResult<Bootstrap> {
     })
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn save_api_key(state: State<'_, AppState>, key: String) -> AppResult<()> {
     let key = key.trim();
     if key.is_empty() {
@@ -76,7 +76,7 @@ fn valid_api_key(key: &str) -> bool {
     key.len() <= MAX_API_KEY_LEN && key.chars().all(|c| c.is_ascii_alphanumeric() || c == '-')
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn has_api_key(state: State<'_, AppState>) -> AppResult<bool> {
     Ok(db::get_setting(&*state.conn()?, API_KEY_SETTING)?.is_some_and(|key| !key.is_empty()))
 }
@@ -106,14 +106,14 @@ pub async fn add_account(state: State<'_, AppState>, riot_id: String, region: St
     repo::get_account(&conn, &puuid)?.ok_or_else(|| AppError::Invalid(tr("Compte introuvable", "Account not found").into()))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn set_active_account(state: State<'_, AppState>, puuid: String) -> AppResult<()> {
     let conn = state.conn()?;
     db::set_setting(&conn, COMBINED_SETTING, "false")?;
     db::set_setting(&conn, ACTIVE_ACCOUNT_SETTING, &puuid)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn set_combined_view(state: State<'_, AppState>, enabled: bool) -> AppResult<()> {
     let conn = state.conn()?;
     if enabled && repo::list_accounts(&conn)?.len() < 2 {
@@ -124,10 +124,11 @@ pub fn set_combined_view(state: State<'_, AppState>, enabled: bool) -> AppResult
     db::set_setting(&conn, COMBINED_SETTING, if enabled { "true" } else { "false" })
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn remove_account(state: State<'_, AppState>, puuid: String) -> AppResult<()> {
     repo::delete_account(&*state.conn()?, &puuid)?;
     forget_combined(&state);
+    stats::forget_groups();
     Ok(())
 }
 
@@ -136,7 +137,7 @@ fn forget_combined(state: &AppState) {
     state.forget(|key| key.starts_with(&prefix));
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn list_accounts(state: State<'_, AppState>) -> AppResult<Vec<Account>> {
     repo::list_accounts(&*state.conn()?)
 }
@@ -170,9 +171,10 @@ pub fn get_recent_matches(
 
 #[tauri::command(async)]
 pub fn get_match(state: State<'_, AppState>, puuid: String, match_id: String) -> AppResult<Response> {
-    state.cached(format!("{puuid}|Match({match_id})"), |conn| {
+    state.read(|conn| {
         let detail = match_detail(conn, &puuid, &match_id)?;
-        serde_json::to_string(&detail).map_err(|err| AppError::Invalid(err.to_string()))
+        let json = serde_json::to_string(&detail).map_err(|err| AppError::Invalid(err.to_string()))?;
+        Ok(Response::new(json))
     })
 }
 
@@ -232,12 +234,12 @@ pub fn get_heatmap(
     })
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn get_seasons(state: State<'_, AppState>, puuid: String) -> AppResult<Vec<Season>> {
     stats::seasons(&*state.conn()?, &puuid)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn set_preference(app: AppHandle, state: State<'_, AppState>, key: String, value: String) -> AppResult<()> {
     if !PREFERENCES.contains(&key.as_str()) {
         return Err(AppError::Invalid(tr("Préférence inconnue", "Unknown preference").into()));

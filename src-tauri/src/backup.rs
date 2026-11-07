@@ -198,6 +198,7 @@ pub fn replace(live: &mut Connection, live_path: &Path, source: &Path) -> AppRes
     remove_with_journals(&temp);
     result?;
     db::migrate(live)?;
+    db::checkpoint(live)?;
     Ok(candidate)
 }
 
@@ -290,7 +291,9 @@ pub async fn import_database(app: AppHandle, path: String) -> AppResult<()> {
     let active = blocking(move || {
         let state = handle.state::<AppState>();
         let mut live = state.conn()?;
+        state.reset_readers();
         replace(&mut live, &state.db_path, &source)?;
+        state.reset_readers();
         crate::i18n::load(&live);
         db::get_setting(&live, ACTIVE_ACCOUNT_SETTING)
     })
@@ -471,6 +474,28 @@ mod tests {
         db::migrate_to(&conn, 3).unwrap();
         drop(conn);
         assert!(inspect(&path).is_ok());
+    }
+
+    #[test]
+    fn imports_and_migrates_a_backup_made_before_the_compact_tables() {
+        let scratch = Scratch::new();
+        let old_path = scratch.path("old.db");
+        let old = Connection::open(&old_path).unwrap();
+        old.execute_batch("PRAGMA foreign_keys = ON;").unwrap();
+        db::migrate_to(&old, 9).unwrap();
+        account(&old, "me");
+        crate::db::tests::fill_version_9(&old);
+        drop(old);
+        assert!(inspect(&old_path).is_ok());
+
+        let live_path = scratch.path("valtracker.db");
+        let mut live = db::open(&live_path).unwrap();
+        replace(&mut live, &live_path, &old_path).unwrap();
+        crate::db::tests::assert_compact(&live);
+        let version: i64 = live.pragma_query_value(None, "user_version", |row| row.get(0)).unwrap();
+        assert_eq!(version, db::schema_version());
+        drop(live);
+        assert!(inspect(&live_path).is_ok());
     }
 
     #[test]

@@ -912,7 +912,7 @@ pub fn save_recap_image(app: AppHandle, request: Request<'_>) -> AppResult<Strin
     Ok(path.to_string_lossy().into_owned())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn reveal_recap(app: AppHandle, path: String) -> AppResult<()> {
     let folder = downloads(&app)?;
     let target = PathBuf::from(&path);
@@ -960,7 +960,7 @@ mod tests {
             ],
             "rounds": (0..20).map(|_| json!({ "winning_team": "Red" })).collect::<Vec<_>>(),
         });
-        assert!(crate::repo::insert_match(conn, &value).unwrap());
+        assert!(crate::repo::insert_match(conn, value).unwrap());
     }
 
     #[test]

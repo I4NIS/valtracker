@@ -384,13 +384,31 @@ pub fn analyze(
     }
 
     let teams_json = game.pointer("/teams").and_then(Value::as_array).unwrap_or(&empty);
-    let team_of = |id: &str| players.iter().find(|player| text(player, "/puuid") == Some(id)).and_then(|player| text(player, "/team_id"));
+    let mut team_by_player: HashMap<&str, Option<&str>> = HashMap::with_capacity(players.len());
+    for player in players {
+        if let Some(id) = text(player, "/puuid") {
+            team_by_player.entry(id).or_insert_with(|| text(player, "/team_id"));
+        }
+    }
+    let team_of = |id: &str| team_by_player.get(id).copied().flatten();
+    let mut kills_by_round: HashMap<usize, Vec<&Value>> = HashMap::new();
+    for kill in &kills {
+        kills_by_round.entry(int(kill, "/round") as usize).or_default().push(kill);
+    }
+    let no_kills: Vec<&Value> = Vec::new();
+    let round_kills = |index: usize| kills_by_round.get(&index).unwrap_or(&no_kills);
     let team_info = |team_id: &str| teams_json.iter().find(|team| text(team, "/team_id") == Some(team_id));
     let my_team_info = team_info(&my_team);
     let won = my_team_info.and_then(|team| team["won"].as_bool()).unwrap_or(false);
     let draw = teams_json.iter().all(|team| team["won"].as_bool() == Some(false));
 
     assign_badges(&mut lines, players, teams_json, draw);
+    let lines = lines;
+    let mut line_of: HashMap<&str, usize> = HashMap::with_capacity(lines.len());
+    for (index, line) in lines.iter().enumerate() {
+        line_of.entry(line.puuid.as_str()).or_insert(index);
+    }
+    let find_line = |id: &str| line_of.get(id).map(|index| &lines[*index]);
 
     let attack_first = attacks_first(game, &my_team);
 
@@ -399,6 +417,7 @@ pub fn analyze(
         list.sort_by_key(|kill| (int(kill, "/round"), int(kill, "/time_in_round_in_ms")));
         list
     };
+    let died_in: std::collections::HashSet<usize> = my_deaths.iter().map(|kill| int(kill, "/round") as usize).collect();
 
     let round_lines: Vec<RoundLine> = rounds
         .iter()
@@ -421,7 +440,7 @@ pub fn analyze(
                 }
             }
             let person = |id: &str, fallback: Option<&str>| {
-                let line = lines.iter().find(|line| line.puuid == id);
+                let line = find_line(id);
                 (
                     line.map_or_else(|| fallback.unwrap_or(tr("Inconnu", "Unknown")).to_string(), |line| line.name.clone()),
                     line.and_then(|line| line.agent_id.clone()),
@@ -429,9 +448,8 @@ pub fn analyze(
                     id == puuid,
                 )
             };
-            let mut events: Vec<RoundEvent> = kills
+            let mut events: Vec<RoundEvent> = round_kills(index)
                 .iter()
-                .filter(|kill| int(kill, "/round") as usize == index)
                 .map(|kill| {
                     let killer_id = text(kill, "/killer/puuid").unwrap_or_default();
                     let actor_position = kill
@@ -522,7 +540,7 @@ pub fn analyze(
                 team_loadout: if team_total.1 > 0 { team_total.0 / team_total.1 } else { 0 },
                 enemy_loadout: if enemy_total.1 > 0 { enemy_total.0 / enemy_total.1 } else { 0 },
                 my_kills: mine.1,
-                died: my_deaths.iter().any(|kill| int(kill, "/round") as usize == index),
+                died: died_in.contains(&index),
                 result: result_label(text(round, "/result").unwrap_or_default()),
                 ceremony: text(round, "/ceremony").and_then(ceremony_label),
                 events,
@@ -537,7 +555,7 @@ pub fn analyze(
             let round = int(kill, "/round") as usize;
             let time = int(kill, "/time_in_round_in_ms");
             let killer_id = text(kill, "/killer/puuid").unwrap_or_default();
-            let killer = lines.iter().find(|line| line.puuid == killer_id);
+            let killer = find_line(killer_id);
             let locations = kill.pointer("/player_locations").and_then(Value::as_array).unwrap_or(&empty);
             let location_of = |id: &str| {
                 locations
@@ -556,10 +574,9 @@ pub fn analyze(
                 .filter_map(|entry| point(entry, "/location"))
                 .collect();
             let nearest_ally_m = victim.and_then(|spot| allies.iter().map(|ally| distance(spot, *ally)).min_by(f64::total_cmp));
-            let traded = kills.iter().any(|other| {
+            let traded = round_kills(round).iter().any(|other| {
                 let delta = int(other, "/time_in_round_in_ms") - time;
-                int(other, "/round") as usize == round
-                    && text(other, "/victim/puuid") == Some(killer_id)
+                text(other, "/victim/puuid") == Some(killer_id)
                     && (0..=thresholds.trade_window_ms).contains(&delta)
             });
             let first_death = first_kills

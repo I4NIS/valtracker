@@ -1,3 +1,5 @@
+#[cfg(test)]
+mod equivalence;
 mod i18n;
 mod journal;
 mod map_stats;
@@ -12,6 +14,7 @@ mod commands;
 mod db;
 mod error;
 mod favorites;
+mod game;
 mod heatmap;
 mod henrik;
 mod http;
@@ -20,6 +23,7 @@ mod notify;
 mod progression;
 mod recap;
 mod reports;
+mod scan;
 mod repo;
 mod state;
 mod stats;
@@ -32,8 +36,11 @@ use tauri::Manager;
 
 use crate::state::AppState;
 
+const STARTUP_WARM_DELAY: std::time::Duration = std::time::Duration::from_secs(4);
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    http::install_crypto();
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _, _| tray::show(app)))
         .plugin(tauri_plugin_opener::init())
@@ -49,8 +56,10 @@ pub fn run() {
             let conn = db::open(&path)?;
             i18n::load(&conn);
             app.manage(AppState::new(conn, path));
+            app.manage(reports::Warmer::default());
+            reports::start(app.handle().clone());
             let handle = app.handle().clone();
-            tauri::async_runtime::spawn_blocking(move || {
+            std::thread::Builder::new().name("startup".into()).spawn(move || {
                 let active = handle.state::<AppState>().conn().ok().and_then(|conn| {
                     let _ = storage::compact_existing(&conn);
                     db::get_setting(&conn, sync::ACTIVE_ACCOUNT_SETTING).ok().flatten()
@@ -58,7 +67,11 @@ pub fn run() {
                 if let Some(puuid) = active {
                     reports::warm(&handle, puuid);
                 }
-            });
+                std::thread::sleep(STARTUP_WARM_DELAY);
+                reports::ready(&handle);
+                reports::lower_priority();
+                let _ = storage::recompress_existing(&handle.state::<AppState>());
+            })?;
             sync::spawn_auto_sync(app.handle().clone());
             tray::install(app)?;
             Ok(())
