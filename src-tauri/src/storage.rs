@@ -7,6 +7,8 @@ use std::io::{Read, Write};
 
 use crate::error::{AppError, AppResult};
 
+const MAX_INFLATED: u64 = 16 * 1024 * 1024;
+
 fn pick(value: &Value, keys: &[&str]) -> Value {
     let mut map = Map::new();
     for key in keys {
@@ -107,8 +109,8 @@ pub fn inflate(bytes: &[u8]) -> Option<Vec<u8>> {
         return Some(bytes.to_vec());
     }
     let mut json = Vec::new();
-    DeflateDecoder::new(bytes).read_to_end(&mut json).ok()?;
-    Some(json)
+    DeflateDecoder::new(bytes).take(MAX_INFLATED + 1).read_to_end(&mut json).ok()?;
+    (json.len() as u64 <= MAX_INFLATED).then_some(json)
 }
 
 pub fn decode(bytes: &[u8]) -> Option<Value> {
@@ -139,4 +141,28 @@ pub fn compact_existing(conn: &Connection) -> AppResult<usize> {
         conn.execute_batch("VACUUM;")?;
     }
     Ok(ids.len())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn deflate(bytes: &[u8]) -> Vec<u8> {
+        let mut encoder = DeflateEncoder::new(Vec::new(), Compression::new(9));
+        encoder.write_all(bytes).unwrap();
+        encoder.finish().unwrap()
+    }
+
+    #[test]
+    fn inflates_a_stored_match() {
+        let game = json!({ "metadata": { "match_id": "abc" } });
+        assert_eq!(decode(&encode(&game).unwrap()).unwrap()["metadata"]["match_id"], "abc");
+    }
+
+    #[test]
+    fn refuses_a_decompression_bomb() {
+        let bomb = deflate(&vec![b' '; MAX_INFLATED as usize + 1]);
+        assert!(inflate(&bomb).is_none());
+        assert!(inflate(&deflate(&[b' '; 1024])).is_some());
+    }
 }
