@@ -12,6 +12,7 @@ import { fmt, greeting, pct, signed, tradeWindowText } from "../lib/format";
 import { t } from "../lib/i18n";
 import { useQuery } from "../lib/query";
 import { ALL_ACCOUNTS, defaultSeason, queries, RECENT_PAGE } from "../lib/queries";
+import { useViewport } from "../lib/viewport";
 
 type Props = {
   account: Account;
@@ -21,6 +22,8 @@ type Props = {
 };
 
 const RECENT_SHOWN = 10;
+const RECENT_ROW = 56;
+const RECENT_ROOM = 1300;
 
 let remembered: { puuid: string; extra: ExtraFilters } | null = null;
 
@@ -51,7 +54,9 @@ export function Home({ account, accounts, onOpenMatch }: Props) {
   const latestQuery = useQuery(queries.recent(puuid, RECENT_PAGE));
   const latest = latestQuery.data;
   const recentLoading = latestQuery.pending && latestQuery.error === null;
-  const recent = useMemo(() => (latest ?? []).slice(0, RECENT_SHOWN), [latest]);
+  const height = useViewport().height;
+  const shown = Math.min(RECENT_PAGE, RECENT_SHOWN + Math.max(0, Math.floor((height - RECENT_ROOM) / RECENT_ROW)));
+  const recent = useMemo(() => (latest ?? []).slice(0, shown), [latest, shown]);
   const flaws = useQuery(accounts ? null : queries.flaws(puuid)).data ?? null;
   const thresholds = useQuery(queries.thresholds()).data?.values;
   const overview = overviewQuery.data ?? null;
@@ -112,7 +117,7 @@ export function Home({ account, accounts, onOpenMatch }: Props) {
         },
       ]
     : [];
-  const timeline = [...recent].sort((a, b) => a.startedAt.localeCompare(b.startedAt));
+  const timeline = recent.slice(0, RECENT_SHOWN).sort((a, b) => a.startedAt.localeCompare(b.startedAt));
   const recentWins = timeline.filter((game) => game.won).length;
 
   return (
@@ -291,7 +296,7 @@ export function Home({ account, accounts, onOpenMatch }: Props) {
             {recent.length > 0 && <span className="faint">{t("Clique sur un match pour son détail", "Click a match for its details")}</span>}
           </div>
           {recentLoading ? (
-            <MatchListSkeleton rows={RECENT_SHOWN} />
+            <MatchListSkeleton rows={shown} />
           ) : recent.length === 0 ? (
             <div className="empty">{t("Tes matchs apparaîtront ici dès la fin de la synchro.", "Your matches will show up here once the sync is done.")}</div>
           ) : (
