@@ -293,6 +293,14 @@ a {
   }
 }
 
+.page-layer {
+  display: contents;
+}
+
+.page-layer[hidden] {
+  display: none;
+}
+
 .content {
   width: 100%;
   box-sizing: border-box;

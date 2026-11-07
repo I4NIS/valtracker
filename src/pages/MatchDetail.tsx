@@ -29,6 +29,7 @@ type Props = {
   matchId: string;
   initialRound?: number;
   initialDeath?: boolean;
+  backLabel: string;
   onBack: () => void;
 };
 
@@ -39,7 +40,7 @@ function startTab(initialRound: number | undefined, initialDeath: boolean | unde
 
 const VISIBLE_FLAWS = 3;
 
-export function MatchDetail({ account, matchId, initialRound, initialDeath, onBack }: Props) {
+export function MatchDetail({ account, matchId, initialRound, initialDeath, backLabel, onBack }: Props) {
   const query = useQuery(queries.match(account.puuid, matchId));
   const detail = query.data && query.data.matchId === matchId ? query.data : null;
   const error = query.error;
@@ -60,7 +61,7 @@ export function MatchDetail({ account, matchId, initialRound, initialDeath, onBa
   if (error) {
     return (
       <div className="content">
-        <BackButton onBack={onBack} />
+        <BackButton label={backLabel} onBack={onBack} />
         <p className="form-error">{error}</p>
       </div>
     );
@@ -70,7 +71,7 @@ export function MatchDetail({ account, matchId, initialRound, initialDeath, onBa
     return (
       <SkeletonGroup className="content match-detail" label={t("Analyse du match", "Analyzing the match")}>
         <header className="match-hero">
-          <BackButton onBack={onBack} />
+          <BackButton label={backLabel} onBack={onBack} />
           <SkeletonBlock width={60} height={60} radius={12} />
           <div className="stack" style={{ gap: 8, flex: "1 1 280px", minWidth: 0 }}>
             <SkeletonLine width={180} size={30} lineHeight={1.05} />
@@ -136,7 +137,7 @@ export function MatchDetail({ account, matchId, initialRound, initialDeath, onBa
   return (
     <div className="content match-detail">
       <header className="match-hero">
-        <BackButton onBack={onBack} />
+        <BackButton label={backLabel} onBack={onBack} />
         {agentIcon(detail.agentId) && <img src={agentIcon(detail.agentId)} alt={detail.agentName ?? ""} width={60} height={60} decoding="async" {...fadeIn} />}
         <div className="stack" style={{ gap: 4, flex: "1 1 280px", minWidth: 0 }}>
           <h1 className="match-title">{detail.mapName ?? t("Map inconnue", "Unknown map")}</h1>
@@ -316,11 +317,11 @@ export function MatchDetail({ account, matchId, initialRound, initialDeath, onBa
   );
 }
 
-function BackButton({ onBack }: { onBack: () => void }) {
+function BackButton({ label, onBack }: { label: string; onBack: () => void }) {
   return (
     <button type="button" className="back-btn" onClick={onBack}>
       <Icon name="arrowRight" size={16} strokeWidth={2} className="flip" />
-      {t("Matchs", "Matches")}
+      {label}
     </button>
   );
 }

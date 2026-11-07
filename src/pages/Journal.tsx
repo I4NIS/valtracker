@@ -8,6 +8,7 @@ import { agentIcon } from "../lib/assets";
 import { favoriteLabel, type FavoriteEntry, type FavoriteKind } from "../lib/favorites";
 import { fmt, fullDate, pct } from "../lib/format";
 import { t } from "../lib/i18n";
+import { useBackLabel } from "../lib/navigation";
 import { firstLine, sameTag, type NoteEntry, type TagStat } from "../lib/journal";
 import { useQuery } from "../lib/query";
 import { queries } from "../lib/queries";
@@ -32,6 +33,7 @@ const kindFilters = (): { id: FavoriteKind; label: string }[] => [
 
 export function Journal({ account, onOpenMatch }: Props) {
   const [view, setView] = useState<View>("notes");
+  useBackLabel(view === "favorites" ? t("Retour aux favoris", "Back to favorites") : null);
 
   return (
     <div className="content">

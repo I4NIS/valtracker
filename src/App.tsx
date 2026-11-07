@@ -1,4 +1,4 @@
-import { Fragment, lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { CommandPalette, useCommandPaletteShortcut } from "./components/CommandPalette";
 import { loadExportDialog } from "./components/ExportRecap";
 import { PickAccount } from "./components/PickAccount";
@@ -7,10 +7,11 @@ import { TitleBar } from "./components/TitleBar";
 import { UpdateBanner } from "./components/UpdateBanner";
 import { whenIdle } from "./lib/idle";
 import { listen } from "@tauri-apps/api/event";
-import { asLang, setLang, type Lang } from "./lib/i18n";
+import { asLang, setLang, t, type Lang } from "./lib/i18n";
 import { api, errorMessage, onSyncProgress, type Account, type Bootstrap, type Theme } from "./lib/api";
-import { ALL_ACCOUNTS, prefetchAccount } from "./lib/queries";
-import { invalidate } from "./lib/query";
+import { currentBackLabel, PageVisible } from "./lib/navigation";
+import { ALL_ACCOUNTS, prefetchAccount, queries } from "./lib/queries";
+import { invalidate, peek } from "./lib/query";
 import { updateSync } from "./lib/sync";
 import { Agents } from "./pages/Agents";
 import { Duels } from "./pages/Duels";
@@ -35,6 +36,25 @@ function preloadRareScreens() {
   const steps: (() => Promise<unknown>)[] = [loadSettings, loadExportDialog, loadTour, loadOnboarding];
   steps.reduce<Promise<unknown>>((chain, step) => chain.then(() => whenIdle()).then(step).catch(() => undefined), Promise.resolve());
 }
+
+type OpenMatch = { id: string; round?: number; owner: string | null; death: boolean };
+
+type Frame = { match: OpenMatch | null; scroll: number; label: string };
+
+const PAGE_BACK: Record<Page, () => string> = {
+  home: () => t("Retour à l'accueil", "Back to home"),
+  matches: () => t("Retour aux matchs", "Back to matches"),
+  progress: () => t("Retour à la progression", "Back to progression"),
+  agents: () => t("Retour aux agents", "Back to agents"),
+  maps: () => t("Retour aux maps", "Back to maps"),
+  weapons: () => t("Retour aux armes", "Back to weapons"),
+  duels: () => t("Retour aux duels", "Back to duels"),
+  heatmaps: () => t("Retour aux heatmaps", "Back to heatmaps"),
+  journal: () => t("Retour au journal", "Back to journal"),
+  settings: () => t("Retour aux paramètres", "Back to settings"),
+};
+
+const mainNode = () => document.querySelector<HTMLElement>(".main");
 
 const SINGLE_ACCOUNT_PAGES: Page[] = ["progress", "agents", "maps", "weapons", "duels", "heatmaps", "journal"];
 
@@ -62,10 +82,12 @@ export default function App() {
   const [page, setPage] = useState<Page>("home");
   const pageRef = useRef(page);
   pageRef.current = page;
-  const [openMatch, setOpenMatch] = useState<string | null>(null);
-  const [openMatchOwner, setOpenMatchOwner] = useState<string | null>(null);
-  const [openRound, setOpenRound] = useState<number | undefined>(undefined);
-  const [openDeath, setOpenDeath] = useState(false);
+  const [openMatch, setOpenMatch] = useState<OpenMatch | null>(null);
+  const openRef = useRef(openMatch);
+  openRef.current = openMatch;
+  const [history, setHistory] = useState<Frame[]>([]);
+  const restore = useRef<number | null>(null);
+  const matchPuuid = useRef("");
   const [refreshKey, setRefreshKey] = useState(0);
   const [tourOpen, setTourOpen] = useState(false);
   const [tourTarget, setTourTarget] = useState<TourTarget | null>(null);
@@ -98,22 +120,36 @@ export default function App() {
     document.documentElement.dataset.theme = theme;
   }, [theme]);
 
-  useEffect(() => {
-    document.querySelector(".main")?.scrollTo({ top: 0 });
+  useLayoutEffect(() => {
+    const target = restore.current;
+    restore.current = null;
+    mainNode()?.scrollTo({ top: target ?? 0 });
   }, [page, openMatch]);
 
   const navigate = useCallback((next: Page) => {
     setOpenMatch(null);
+    setHistory([]);
     setPage(next);
   }, []);
 
   const showMatch = useCallback((matchId: string, round?: number, puuid?: string, death = false) => {
-    setPage("matches");
-    setOpenMatch(matchId);
-    setOpenRound(round);
-    setOpenMatchOwner(puuid ?? null);
-    setOpenDeath(death);
+    const from = openRef.current;
+    const name = from ? peek<{ mapName: string | null }>(queries.match(matchPuuid.current, from.id).key)?.mapName : null;
+    const label = from
+      ? name
+        ? t(`Retour au match sur ${name}`, `Back to the match on ${name}`)
+        : t("Retour au match", "Back to the match")
+      : (currentBackLabel() ?? PAGE_BACK[pageRef.current]());
+    setHistory((stack) => [...stack, { match: from, scroll: mainNode()?.scrollTop ?? 0, label }]);
+    setOpenMatch({ id: matchId, round, owner: puuid ?? null, death });
   }, []);
+
+  const goBack = useCallback(() => {
+    const frame = history[history.length - 1];
+    setHistory((stack) => stack.slice(0, -1));
+    restore.current = frame?.scroll ?? 0;
+    setOpenMatch(frame?.match ?? null);
+  }, [history]);
 
   useEffect(() => {
     const stop = onSyncProgress((progress) => {
@@ -137,7 +173,8 @@ export default function App() {
 
   const account: Account | null = boot?.accounts.find((item) => item.puuid === boot.activePuuid) ?? null;
   const combined = boot !== null && boot.combined && boot.accounts.length > 1 ? boot.accounts : null;
-  const matchAccount = (combined && combined.find((item) => item.puuid === openMatchOwner)) || account;
+  const matchAccount = (combined && combined.find((item) => item.puuid === openMatch?.owner)) || account;
+  matchPuuid.current = matchAccount?.puuid ?? "";
   const single = combined ? null : account;
 
   useEffect(() => {
@@ -246,40 +283,52 @@ export default function App() {
         tourTarget={tourOpen ? tourTarget : null}
         onSearch={() => setPaletteOpen(true)}
       >
-        {page === "home" && account && (
-          <Home account={account} accounts={combined} refreshKey={refreshKey} onOpenMatch={showMatch} />
-        )}
-        {page === "matches" && account && !openMatch && (
-          <Matches account={account} accounts={combined} refreshKey={refreshKey} onOpen={showMatch} />
-        )}
-        {combined && SINGLE_ACCOUNT_PAGES.includes(page) && <PickAccount accounts={combined} onPick={accountsChanged} />}
-        {single && page === "heatmaps" && <Heatmaps account={single} refreshKey={refreshKey} />}
-        {single && page === "progress" && <Progression account={single} refreshKey={refreshKey} />}
-        {single && page === "agents" && <Agents account={single} refreshKey={refreshKey} />}
-        {single && page === "maps" && <Maps account={single} refreshKey={refreshKey} onOpenRound={showMatch} />}
-        {single && page === "weapons" && <Weapons account={single} refreshKey={refreshKey} onOpenRound={showMatch} />}
-        {single && page === "duels" && <Duels account={single} refreshKey={refreshKey} onOpenRound={showMatch} />}
-        {single && page === "journal" && <Journal account={single} refreshKey={refreshKey} onOpenMatch={showMatch} />}
-        {page === "matches" && matchAccount && openMatch && (
-          <MatchDetail account={matchAccount} matchId={openMatch} initialRound={openRound} initialDeath={openDeath} onBack={() => setOpenMatch(null)} />
-        )}
-        {page === "settings" && (
-          <Suspense fallback={null}>
-            <Settings
-              accounts={boot.accounts}
-              activePuuid={boot.activePuuid}
-              combined={combined !== null}
-              theme={theme}
-              onTheme={changeTheme}
-              language={language}
-              onLanguage={changeLanguage}
-              notifyMatches={boot.notifyMatches}
-              onNotifyMatches={changeNotify}
-              onAccountsChanged={accountsChanged}
-              onCombined={showCombined}
-              onReplayTour={replayTour}
-            />
-          </Suspense>
+        <div className="page-layer" hidden={openMatch !== null}>
+          <PageVisible.Provider value={openMatch === null}>
+            {page === "home" && account && (
+              <Home account={account} accounts={combined} refreshKey={refreshKey} onOpenMatch={showMatch} />
+            )}
+            {page === "matches" && account && (
+              <Matches account={account} accounts={combined} refreshKey={refreshKey} onOpen={showMatch} />
+            )}
+            {combined && SINGLE_ACCOUNT_PAGES.includes(page) && <PickAccount accounts={combined} onPick={accountsChanged} />}
+            {single && page === "heatmaps" && <Heatmaps account={single} refreshKey={refreshKey} />}
+            {single && page === "progress" && <Progression account={single} refreshKey={refreshKey} />}
+            {single && page === "agents" && <Agents account={single} refreshKey={refreshKey} onOpenMatch={showMatch} />}
+            {single && page === "maps" && <Maps account={single} refreshKey={refreshKey} onOpenRound={showMatch} />}
+            {single && page === "weapons" && <Weapons account={single} refreshKey={refreshKey} onOpenRound={showMatch} />}
+            {single && page === "duels" && <Duels account={single} refreshKey={refreshKey} onOpenRound={showMatch} />}
+            {single && page === "journal" && <Journal account={single} refreshKey={refreshKey} onOpenMatch={showMatch} />}
+            {page === "settings" && (
+              <Suspense fallback={null}>
+                <Settings
+                  accounts={boot.accounts}
+                  activePuuid={boot.activePuuid}
+                  combined={combined !== null}
+                  theme={theme}
+                  onTheme={changeTheme}
+                  language={language}
+                  onLanguage={changeLanguage}
+                  notifyMatches={boot.notifyMatches}
+                  onNotifyMatches={changeNotify}
+                  onAccountsChanged={accountsChanged}
+                  onCombined={showCombined}
+                  onReplayTour={replayTour}
+                />
+              </Suspense>
+            )}
+          </PageVisible.Provider>
+        </div>
+        {matchAccount && openMatch && (
+          <MatchDetail
+            key={`${openMatch.id}-${history.length}`}
+            account={matchAccount}
+            matchId={openMatch.id}
+            initialRound={openMatch.round}
+            initialDeath={openMatch.death}
+            backLabel={history[history.length - 1]?.label ?? PAGE_BACK[page]()}
+            onBack={goBack}
+          />
         )}
       </Shell>
       {tourOpen && (

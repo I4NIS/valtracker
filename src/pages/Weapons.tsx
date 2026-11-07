@@ -10,6 +10,7 @@ import { agentIcon, seasonLabel } from "../lib/assets";
 import { fmt, fullDate, pct } from "../lib/format";
 import { findAbility, mapArt, useAgentCatalog, weaponArt, type Catalog } from "../lib/gameAssets";
 import { lang, t } from "../lib/i18n";
+import { useBackLabel } from "../lib/navigation";
 import { useQuery } from "../lib/query";
 import { defaultSeason, queries } from "../lib/queries";
 import {
@@ -205,6 +206,8 @@ export function Weapons({ account, onOpenRound }: Props) {
   const topDeaths = Math.max(1, ...killers.map((item) => item.deaths));
   const favorite = data?.weapons.find((item) => !item.ability && item.kills > 0) ?? null;
   const abilityKillers = data?.killers.find((item) => item.name === ABILITIES)?.parts ?? [];
+  const historyName = historyOpen && tracked ? displayName(tracked.name) : null;
+  useBackLabel(historyName ? t(`Retour à ${historyName}`, `Back to ${historyName}`) : null);
   const empty = data !== null && data.kills === 0 && data.weapons.length === 0 && data.killers.length === 0;
 
   if (historyOpen && data && tracked && season !== undefined) {

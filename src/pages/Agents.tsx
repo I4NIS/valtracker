@@ -16,6 +16,7 @@ import { defaultSeason, queries } from "../lib/queries";
 type Props = {
   account: Account;
   refreshKey: number;
+  onOpenMatch?: (matchId: string) => void;
 };
 
 const ROLE_FILTERS = [

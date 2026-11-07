@@ -4,6 +4,7 @@ import { agentIcon, seasonLabel } from "../lib/assets";
 import { clock, fmt, fullDate, shortDate } from "../lib/format";
 import { findAbility, useAgentCatalog, type Catalog } from "../lib/gameAssets";
 import { t } from "../lib/i18n";
+import { usePageVisible } from "../lib/navigation";
 import type { MapAction, MapGame, MapHistory } from "../lib/mapStats";
 import { rotatePoint, rotationStyle, type Point } from "../lib/minimap";
 import { FilterPill, type PillOption } from "./FilterPill";
@@ -96,6 +97,7 @@ export function MapHistoryView({ history, mapName, season, onOpenRound }: Props)
   }));
   const [visible, setVisible] = useState(PAGE);
   const [open, setOpen] = useState<number | null>(null);
+  const pageVisible = usePageVisible();
   const catalog = useAgentCatalog();
 
   const update = (patch: Partial<Filters>) => {
@@ -294,7 +296,7 @@ export function MapHistoryView({ history, mapName, season, onOpenRound }: Props)
         </div>
       </div>
 
-      {current && open !== null && (
+      {current && open !== null && pageVisible && (
         <ActionModal
           action={current}
           game={games.get(current.matchId)}

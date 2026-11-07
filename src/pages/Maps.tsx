@@ -12,6 +12,7 @@ import { mapArt } from "../lib/gameAssets";
 import type { MapStat } from "../lib/mapStats";
 import { rotatePoint, rotationStyle } from "../lib/minimap";
 import { t } from "../lib/i18n";
+import { useBackLabel } from "../lib/navigation";
 import { prefetch, useQuery } from "../lib/query";
 import { defaultSeason, queries } from "../lib/queries";
 
@@ -45,6 +46,7 @@ export function Maps({ account, onOpenRound }: Props) {
   const error = query.error;
   const [openId, setOpenId] = useState<string | null>(null);
   const opened = maps?.find((map) => map.mapId === openId) ?? null;
+  useBackLabel(opened ? t(`Retour à ${opened.name}`, `Back to ${opened.name}`) : null);
 
   const ranking = useMemo(() => {
     const eligible = (maps ?? [])
