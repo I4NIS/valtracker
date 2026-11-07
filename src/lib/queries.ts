@@ -3,7 +3,7 @@ import { api, type HeatmapFilters, type OverviewFilters } from "./api";
 import { getDuels } from "./duels";
 import { favorites } from "./favorites";
 import { journal } from "./journal";
-import { getMapStats } from "./mapStats";
+import { getMapHistory, getMapStats } from "./mapStats";
 import { peek, prefetch, type Query } from "./query";
 import { getWeaponHistory, getWeaponStats } from "./weapons";
 
@@ -42,6 +42,7 @@ export const queries = {
   }),
   agents: (puuid: string, season: Season) => ({ key: `agents|${puuid}|${s(season)}`, fetch: () => getAgentStats(puuid, season) }),
   maps: (puuid: string, season: Season) => ({ key: `maps|${puuid}|${s(season)}`, fetch: () => getMapStats(puuid, season) }),
+  mapHistory: (puuid: string, mapId: string) => ({ key: `mapHistory|${puuid}|${mapId}`, fetch: () => getMapHistory(puuid, mapId) }),
   weapons: (puuid: string, season: Season) => ({ key: `weapons|${puuid}|${s(season)}`, fetch: () => getWeaponStats(puuid, season) }),
   weaponHistory: (puuid: string, season: Season, weapon: string, deaths: boolean) => ({
     key: `weaponHistory|${puuid}|${s(season)}|${weapon}|${deaths}`,

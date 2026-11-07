@@ -58,6 +58,16 @@ export function fullDate(iso: string | null | undefined): string {
   return t(`${day} à ${time}`, `${day}, ${time}`);
 }
 
+export function shortDate(iso: string | null | undefined): string {
+  if (!iso) return "";
+  return new Date(iso).toLocaleDateString(locale(), { day: "numeric", month: "short" });
+}
+
+export function clock(seconds: number): string {
+  const whole = Math.max(0, Math.floor(seconds));
+  return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, "0")}`;
+}
+
 const ROLES: Record<string, string> = {
   Duelist: "Duelliste",
   Initiator: "Initiateur",

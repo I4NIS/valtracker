@@ -1,6 +1,8 @@
 import "../styles/maps.css";
-import { useMemo, useRef, useState, type RefObject } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Art } from "../components/GameArt";
+import { Icon } from "../components/Icon";
+import { MapHistoryView } from "../components/MapHistoryView";
 import { SeasonPicker } from "../components/SeasonPicker";
 import type { Account } from "../lib/api";
 import { agentIcon, seasonLabel } from "../lib/assets";
@@ -9,7 +11,7 @@ import { mapArt } from "../lib/gameAssets";
 import type { MapStat } from "../lib/mapStats";
 import { rotatePoint, rotationStyle } from "../lib/minimap";
 import { t } from "../lib/i18n";
-import { useQuery } from "../lib/query";
+import { prefetch, useQuery } from "../lib/query";
 import { defaultSeason, queries } from "../lib/queries";
 
 const MIN_RANKED = 3;
@@ -18,7 +20,10 @@ const RANK_SIZE = 3;
 type Props = {
   account: Account;
   refreshKey: number;
+  onOpenRound?: (matchId: string, roundIndex: number) => void;
 };
+
+type Tab = "history" | "stats";
 
 const matchCount = (count: number) => t(`${count} ${count > 1 ? "matchs" : "match"}`, `${count} ${count === 1 ? "match" : "matches"}`);
 const roundCount = (count: number) => t(`${count} ${count > 1 ? "rounds" : "round"}`, `${count} ${count === 1 ? "round" : "rounds"}`);
@@ -32,18 +37,13 @@ function record(map: MapStat) {
   return parts.join(", ");
 }
 
-export function Maps({ account }: Props) {
+export function Maps({ account, onOpenRound }: Props) {
   const [season, setSeason] = useState<string | null | undefined>(() => defaultSeason(account.puuid));
   const query = useQuery(season === undefined ? null : queries.maps(account.puuid, season));
   const maps = query.data ?? null;
   const error = query.error;
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const detailRef = useRef<HTMLElement | null>(null);
-
-  const selected = useMemo(
-    () => maps?.find((map) => map.mapId === selectedId) ?? maps?.[0] ?? null,
-    [maps, selectedId],
-  );
+  const [openId, setOpenId] = useState<string | null>(null);
+  const opened = maps?.find((map) => map.mapId === openId) ?? null;
 
   const ranking = useMemo(() => {
     const eligible = (maps ?? [])
@@ -55,8 +55,25 @@ export function Maps({ account }: Props) {
   }, [maps]);
 
   const choose = (id: string) => {
-    setSelectedId(id);
+    setOpenId(id);
   };
+
+  const warm = (id: string) => {
+    prefetch(queries.mapHistory(account.puuid, id));
+  };
+
+  if (opened) {
+    return (
+      <MapView
+        key={opened.mapId}
+        puuid={account.puuid}
+        map={opened}
+        season={season ?? null}
+        onBack={() => setOpenId(null)}
+        onOpenRound={onOpenRound}
+      />
+    );
+  }
 
   return (
     <div className="content">
@@ -80,8 +97,10 @@ export function Maps({ account }: Props) {
               <button
                 key={map.mapId}
                 type="button"
-                className={`mapstat-card${selected?.mapId === map.mapId ? " active" : ""}`}
-                aria-pressed={selected?.mapId === map.mapId}
+                className="mapstat-card"
+                aria-label={t(`Ouvrir ${map.name}`, `Open ${map.name}`)}
+                onPointerEnter={() => warm(map.mapId)}
+                onFocus={() => warm(map.mapId)}
                 onClick={() => choose(map.mapId)}
               >
                 <Art src={map.splash ?? mapArt(map.mapId, "splash")} width={380} height={256} alt="" className="mapstat-card-art" />
@@ -98,8 +117,6 @@ export function Maps({ account }: Props) {
               </button>
             ))}
           </div>
-
-          {selected && <MapDetail map={selected} sectionRef={detailRef} />}
 
           <section className="stack" style={{ gap: 20 }}>
             <div className="stack" style={{ gap: 4 }}>
@@ -120,8 +137,8 @@ export function Maps({ account }: Props) {
               </div>
             ) : (
               <div className="mapstat-ranking">
-                <RankList title={t("Meilleures", "Best")} maps={ranking.best} onSelect={choose} />
-                <RankList title={t("Pires", "Worst")} maps={ranking.worst} onSelect={choose} />
+                <RankList title={t("Meilleures", "Best")} maps={ranking.best} onSelect={choose} onWarm={warm} />
+                <RankList title={t("Pires", "Worst")} maps={ranking.worst} onSelect={choose} onWarm={warm} />
               </div>
             )}
           </section>
@@ -131,7 +148,86 @@ export function Maps({ account }: Props) {
   );
 }
 
-function MapDetail({ map, sectionRef }: { map: MapStat; sectionRef: RefObject<HTMLElement | null> }) {
+type MapViewProps = {
+  puuid: string;
+  map: MapStat;
+  season: string | null;
+  onBack: () => void;
+  onOpenRound?: (matchId: string, roundIndex: number) => void;
+};
+
+function MapView({ puuid, map, season, onBack, onOpenRound }: MapViewProps) {
+  const [tab, setTab] = useState<Tab>("history");
+  const history = useQuery(queries.mapHistory(puuid, map.mapId));
+
+  useEffect(() => {
+    document.querySelector(".main")?.scrollTo({ top: 0 });
+  }, []);
+
+  const tabs: { id: Tab; label: string }[] = [
+    { id: "history", label: t("Zones et historique", "Zones and history") },
+    { id: "stats", label: t("Rounds et sites", "Rounds and sites") },
+  ];
+
+  return (
+    <div className="content mapview">
+      <button type="button" className="back-btn" onClick={onBack}>
+        <Icon name="arrowRight" size={16} strokeWidth={2} className="flip" />
+        {t("Toutes les maps", "All maps")}
+      </button>
+
+      <header className="mapstat-hero mapview-hero">
+        <Art src={map.splash ?? mapArt(map.mapId, "splash")} width={1280} height={720} alt="" className="mapstat-hero-art" eager />
+        <div className="mapstat-hero-text">
+          <span className="mapstat-hero-eyebrow">
+            {season ? seasonLabel(season) : t("Toutes les saisons", "All seasons")}, {matchCount(map.matches)}, {record(map)}
+          </span>
+          <h1 className="mapstat-hero-title">{map.name}</h1>
+        </div>
+        <div className="mapstat-hero-pct">
+          <span className={`mapstat-hero-value ${tone(map.winPct)}`}>{pct(map.winPct, 0)}</span>
+          <span className="mapstat-hero-label">{t("de victoires", "win rate")}</span>
+        </div>
+      </header>
+
+      <div className="row between wrap" style={{ gap: 16 }}>
+        <div className="segmented" role="tablist" aria-label={t(`Sections de ${map.name}`, `${map.name} sections`)}>
+          {tabs.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              role="tab"
+              aria-selected={tab === item.id}
+              className={tab === item.id ? "active" : undefined}
+              onClick={() => setTab(item.id)}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+        <div className="mapview-figures">
+          <Figure label={t("RR net", "Net RR")} value={map.rrMatches > 0 ? signed(map.rrNet) : "0"} className={rrTone(map.rrNet)} />
+          <Figure label="ACS" value={fmt(map.acs)} />
+          <Figure label="K/D" value={fmt(map.kd, 2)} />
+          <Figure label="ADR" value={fmt(map.adr)} />
+          <Figure label="HS" value={pct(map.hsPct)} />
+        </div>
+      </div>
+
+      {tab === "stats" && <MapDetail map={map} />}
+      {tab === "history" &&
+        (history.data ? (
+          <MapHistoryView history={history.data} mapName={map.name} season={season} onOpenRound={onOpenRound} />
+        ) : history.error ? (
+          <p className="form-error">{history.error}</p>
+        ) : (
+          <div className="empty">{t("Chargement de l'historique...", "Loading the history...")}</div>
+        ))}
+    </div>
+  );
+}
+
+function MapDetail({ map }: { map: MapStat }) {
   const attack = rate(map.attackWon, map.attackPlayed);
   const defense = rate(map.defenseWon, map.defensePlayed);
   const pistol = rate(map.pistolWon, map.pistolPlayed);
@@ -141,27 +237,7 @@ function MapDetail({ map, sectionRef }: { map: MapStat; sectionRef: RefObject<HT
   const icon = agentIcon(map.agentId);
 
   return (
-    <section className="mapstat-detail" ref={sectionRef} aria-label={t(`Statistiques sur ${map.name}`, `Stats on ${map.name}`)}>
-      <header className="mapstat-hero">
-        <Art key={map.mapId} src={map.splash ?? mapArt(map.mapId, "splash")} width={1280} height={720} alt="" className="mapstat-hero-art" eager />
-        <div className="mapstat-hero-text">
-          <span className="mapstat-hero-eyebrow">{matchCount(map.matches)}, {record(map)}</span>
-          <h2 className="mapstat-hero-title">{map.name}</h2>
-        </div>
-        <div className="mapstat-hero-pct">
-          <span className={`mapstat-hero-value ${tone(map.winPct)}`}>{pct(map.winPct, 0)}</span>
-          <span className="mapstat-hero-label">{t("de victoires", "win rate")}</span>
-        </div>
-      </header>
-
-      <div className="mapstat-numbers">
-        <Figure label={t("RR net", "Net RR")} value={map.rrMatches > 0 ? signed(map.rrNet) : "0"} className={rrTone(map.rrNet)} />
-        <Figure label="ACS" value={fmt(map.acs)} />
-        <Figure label="K/D" value={fmt(map.kd, 2)} />
-        <Figure label="ADR" value={fmt(map.adr)} />
-        <Figure label="Headshot" value={pct(map.hsPct)} />
-      </div>
-
+    <section className="mapstat-detail" aria-label={t(`Statistiques sur ${map.name}`, `Stats on ${map.name}`)}>
       {map.analyzed < map.matches && (
         <span className="hint">
           {t(
@@ -320,12 +396,12 @@ function SideBar({ label, won, played, value }: { label: string; won: number; pl
   );
 }
 
-function RankList({ title, maps, onSelect }: { title: string; maps: MapStat[]; onSelect: (id: string) => void }) {
+function RankList({ title, maps, onSelect, onWarm }: { title: string; maps: MapStat[]; onSelect: (id: string) => void; onWarm: (id: string) => void }) {
   return (
     <div className="stack" style={{ gap: 8 }}>
       <span className="label">{title}</span>
       {maps.map((map) => (
-        <button key={map.mapId} type="button" className="mapstat-rank" onClick={() => onSelect(map.mapId)}>
+        <button key={map.mapId} type="button" className="mapstat-rank" onPointerEnter={() => onWarm(map.mapId)} onClick={() => onSelect(map.mapId)}>
           <Art src={map.listIcon ?? mapArt(map.mapId, "listviewicon")} width={120} height={40} alt="" className="mapstat-rank-thumb" />
           <span className="stack" style={{ gap: 2, minWidth: 0 }}>
             <strong className="ellipsis">{map.name}</strong>

@@ -165,6 +165,15 @@ pub fn heatmap(conn: &Connection, puuid: &str, filters: &Filters) -> AppResult<H
     })
 }
 
+pub fn phase(rounds: &[Value], round: usize, time: i64) -> &'static str {
+    let plant = rounds.get(round).and_then(|r| r.pointer("/plant/round_time_in_ms")).and_then(Value::as_i64);
+    match plant {
+        Some(planted_at) if time > planted_at => "post",
+        _ if time < EARLY_ROUND_MS => "early",
+        _ => "mid",
+    }
+}
+
 fn collect(game: &Value, puuid: &str, map: &assets::MapData, points: &mut Vec<HeatPoint>) {
     let empty = Vec::new();
     let players = game.pointer("/players").and_then(Value::as_array).unwrap_or(&empty);
@@ -186,16 +195,7 @@ fn collect(game: &Value, puuid: &str, map: &assets::MapData, points: &mut Vec<He
 
     for kill in game.pointer("/kills").and_then(Value::as_array).unwrap_or(&empty) {
         let round = int(kill, "/round") as usize;
-        let time = int(kill, "/time_in_round_in_ms");
-        let plant = rounds
-            .get(round)
-            .and_then(|r| r.pointer("/plant/round_time_in_ms"))
-            .and_then(Value::as_i64);
-        let phase = match plant {
-            Some(planted_at) if time > planted_at => "post",
-            _ if time < EARLY_ROUND_MS => "early",
-            _ => "mid",
-        };
+        let phase = phase(rounds, round, int(kill, "/time_in_round_in_ms"));
         let attack = attack_side(round, attack_first);
         let mut push = |kind: &'static str, spot: (f64, f64)| {
             let (x, y) = map.project(spot.0, spot.1);

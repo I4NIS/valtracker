@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import type { Position } from "./api";
 
 export type SitePlants = {
   site: string;
@@ -51,4 +52,61 @@ export type MapStat = {
 
 export function getMapStats(puuid: string, season: string | null): Promise<MapStat[]> {
   return invoke<MapStat[]>("get_map_stats", { puuid, season });
+}
+
+export type MapZone = {
+  name: string;
+  x: number;
+  y: number;
+};
+
+export type MapGame = {
+  matchId: string;
+  startedAt: string;
+  season: string | null;
+  won: boolean;
+  draw: boolean;
+  roundsWon: number;
+  roundsLost: number;
+  agentId: string | null;
+  agentName: string | null;
+  kills: number;
+  deaths: number;
+  assists: number;
+  acs: number;
+};
+
+export type MapAction = {
+  kind: "death" | "kill";
+  matchId: string;
+  round: number;
+  timeS: number;
+  attack: boolean;
+  phase: "early" | "mid" | "post";
+  roundWon: boolean;
+  first: boolean;
+  zone: string | null;
+  mePosition: Position | null;
+  opponentPosition: Position | null;
+  opponent: string;
+  opponentAgentId: string | null;
+  weapon: string | null;
+  weaponId: string | null;
+  weaponKind: string | null;
+  flaws: string[];
+  positives: string[];
+};
+
+export type MapHistory = {
+  mapId: string;
+  minimap: string | null;
+  rotation: number;
+  total: number;
+  zones: MapZone[];
+  games: MapGame[];
+  actions: MapAction[];
+};
+
+export function getMapHistory(puuid: string, mapId: string): Promise<MapHistory> {
+  return invoke<MapHistory>("get_map_history", { puuid, mapId });
 }

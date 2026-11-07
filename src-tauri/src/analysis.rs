@@ -224,7 +224,7 @@ pub fn point(value: &Value, pointer: &str) -> Option<(f64, f64)> {
     Some((location["x"].as_f64()?, location["y"].as_f64()?))
 }
 
-fn weapon_kind(kill: &Value) -> Option<String> {
+pub fn weapon_kind(kill: &Value) -> Option<String> {
     text(kill, "/weapon/type").filter(|kind| !kind.is_empty()).map(str::to_lowercase)
 }
 
