@@ -178,6 +178,7 @@ export async function renderSessionRecap(recap: SessionRecap, account: Account):
       before: rankArt(recap.before.tier),
       after: rankArt(recap.after.tier),
       card: cardArt(account.cardId),
+      own: rankArt(account.tier),
     }),
     Promise.all(keys.map((key) => loadImage(key.startsWith("http") ? key : agentBust(key)))),
   ]);
@@ -267,6 +268,6 @@ export async function renderSessionRecap(recap: SessionRecap, account: Account):
   }
 
   strip(ctx, recap, art);
-  footer(ctx, account, today(), base.card);
+  footer(ctx, account, today(), base.card, base.own);
   return canvas;
 }

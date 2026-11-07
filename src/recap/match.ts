@@ -85,7 +85,7 @@ function resultWord(detail: MatchDetail, draw: boolean): string {
   return draw ? "Égalité" : "Défaite";
 }
 
-function scoreboard(ctx: Ctx, teams: TeamBlock[], icons: Map<string, HTMLImageElement | null>) {
+function scoreboard(ctx: Ctx, teams: TeamBlock[], icons: Map<string, HTMLImageElement | null>, ranks: Map<number, HTMLImageElement | null>) {
   const top = 116;
   const bottom = H - 120;
   fillRounded(ctx, PANEL_X, top, PANEL_W, bottom - top, 22, C.panel);
@@ -120,9 +120,11 @@ function scoreboard(ctx: Ctx, teams: TeamBlock[], icons: Map<string, HTMLImageEl
       }
       ctx.save();
       ctx.font = font(player.isMe ? 700 : 600, 17);
-      const name = fitText(ctx, player.name, kdaX - 70 - (inner + 46));
+      const name = fitText(ctx, player.name, kdaX - 112 - (inner + 46));
       ctx.restore();
       text(ctx, name, inner + 46, cy + 6, { font: font(player.isMe ? 700 : 600, 17), color: player.isMe ? C.text : C.text2 });
+      const rank = ranks.get(player.tier ?? 0);
+      if (rank) contain(ctx, rank, kdaX - 102, cy - 15, 30);
       text(ctx, `${player.kills} / ${player.deaths} / ${player.assists}`, kdaX, cy + 6, {
         font: font(600, 17),
         color: player.isMe ? C.text : C.text2,
@@ -147,9 +149,13 @@ export async function renderMatchRecap(detail: MatchDetail, account: Account): P
       portrait: fullPortrait(detail.agentId),
       rank: rankArt(me.tier),
       card: cardArt(account.cardId),
+      own: rankArt(account.tier),
     }),
     Promise.all(agentIds.map((id) => loadImage(agentBust(id)))),
   ]);
+  const tiers = [...new Set(players.map((player) => player.tier ?? 0))];
+  const tierList = await Promise.all(tiers.map((tier) => loadImage(rankArt(tier))));
+  const ranks = new Map(tiers.map((tier, index) => [tier, tierList[index]]));
   const icons = new Map(agentIds.map((id, index) => [id, iconList[index]]));
   const { canvas, ctx } = createCanvas();
   const draw = detail.roundsWon === detail.roundsLost && !detail.won;
@@ -226,7 +232,7 @@ export async function renderMatchRecap(detail: MatchDetail, account: Account): P
     if (chipX > PANEL_X - 160) break;
   }
 
-  scoreboard(ctx, detail.teams, icons);
-  footer(ctx, account, today(), art.card);
+  scoreboard(ctx, detail.teams, icons, ranks);
+  footer(ctx, account, today(), art.card, art.own);
   return canvas;
 }
