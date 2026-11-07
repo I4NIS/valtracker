@@ -1,6 +1,7 @@
 import "../styles/weapons.css";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AbilityArt, Art, SpikeGlyph } from "../components/GameArt";
+import { Icon } from "../components/Icon";
 import { SeasonPicker } from "../components/SeasonPicker";
 import type { Account } from "../lib/api";
 import { agentIcon, seasonLabel } from "../lib/assets";
@@ -119,8 +120,13 @@ export function Weapons({ account, onOpenRound }: Props) {
   const [target, setTarget] = useState<string | null>(null);
   const [deathsMode, setDeathsMode] = useState(false);
   const [partFilter, setPartFilter] = useState<string | null>(null);
-  const historyRef = useRef<HTMLDivElement>(null);
+  const [view, setView] = useState<"arsenal" | "killers">("arsenal");
+  const [historyOpen, setHistoryOpen] = useState(false);
   const catalog = useAgentCatalog();
+
+  useEffect(() => {
+    document.querySelector(".main")?.scrollTo({ top: 0 });
+  }, [historyOpen]);
 
   const weapon = useMemo(
     () => data?.weapons.find((item) => item.name === selected) ?? data?.weapons[0] ?? null,
@@ -146,12 +152,12 @@ export function Weapons({ account, onOpenRound }: Props) {
     };
   }, [data, target, weapon]);
 
-  function track(name: string, deaths: boolean, part: string | null = null, scroll = false) {
+  function track(name: string, deaths: boolean, part: string | null = null, open = false) {
     if (data?.weapons.some((item) => item.name === name)) setSelected(name);
     setTarget(name);
     setDeathsMode(deaths);
     setPartFilter(part);
-    if (scroll) window.requestAnimationFrame(() => historyRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+    if (open) setHistoryOpen(true);
   }
 
   const overall = useMemo(() => {
@@ -175,14 +181,43 @@ export function Weapons({ account, onOpenRound }: Props) {
   const abilityKillers = data?.killers.find((item) => item.name === ABILITIES)?.parts ?? [];
   const empty = data !== null && data.kills === 0 && data.weapons.length === 0 && data.killers.length === 0;
 
-  return (
-    <div className="content">
-      <div className="stack">
-        <span className="eyebrow">{season ? seasonLabel(season) : t("Toutes les saisons", "All seasons")}</span>
-        <h1 className="title">{t("Armes", "Weapons")}</h1>
+  if (historyOpen && data && tracked && season !== undefined) {
+    return (
+      <div className="content">
+        <header className="page-head">
+          <div className="page-head-title" style={{ alignItems: "center" }}>
+            <button type="button" className="back-btn" onClick={() => setHistoryOpen(false)}>
+              <Icon name="arrowRight" size={16} strokeWidth={2} className="flip" />
+              {t("Armes", "Weapons")}
+            </button>
+            <span className="faint">{season ? seasonLabel(season) : t("Toutes les saisons", "All seasons")}</span>
+          </div>
+        </header>
+        <WeaponHistory
+          key={`${season ?? "all"}-${tracked.name}`}
+          puuid={account.puuid}
+          season={season}
+          tracked={tracked}
+          catalog={catalog}
+          deaths={deathsMode}
+          onDeaths={(value) => {
+            setDeathsMode(value);
+            setPartFilter(null);
+          }}
+          filter={partFilter}
+          onFilter={setPartFilter}
+          onOpenRound={onOpenRound}
+        />
       </div>
+    );
+  }
 
-      <SeasonPicker puuid={account.puuid} value={season} onChange={setSeason} />
+  return (
+    <div className="content weapons-page">
+      <header className="page-head">
+        <h1 className="title">{t("Armes", "Weapons")}</h1>
+        <SeasonPicker puuid={account.puuid} value={season} onChange={setSeason} />
+      </header>
 
       {error && !data && <p className="form-error">{error}</p>}
 
@@ -198,12 +233,19 @@ export function Weapons({ account, onOpenRound }: Props) {
         <>
           <section className="weapons-summary">
             {favorite && (
-              <button type="button" className="weapons-favorite" onClick={() => track(favorite.name, false)}>
-                <span className="label">{t("Arme principale", "Main weapon")}</span>
+              <button
+                type="button"
+                className="weapons-favorite"
+                onClick={() => {
+                  setView("arsenal");
+                  track(favorite.name, false);
+                }}
+              >
                 <span className="weapons-favorite-art">
                   <Art src={weaponArt(favorite.id)} width={360} height={112} alt={favorite.name} mono eager />
                 </span>
                 <span className="stack" style={{ gap: 2 }}>
+                  <span className="label">{t("Arme principale", "Main weapon")}</span>
                   <strong className="weapons-favorite-name">{favorite.name}</strong>
                   <span className="faint">
                     {plural(favorite.kills, "kill", "kills")}, {t(`${pct(favorite.killShare)} de tes kills`, `${pct(favorite.killShare)} of your kills`)}
@@ -211,8 +253,8 @@ export function Weapons({ account, onOpenRound }: Props) {
                 </span>
               </button>
             )}
-            <div className="stack weapons-totals" style={{ gap: 18 }}>
-              <div className="stack" style={{ gap: 8 }}>
+            <div className="stack weapons-totals" style={{ gap: 14 }}>
+              <div className="stack" style={{ gap: 4 }}>
                 <span className="big-number">{fmt(data.kills)}</span>
                 <span className="muted">
                   {t(`kills sur ${plural(data.matches, "match", "matchs")}`, `kills over ${plural(data.matches, "match", "matches")}`)}
@@ -234,127 +276,143 @@ export function Weapons({ account, onOpenRound }: Props) {
             <BodySplit report={data} />
           </section>
 
-          {data.weapons.length > 0 && (
-            <section className="stack" style={{ gap: 16 }}>
-              <h2 className="section-title">{t("Ton arsenal", "Your arsenal")}</h2>
+          <div className="section-head" style={{ alignItems: "center" }}>
+            <div className="segmented" role="tablist" aria-label={t("Tes kills ou tes morts", "Your kills or your deaths")}>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={view === "arsenal"}
+                className={view === "arsenal" ? "active" : undefined}
+                onClick={() => setView("arsenal")}
+              >
+                {t("Ton arsenal", "Your arsenal")} <span className="chip-count">{fmt(data.weapons.length)}</span>
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={view === "killers"}
+                className={view === "killers" ? "active" : undefined}
+                onClick={() => setView("killers")}
+              >
+                {t("Ce qui te tue", "What kills you")} <span className="chip-count">{fmt(data.killers.length)}</span>
+              </button>
+            </div>
+            {view === "killers" && killers.length > 0 && <RangeLegend />}
+          </div>
+
+          {view === "arsenal" &&
+            (data.weapons.length === 0 ? (
+              <div className="empty">{t("Aucun kill enregistré sur cette période.", "No kills recorded in this period.")}</div>
+            ) : (
               <div className="weapons-wrap">
                 <div className="weapons-layout">
-                  <div className="weapons-table" role="list">
-                    <div className="weapon-row head" aria-hidden="true">
-                      <span>{t("Arme", "Weapon")}</span>
-                      <span>Kills</span>
-                      <span className="weapon-col-share">{t("Part", "Share")}</span>
-                      <span className="weapon-col-hs">HS</span>
-                      <span className="weapon-col-dist">Distance</span>
-                      <span>K/round</span>
+                  <div className="stack" style={{ gap: 10, minWidth: 0 }}>
+                    <div className="weapons-table weapons-pane" role="list">
+                      <div className="weapon-row head" aria-hidden="true">
+                        <span>{t("Arme", "Weapon")}</span>
+                        <span>Kills</span>
+                        <span className="weapon-col-share">{t("Part", "Share")}</span>
+                        <span className="weapon-col-hs">HS</span>
+                        <span className="weapon-col-dist">Distance</span>
+                        <span>K/round</span>
+                      </div>
+                      {data.weapons.map((item) => {
+                        const active = weapon?.name === item.name;
+                        return (
+                          <div role="listitem" key={item.name}>
+                            <button
+                              type="button"
+                              className={`weapon-row${active ? " active" : ""}`}
+                              aria-pressed={active}
+                              onClick={() => track(item.name, false)}
+                            >
+                              <span className="weapon-ident">
+                                <WeaponThumb item={item} catalog={catalog} width={84} height={28} />
+                                <span className="weapon-name">
+                                  <strong>{displayName(item.name)}</strong>
+                                  <span className="faint">{weaponCategory(item.name)}</span>
+                                </span>
+                              </span>
+                              <span className="weapon-kills">
+                                <strong>{fmt(item.kills)}</strong>
+                                <span className="bar">
+                                  <span style={{ width: `${(item.kills / topKills) * 100}%` }} />
+                                </span>
+                              </span>
+                              <span className="weapon-col-share">{pct(item.killShare)}</span>
+                              <span className="weapon-col-hs">{item.hsPct === null ? "-" : pct(item.hsPct, 0)}</span>
+                              <span className="weapon-col-dist">{meters(item.avgKillDistance)}</span>
+                              <span>{item.killsPerRoundHeld === null ? "-" : fmt(item.killsPerRoundHeld, 2)}</span>
+                            </button>
+                            {active && (
+                              <div className="weapon-inline">
+                                <WeaponDetail
+                                  weapon={item}
+                                  catalog={catalog}
+                                  onPick={(part) => track(ABILITIES, false, part, true)}
+                                  onHistory={() => track(item.name, false, null, true)}
+                                />
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
-                    {data.weapons.map((item) => {
-                      const active = weapon?.name === item.name;
-                      return (
-                        <div role="listitem" key={item.name}>
-                          <button
-                            type="button"
-                            className={`weapon-row${active ? " active" : ""}`}
-                            aria-pressed={active}
-                            onClick={() => track(item.name, false)}
-                          >
-                            <span className="weapon-ident">
-                              <WeaponThumb item={item} catalog={catalog} width={84} height={28} />
-                              <span className="weapon-name">
-                                <strong>{displayName(item.name)}</strong>
-                                <span className="faint">{weaponCategory(item.name)}</span>
-                              </span>
-                            </span>
-                            <span className="weapon-kills">
-                              <strong>{fmt(item.kills)}</strong>
-                              <span className="bar">
-                                <span style={{ width: `${(item.kills / topKills) * 100}%` }} />
-                              </span>
-                            </span>
-                            <span className="weapon-col-share">{pct(item.killShare)}</span>
-                            <span className="weapon-col-hs">{item.hsPct === null ? "-" : pct(item.hsPct, 0)}</span>
-                            <span className="weapon-col-dist">{meters(item.avgKillDistance)}</span>
-                            <span>{item.killsPerRoundHeld === null ? "-" : fmt(item.killsPerRoundHeld, 2)}</span>
-                          </button>
-                          {active && (
-                            <div className="weapon-inline">
-                              <WeaponDetail weapon={item} catalog={catalog} onPick={(part) => track(ABILITIES, false, part, true)} />
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
+                    <span className="faint weapons-note">
+                      {t(
+                        "HS estimé à partir des tirs touchés pendant les rounds où l'arme était ton arme principale. K/round : kills par round où tu la portais.",
+                        "HS estimated from shots hit in rounds where this was your main weapon. K/round: kills per round you held it.",
+                      )}
+                    </span>
                   </div>
                   {weapon && (
-                    <aside className="weapons-side panel" aria-label={t(`Détail ${displayName(weapon.name)}`, `${displayName(weapon.name)} details`)}>
-                      <WeaponDetail weapon={weapon} catalog={catalog} onPick={(part) => track(ABILITIES, false, part, true)} />
+                    <aside className="weapons-side weapons-pane panel" aria-label={t(`Détail ${displayName(weapon.name)}`, `${displayName(weapon.name)} details`)}>
+                      <WeaponDetail
+                        weapon={weapon}
+                        catalog={catalog}
+                        onPick={(part) => track(ABILITIES, false, part, true)}
+                        onHistory={() => track(weapon.name, false, null, true)}
+                      />
                     </aside>
                   )}
                 </div>
               </div>
-              <span className="faint weapons-note">
-                {t(
-                  "HS estimé à partir des tirs touchés pendant les rounds où l'arme était ton arme principale. K/round : kills par round où tu la portais.",
-                  "HS estimated from shots hit in rounds where this was your main weapon. K/round: kills per round you held it.",
-                )}
-              </span>
-            </section>
-          )}
+            ))}
 
-          {tracked && season !== undefined && (
-            <div ref={historyRef} className="weapon-history-anchor">
-              <WeaponHistory
-                key={`${season ?? "all"}-${tracked.name}`}
-                puuid={account.puuid}
-                season={season}
-                tracked={tracked}
-                catalog={catalog}
-                deaths={deathsMode}
-                onDeaths={(value) => {
-                  setDeathsMode(value);
-                  setPartFilter(null);
-                }}
-                filter={partFilter}
-                onFilter={setPartFilter}
-                onOpenRound={onOpenRound}
-              />
-            </div>
-          )}
-
-          {killers.length > 0 && (
-            <section className="stack" style={{ gap: 16 }}>
-              <div className="row between wrap" style={{ alignItems: "baseline" }}>
-                <h2 className="section-title">{t("Ce qui te tue", "What kills you")}</h2>
-                <RangeLegend />
-              </div>
-              <div className="killers-table" role="list">
-                {killers.map((item) => (
-                  <KillerRow
-                    key={item.name}
-                    killer={item}
-                    catalog={catalog}
-                    top={topDeaths}
-                    active={deathsMode && tracked?.name === item.name}
-                    onSelect={() => track(item.name, true, null, true)}
-                  />
-                ))}
-              </div>
-              {data.killers.length > KILLER_LIMIT && (
-                <span className="faint weapons-note">
-                  {t(
-                    `${plural(data.killers.length - KILLER_LIMIT, "autre arme", "autres armes")} représentent ${pct(data.killers.slice(KILLER_LIMIT).reduce((sum, item) => sum + item.deathShare, 0))} de tes morts.`,
-                    `${plural(data.killers.length - KILLER_LIMIT, "other weapon", "other weapons")} account for ${pct(data.killers.slice(KILLER_LIMIT).reduce((sum, item) => sum + item.deathShare, 0))} of your deaths.`,
+          {view === "killers" &&
+            (killers.length === 0 ? (
+              <div className="empty">{t("Aucune mort subie sur cette période.", "No deaths in this period.")}</div>
+            ) : (
+              <div className="killers-layout">
+                <div className="stack" style={{ gap: 10, minWidth: 0 }}>
+                  <div className="killers-table" role="list">
+                    {killers.map((item) => (
+                      <KillerRow
+                        key={item.name}
+                        killer={item}
+                        catalog={catalog}
+                        top={topDeaths}
+                        onSelect={() => track(item.name, true, null, true)}
+                      />
+                    ))}
+                  </div>
+                  {data.killers.length > KILLER_LIMIT && (
+                    <span className="faint weapons-note">
+                      {t(
+                        `${plural(data.killers.length - KILLER_LIMIT, "autre arme", "autres armes")} représentent ${pct(data.killers.slice(KILLER_LIMIT).reduce((sum, item) => sum + item.deathShare, 0))} de tes morts.`,
+                        `${plural(data.killers.length - KILLER_LIMIT, "other weapon", "other weapons")} account for ${pct(data.killers.slice(KILLER_LIMIT).reduce((sum, item) => sum + item.deathShare, 0))} of your deaths.`,
+                      )}
+                    </span>
                   )}
-                </span>
-              )}
-              {abilityKillers.length > 0 && (
-                <div className="stack" style={{ gap: 10 }}>
-                  <h3 className="weapon-detail-sub">{t("Capacités qui t'ont tué", "Abilities that killed you")}</h3>
-                  <PartList parts={abilityKillers} catalog={catalog} unit="mort" onPick={(part) => track(ABILITIES, true, part, true)} />
                 </div>
-              )}
-            </section>
-          )}
+                {abilityKillers.length > 0 && (
+                  <aside className="stack weapons-pane" style={{ gap: 10 }}>
+                    <h3 className="weapon-detail-sub">{t("Capacités qui t'ont tué", "Abilities that killed you")}</h3>
+                    <PartList parts={abilityKillers} catalog={catalog} unit="mort" onPick={(part) => track(ABILITIES, true, part, true)} />
+                  </aside>
+                )}
+              </div>
+            ))}
         </>
       )}
     </div>
@@ -414,10 +472,10 @@ function BodySplit({ report }: { report: WeaponReport }) {
           <g key={`${zone.id}-label`} aria-hidden="true">
             <line className="body-leader" x1={zone.from} y1={zone.y} x2={BODY_LABEL_X - 10} y2={zone.y} />
             <circle className="body-anchor" cx={zone.from} cy={zone.y} r={2.5} />
-            <text className="body-value" x={BODY_LABEL_X} y={zone.y + 8}>
+            <text className="body-value" x={BODY_LABEL_X} y={zone.y + 10}>
               {total > 0 ? pct(zone.value) : "-"}
             </text>
-            <text className="body-label" x={BODY_LABEL_X} y={zone.y + 25}>
+            <text className="body-label" x={BODY_LABEL_X} y={zone.y + 33}>
               {`${zone.label}, ${shots(zone.count)}`}
             </text>
           </g>
@@ -511,7 +569,17 @@ function PartList({
   );
 }
 
-function WeaponDetail({ weapon, catalog, onPick }: { weapon: WeaponLine; catalog: Catalog | null; onPick?: (key: string) => void }) {
+function WeaponDetail({
+  weapon,
+  catalog,
+  onPick,
+  onHistory,
+}: {
+  weapon: WeaponLine;
+  catalog: Catalog | null;
+  onPick?: (key: string) => void;
+  onHistory?: () => void;
+}) {
   const measured = rangeTotal(weapon.killRanges);
   const figures = [
     { label: "Kills", value: fmt(weapon.kills) },
@@ -526,16 +594,23 @@ function WeaponDetail({ weapon, catalog, onPick }: { weapon: WeaponLine; catalog
       <div className="weapon-detail-head">
         <span className="weapon-detail-art">
           {ability ? (
-            <WeaponThumb item={weapon} catalog={catalog} width={240} height={64} />
+            <WeaponThumb item={weapon} catalog={catalog} width={150} height={40} />
           ) : (
-            <WeaponThumb item={weapon} catalog={catalog} width={320} height={104} eager />
+            <WeaponThumb item={weapon} catalog={catalog} width={180} height={58} eager />
           )}
         </span>
-        <div className="stack" style={{ gap: 4 }}>
+        <div className="stack" style={{ gap: 2, minWidth: 0 }}>
           <span className="eyebrow">{weaponCategory(weapon.name)}</span>
           <h3 className="weapon-detail-title">{displayName(weapon.name)}</h3>
         </div>
       </div>
+
+      {onHistory && (
+        <button type="button" className="btn btn-secondary weapon-history-open" onClick={onHistory}>
+          {t("Voir l'historique des kills et des morts", "See kill and death history")}
+          <Icon name="arrowRight" size={16} strokeWidth={2} />
+        </button>
+      )}
 
       <div className="weapon-figures">
         {figures.map((figure) => (
@@ -602,13 +677,11 @@ function KillerRow({
   killer,
   catalog,
   top,
-  active,
   onSelect,
 }: {
   killer: KillerLine;
   catalog: Catalog | null;
   top: number;
-  active: boolean;
   onSelect?: () => void;
 }) {
   const total = rangeTotal(killer.ranges);
@@ -648,7 +721,7 @@ function KillerRow({
   return (
     <div role="listitem">
       {onSelect ? (
-        <button type="button" className={`killer-row${active ? " active" : ""}`} aria-pressed={active} onClick={onSelect}>
+        <button type="button" className="killer-row" onClick={onSelect}>
           {body}
         </button>
       ) : (

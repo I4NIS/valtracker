@@ -1,18 +1,23 @@
+.weapons-page {
+  gap: 22px;
+  padding-bottom: 24px;
+}
+
 .weapons-summary {
   display: grid;
   grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 32px 48px;
+  align-items: stretch;
+  gap: 24px 40px;
 }
 
 .weapons-favorite {
   display: flex;
-  flex-direction: column;
-  gap: 16px;
+  align-items: center;
+  gap: 20px;
   min-width: 0;
-  padding: 22px 24px;
+  padding: 16px 22px;
   border: 0;
-  border-radius: 20px;
+  border-radius: 18px;
   background: var(--raised);
   color: var(--text);
   text-align: left;
@@ -25,33 +30,41 @@
 
 .weapons-favorite-art {
   display: flex;
+  flex: 1 1 0;
   align-items: center;
   justify-content: center;
-  height: 112px;
+  height: 64px;
   min-width: 0;
 }
 
 .weapons-favorite-art .art {
   width: auto;
+  max-width: 100%;
   height: 100%;
-  max-height: 112px;
+  max-height: 64px;
+  object-fit: contain;
 }
 
 .weapons-favorite-name {
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 700;
   letter-spacing: -0.03em;
 }
 
 .weapons-totals {
+  justify-content: center;
   min-width: 0;
+}
+
+.weapons-totals .big-number {
+  font-size: 44px;
 }
 
 .weapons-facts {
   display: flex;
   flex-wrap: wrap;
-  gap: 16px 40px;
-  padding-top: 18px;
+  gap: 12px 36px;
+  padding-top: 14px;
   border-top: 1px solid var(--line);
 }
 
@@ -72,16 +85,18 @@
 
 .body-split {
   display: flex;
+  align-items: center;
   justify-content: center;
-  padding: 22px 28px;
-  border-radius: 20px;
+  padding: 14px 22px;
+  border-radius: 18px;
   background: var(--raised);
 }
 
 .body-figure {
   display: block;
+  width: auto;
   max-width: 100%;
-  height: auto;
+  height: 136px;
   overflow: visible;
 }
 
@@ -101,14 +116,14 @@
 
 .body-value {
   fill: var(--text);
-  font-size: 22px;
+  font-size: 30px;
   font-weight: 700;
   letter-spacing: -0.03em;
 }
 
 .body-label {
   fill: var(--text-3);
-  font-size: 11.5px;
+  font-size: 19px;
   font-weight: 500;
 }
 
@@ -116,16 +131,44 @@
   container: weapons / inline-size;
 }
 
-.weapons-layout {
+.weapons-layout,
+.killers-layout {
   display: grid;
   grid-template-columns: minmax(0, 1.55fr) minmax(300px, 1fr);
   align-items: start;
   gap: 28px;
 }
 
-.weapons-side {
+.weapons-pane {
+  max-height: max(300px, calc(100vh - 490px));
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--field) transparent;
+}
+
+.weapons-side .weapon-figures {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.weapons-table.weapons-pane .weapon-row.head {
   position: sticky;
-  top: 80px;
+  top: 0;
+  z-index: 1;
+  background: var(--panel);
+}
+
+.weapons-side.panel {
+  padding: 20px;
+}
+
+.weapon-history-open {
+  align-self: flex-start;
+  min-height: 36px;
+  padding: 0 16px;
+  font-size: 13px;
 }
 
 .weapon-inline {
@@ -151,8 +194,8 @@
   align-items: center;
   gap: 14px;
   width: 100%;
-  min-height: 56px;
-  padding: 8px 14px;
+  min-height: 48px;
+  padding: 5px 14px;
   border: 0;
   border-radius: 12px;
   background: transparent;
@@ -199,17 +242,19 @@
 
 .weapon-detail-head {
   display: flex;
-  flex-direction: column;
+  align-items: center;
   gap: 18px;
 }
 
 .weapon-detail-art {
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  height: 136px;
-  padding: 16px;
-  border-radius: 16px;
+  width: 200px;
+  height: 76px;
+  padding: 8px;
+  border-radius: 14px;
   background: var(--field);
 }
 
@@ -376,12 +421,12 @@ button.killer-row.active {
 .weapon-detail {
   display: flex;
   flex-direction: column;
-  gap: 28px;
+  gap: 20px;
 }
 
 .weapon-detail-title {
   margin: 0;
-  font-size: 30px;
+  font-size: 26px;
   font-weight: 700;
   letter-spacing: -0.035em;
   line-height: 1.05;
@@ -400,7 +445,7 @@ button.killer-row.active {
 }
 
 .weapon-figure {
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 700;
   letter-spacing: -0.03em;
 }
@@ -473,6 +518,22 @@ button.killer-row.active {
 
   .weapon-inline {
     display: block;
+  }
+
+  .weapons-table.weapons-pane {
+    max-height: none;
+    overflow: visible;
+  }
+}
+
+@container main (max-width: 860px) {
+  .killers-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .killers-layout .weapons-pane {
+    max-height: none;
+    overflow: visible;
   }
 }
 
@@ -653,9 +714,6 @@ button.weapon-history-row:hover {
   color: var(--bad);
 }
 
-.weapon-history-anchor {
-  scroll-margin-top: 80px;
-}
 
 .weapon-history-means {
   display: flex;
