@@ -253,6 +253,24 @@ CREATE TABLE account_seasons (
     prestige TEXT,
     PRIMARY KEY (puuid, season_id)
 ) WITHOUT ROWID;
+
+CREATE TABLE career_cache (
+    puuid TEXT NOT NULL REFERENCES accounts(puuid) ON DELETE CASCADE,
+    kind TEXT NOT NULL,
+    fetched_at INTEGER NOT NULL,
+    body TEXT,
+    PRIMARY KEY (puuid, kind)
+) WITHOUT ROWID;
+
+CREATE TABLE match_accolades (
+    puuid TEXT NOT NULL REFERENCES accounts(puuid) ON DELETE CASCADE,
+    match_id TEXT NOT NULL,
+    accolade TEXT NOT NULL,
+    kind TEXT,
+    value REAL NOT NULL,
+    act_record INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (puuid, match_id, accolade)
+) WITHOUT ROWID;
 "];
 
 const REBUILT_AT: i64 = 10;

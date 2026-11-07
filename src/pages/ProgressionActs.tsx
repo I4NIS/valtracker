@@ -2,6 +2,7 @@ import "../styles/ranked.css";
 import { useMemo } from "react";
 import { ActTriangle, rankOf, sortedWins } from "../components/ActTriangle";
 import { RankBadge } from "../components/RankBadge";
+import { RiotRecords } from "../components/RiotRecords";
 import { repeat, SkeletonBlock, SkeletonGroup, SkeletonLine } from "../components/Skeleton";
 import { seasonLabel, tierLabel } from "../lib/assets";
 import { fmt, pct } from "../lib/format";
@@ -39,7 +40,8 @@ const endTierOf = (act: Act) => tierFromName(act.endTierName) ?? act.endTier ?? 
 
 export function Acts({ puuid }: { puuid: string }) {
   const query = useQuery(queries.acts(puuid));
-  const acts = query.data;
+  const records = useQuery(queries.accolades(puuid));
+  const acts = records.pending && records.error === null ? undefined : query.data;
   const groups = useMemo(() => groupByEpisode(acts ?? []), [acts]);
   const totals = useMemo(() => {
     const list = acts ?? [];
@@ -52,8 +54,11 @@ export function Acts({ puuid }: { puuid: string }) {
   if (!acts) return query.error ? <p className="form-error">{query.error}</p> : <ActsSkeleton />;
   if (acts.length === 0)
     return (
-      <div className="empty">
-        {t("Aucun acte classé connu pour ce compte. Ils apparaissent après la prochaine synchro.", "No ranked act known for this account yet. They show up after the next sync.")}
+      <div className="stack" style={{ gap: 28 }}>
+        <div className="empty">
+          {t("Aucun acte classé connu pour ce compte. Ils apparaissent après la prochaine synchro.", "No ranked act known for this account yet. They show up after the next sync.")}
+        </div>
+        <RiotRecords accolades={records.data} />
       </div>
     );
 
@@ -85,6 +90,8 @@ export function Acts({ puuid }: { puuid: string }) {
           </div>
         )}
       </div>
+
+      <RiotRecords accolades={records.data} />
 
       {groups.map((group, index) => (
         <section className="stack" style={{ gap: 12 }} key={`${group.key}-${index}`}>

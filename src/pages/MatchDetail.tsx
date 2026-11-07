@@ -6,6 +6,7 @@ import { fadeIn } from "../components/GameArt";
 import { Icon } from "../components/Icon";
 import { MatchRrDetail } from "../components/MatchRrDetail";
 import { NoteEditor } from "../components/NoteEditor";
+import { MatchAccolades } from "../components/RiotRecords";
 import type { Account, RoundLine } from "../lib/api";
 import { RankBadge } from "../components/RankBadge";
 import { RoundDetail } from "../components/RoundDetail";
@@ -228,6 +229,7 @@ export function MatchDetail({ account, matchId, initialRound, initialDeath, back
           </div>
 
           <MatchRrDetail detail={detail.rrDetail} />
+          <MatchAccolades accolades={detail.accolades} />
 
           <section className="stack" style={{ gap: 10 }}>
             <div className="section-head">

@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { t } from "./i18n";
+import type { MatchAccolade } from "./career";
 import type { RankState, RrBreakdown, RrDetail } from "./ranked";
 
 export type Theme = "dark" | "light";
@@ -255,6 +256,7 @@ export type MatchDetail = {
   rrChange: number | null;
   rrAfter: number | null;
   rrDetail: RrDetail | null;
+  accolades?: MatchAccolade[];
   teams: TeamBlock[];
   rounds: RoundLine[];
   deathReviews: Death[];

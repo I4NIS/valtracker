@@ -153,6 +153,31 @@
   fill: var(--field);
 }
 
+.riot-records {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 12px;
+}
+
+.riot-record {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: var(--raised);
+}
+
+.riot-record strong {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+.riot-record .faint {
+  font-size: 12px;
+}
+
 .rr-breakdown {
   display: flex;
   flex-direction: column;

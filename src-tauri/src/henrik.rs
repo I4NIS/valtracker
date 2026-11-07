@@ -41,6 +41,10 @@ impl Henrik {
         self.get(&["v2", "by-puuid", "stored-mmr-history", region, platform, puuid], &[]).await
     }
 
+    pub async fn accolades(&self, region: &str, platform: &str, puuid: &str) -> AppResult<Value> {
+        self.get(&["v1", "by-puuid", "accolades", region, platform, puuid], &[]).await
+    }
+
     pub async fn matches(
         &self,
         region: &str,

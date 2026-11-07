@@ -10,6 +10,7 @@ mod duels;
 mod analysis;
 mod assets;
 mod backup;
+mod career;
 mod commands;
 mod db;
 mod error;
@@ -123,6 +124,7 @@ pub fn run() {
             thresholds::get_thresholds,
             thresholds::set_thresholds,
             ranked::get_acts,
+            career::get_accolades,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -31,6 +31,9 @@ pub async fn run(app: &AppHandle, puuid: &str) -> AppResult<SyncReport> {
     let new_matches = result.as_ref().map_or(0, |report| report.new_matches);
     emit(app, puuid, tr("Terminé", "Done"), new_matches, false, error);
     crate::reports::ready(app);
+    if result.is_ok() {
+        crate::career::spawn_refresh(app, puuid);
+    }
     result
 }
 
