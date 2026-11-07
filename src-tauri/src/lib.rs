@@ -10,6 +10,7 @@ mod progression;
 mod repo;
 mod state;
 mod stats;
+mod storage;
 mod sync;
 
 use tauri::Manager;
@@ -27,6 +28,12 @@ pub fn run() {
             std::fs::create_dir_all(&dir)?;
             let conn = db::open(&dir.join("valtracker.db"))?;
             app.manage(AppState::new(conn));
+            let handle = app.handle().clone();
+            tauri::async_runtime::spawn_blocking(move || {
+                if let Ok(conn) = handle.state::<AppState>().conn() {
+                    let _ = storage::compact_existing(&conn);
+                }
+            });
             sync::spawn_auto_sync(app.handle().clone());
             Ok(())
         })

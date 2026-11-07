@@ -14,6 +14,7 @@ use crate::models::{Account, Overview, RecentMatch, Season, SyncReport};
 use crate::repo;
 use crate::state::AppState;
 use crate::stats;
+use crate::storage;
 use crate::sync::{self, ACTIVE_ACCOUNT_SETTING, API_KEY_SETTING};
 
 const REGIONS: [&str; 6] = ["eu", "na", "ap", "kr", "latam", "br"];
@@ -121,11 +122,7 @@ pub fn get_recent_matches(
 #[tauri::command]
 pub fn get_match(state: State<'_, AppState>, puuid: String, match_id: String) -> AppResult<MatchDetail> {
     let conn = state.conn()?;
-    let raw: String = conn
-        .query_row("SELECT raw FROM matches WHERE match_id = ?1", params![match_id], |row| row.get(0))
-        .optional()?
-        .ok_or_else(|| AppError::Invalid("Match introuvable".into()))?;
-    let game: Value = serde_json::from_str(&raw).map_err(|e| AppError::Invalid(e.to_string()))?;
+    let game = storage::load_game(&conn, &match_id)?.ok_or_else(|| AppError::Invalid("Match introuvable".into()))?;
     let map_id = game.pointer("/metadata/map/id").and_then(Value::as_str).unwrap_or_default();
     let map = assets::load_map(&conn, map_id)?;
     let roles = assets::agent_roles(&conn)?;

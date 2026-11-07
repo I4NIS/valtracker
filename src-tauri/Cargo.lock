@@ -4688,6 +4688,7 @@ dependencies = [
 name = "valtracker"
 version = "0.1.0"
 dependencies = [
+ "flate2",
  "reqwest",
  "rusqlite",
  "serde",
