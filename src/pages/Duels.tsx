@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { Art } from "../components/GameArt";
 import { SeasonPicker } from "../components/SeasonPicker";
 import type { Account } from "../lib/api";
-import { agentIcon, seasonLabel } from "../lib/assets";
+import { agentIcon } from "../lib/assets";
 import type { ClutchEntry, ClutchSize, DistanceBucket, DuelReport, Matchup, OpeningSide, Rival } from "../lib/duels";
 import { fmt, fullDate, pct, roleLabel } from "../lib/format";
 import { cardArt, mapArt } from "../lib/gameAssets";
@@ -24,28 +24,63 @@ const CLUTCH_PAGE = 10;
 
 const en = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
 
+type Tab = "opening" | "clutch" | "agents" | "distance" | "rivals";
+
+const TABS = (): { id: Tab; label: string }[] => [
+  { id: "opening", label: t("Ouvertures", "Openings") },
+  { id: "clutch", label: t("Clutchs", "Clutches") },
+  { id: "agents", label: t("Face aux agents", "Against agents") },
+  { id: "distance", label: t("Distance", "Distance") },
+  { id: "rivals", label: t("Rivaux", "Rivals") },
+];
+
+let rememberedTab: Tab = "opening";
+
 export function Duels({ account, onOpenRound }: Props) {
   const [season, setSeason] = useState<string | null | undefined>(() => defaultSeason(account.puuid));
+  const [tab, setTab] = useState<Tab>(rememberedTab);
   const query = useQuery(season === undefined ? null : queries.duels(account.puuid, season));
   const data = query.data ?? null;
   const error = query.error;
 
-  return (
-    <div className="content">
-      <div className="stack">
-        <span className="eyebrow">{season ? seasonLabel(season) : t("Toutes les saisons", "All seasons")}</span>
-        <h1 className="title">Duels</h1>
-        {data && data.matches > 0 && (
-          <p className="muted" style={{ margin: 0 }}>
-            {t(
-              `${fmt(data.kills)} kills et ${fmt(data.deaths)} morts face aux ennemis sur ${fmt(data.matches)} matchs et ${fmt(data.rounds)} rounds.`,
-              `${fmt(data.kills)} ${data.kills === 1 ? "kill" : "kills"} and ${fmt(data.deaths)} ${data.deaths === 1 ? "death" : "deaths"} against enemies over ${fmt(data.matches)} ${data.matches === 1 ? "match" : "matches"} and ${fmt(data.rounds)} ${data.rounds === 1 ? "round" : "rounds"}.`,
-            )}
-          </p>
-        )}
-      </div>
+  const pick = (next: Tab) => {
+    rememberedTab = next;
+    setTab(next);
+  };
 
-      <SeasonPicker puuid={account.puuid} value={season} onChange={setSeason} />
+  return (
+    <div className="content duels">
+      <header className="page-head">
+        <div className="page-head-title">
+          <h1 className="title">Duels</h1>
+          {data && data.matches > 0 && (
+            <span className="faint">
+              {t(
+                `${fmt(data.kills)} kills et ${fmt(data.deaths)} morts sur ${fmt(data.matches)} matchs et ${fmt(data.rounds)} rounds`,
+                `${fmt(data.kills)} ${data.kills === 1 ? "kill" : "kills"} and ${fmt(data.deaths)} ${data.deaths === 1 ? "death" : "deaths"} over ${fmt(data.matches)} ${data.matches === 1 ? "match" : "matches"} and ${fmt(data.rounds)} ${data.rounds === 1 ? "round" : "rounds"}`,
+              )}
+            </span>
+          )}
+        </div>
+        <SeasonPicker puuid={account.puuid} value={season} onChange={setSeason} />
+      </header>
+
+      {data && data.matches > 0 && (
+        <div className="segmented" role="tablist" aria-label={t("Sections des duels", "Duel sections")} style={{ alignSelf: "flex-start" }}>
+          {TABS().map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              role="tab"
+              aria-selected={tab === item.id}
+              className={tab === item.id ? "active" : undefined}
+              onClick={() => pick(item.id)}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {error && !data && <p className="form-error">{error}</p>}
 
@@ -55,11 +90,11 @@ export function Duels({ account, onOpenRound }: Props) {
         <div className="empty">{t("Aucun match compétitif synchronisé sur cette période.", "No competitive matches synced for this period.")}</div>
       ) : (
         <>
-          <OpeningSection data={data} />
-          <ClutchSection key={season ?? "all"} data={data} onOpenRound={onOpenRound} />
-          <MatchupSection matchups={data.matchups} />
-          <DistanceSection buckets={data.distances} />
-          <RivalSection nemeses={data.nemeses} victims={data.victims} />
+          {tab === "opening" && <OpeningSection data={data} />}
+          {tab === "clutch" && <ClutchSection key={season ?? "all"} data={data} onOpenRound={onOpenRound} />}
+          {tab === "agents" && <MatchupSection matchups={data.matchups} />}
+          {tab === "distance" && <DistanceSection buckets={data.distances} />}
+          {tab === "rivals" && <RivalSection nemeses={data.nemeses} victims={data.victims} />}
         </>
       )}
     </div>
@@ -385,19 +420,26 @@ function MatchupSection({ matchups }: { matchups: Matchup[] }) {
   const shown = expanded ? sorted : sorted.slice(0, MATCHUP_PREVIEW);
 
   return (
-    <section className="stack" style={{ gap: 20 }}>
+    <section className="stack" style={{ gap: 12 }}>
       <div className="row between wrap" style={{ alignItems: "center" }}>
         <h2 className="section-title">{t("Face à chaque agent", "Against each agent")}</h2>
-        {matchups.length > 1 && (
-          <div className="segmented" role="group" aria-label={t("Trier par", "Sort by")}>
-            <button type="button" className={sort === "matches" ? "active" : ""} onClick={() => setSort("matches")}>
-              {t("Rencontres", "Encounters")}
+        <div className="row wrap" style={{ gap: 8 }}>
+          {sorted.length > MATCHUP_PREVIEW && (
+            <button type="button" className="chip" onClick={() => setExpanded((value) => !value)}>
+              {expanded ? t("Afficher moins", "Show less") : t(`Afficher les ${sorted.length} agents`, `Show all ${sorted.length} agents`)}
             </button>
-            <button type="button" className={sort === "rate" ? "active" : ""} onClick={() => setSort("rate")}>
-              {t("Duels gagnés", "Duels won")}
-            </button>
-          </div>
-        )}
+          )}
+          {matchups.length > 1 && (
+            <div className="segmented" role="group" aria-label={t("Trier par", "Sort by")}>
+              <button type="button" className={sort === "matches" ? "active" : ""} onClick={() => setSort("matches")}>
+                {t("Rencontres", "Encounters")}
+              </button>
+              <button type="button" className={sort === "rate" ? "active" : ""} onClick={() => setSort("rate")}>
+                {t("Duels gagnés", "Duels won")}
+              </button>
+            </div>
+          )}
+        </div>
       </div>
       {matchups.length === 0 ? (
         <div className="empty">{t("Aucun agent ennemi rencontré sur cette période.", "No enemy agents faced in this period.")}</div>
@@ -413,11 +455,6 @@ function MatchupSection({ matchups }: { matchups: Matchup[] }) {
           {shown.map((matchup) => (
             <MatchupRow key={matchup.agentId} matchup={matchup} />
           ))}
-          {sorted.length > MATCHUP_PREVIEW && (
-            <button type="button" className="btn btn-secondary duel-more" onClick={() => setExpanded((value) => !value)}>
-              {expanded ? t("Afficher moins", "Show less") : t(`Afficher les ${sorted.length} agents`, `Show all ${sorted.length} agents`)}
-            </button>
-          )}
         </div>
       )}
     </section>

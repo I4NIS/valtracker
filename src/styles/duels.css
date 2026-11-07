@@ -500,3 +500,13 @@ button.duel-clutch-row:hover .duel-clutch-agent {
     font-size: 22px;
   }
 }
+
+.duels .duel-matchup:not(.head) {
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+
+.duels .duel-agent {
+  width: 32px;
+  height: 32px;
+}
