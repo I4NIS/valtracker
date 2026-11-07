@@ -46,7 +46,7 @@ export function ActTriangle({ wins, size }: { wins: TierRef[]; size: number }) {
       height={(size * height) / width}
       viewBox={`-1 -1 ${width + 2} ${height + 2}`}
       role="img"
-      aria-label={t(`${wins.length} victoires classées par rang`, `${wins.length} ${wins.length === 1 ? "win" : "wins"} ranked by tier`)}
+      aria-label={t(`${wins.length} victoire${wins.length > 1 ? "s" : ""} classée${wins.length > 1 ? "s" : ""} par rang`, `${wins.length} ${wins.length === 1 ? "win" : "wins"} ranked by tier`)}
     >
       {SLOTS.map((slot, index) => {
         const win = sorted[index];

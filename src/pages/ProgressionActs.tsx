@@ -122,7 +122,7 @@ function ActCard({ act }: { act: Act }) {
           {act.endRr !== null && tier >= 3 && <span className="faint">{act.endRr} RR</span>}
         </span>
         <span className="muted act-card-line">
-          {matchCount(act.games)}, {t(`${act.wins} victoires`, `${act.wins} ${act.wins === 1 ? "win" : "wins"}`)}
+          {matchCount(act.games)}, {t(`${act.wins} victoire${act.wins > 1 ? "s" : ""}`, `${act.wins} ${act.wins === 1 ? "win" : "wins"}`)}
           {act.games > 0 && <span className={winPct >= 50 ? "win" : "bad"}> {pct(winPct, 0)}</span>}
         </span>
         {top && rankOf(top) >= 3 && (

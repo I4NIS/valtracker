@@ -179,7 +179,7 @@ export function Progression({ account }: Props) {
               <div className="section-head">
                 <h2 className="section-title">RR</h2>
                 <span className="faint">
-                  {t(`${ranked} matchs classés`, `${ranked} ranked ${ranked === 1 ? "match" : "matches"}`)}
+                  {t(`${ranked} match${ranked > 1 ? "s" : ""} classé${ranked > 1 ? "s" : ""}`, `${ranked} ranked ${ranked === 1 ? "match" : "matches"}`)}
                 </span>
               </div>
               <RrChart points={data.rr} />

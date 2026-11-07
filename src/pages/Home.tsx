@@ -197,14 +197,14 @@ export function Home({ account, accounts, onOpenMatch }: Props) {
               </span>
               <span className="home-legend">
                 <i className="home-dot is-win" aria-hidden="true" />
-                {t(`${overview.wins} victoires`, `${overview.wins} ${overview.wins === 1 ? "win" : "wins"}`)}
+                {t(`${overview.wins} victoire${overview.wins > 1 ? "s" : ""}`, `${overview.wins} ${overview.wins === 1 ? "win" : "wins"}`)}
               </span>
               <span className="home-legend">
                 <i className="home-dot is-loss" aria-hidden="true" />
-                {t(`${overview.losses} défaites`, `${overview.losses} ${overview.losses === 1 ? "loss" : "losses"}`)}
+                {t(`${overview.losses} défaite${overview.losses > 1 ? "s" : ""}`, `${overview.losses} ${overview.losses === 1 ? "loss" : "losses"}`)}
               </span>
               <span className="faint" style={{ fontSize: 13 }}>
-                {t(`${overview.matches} matchs joués`, `${overview.matches} ${overview.matches === 1 ? "match" : "matches"} played`)}
+                {t(`${overview.matches} match${overview.matches > 1 ? "s" : ""} joué${overview.matches > 1 ? "s" : ""}`, `${overview.matches} ${overview.matches === 1 ? "match" : "matches"} played`)}
               </span>
             </div>
           </div>
@@ -372,7 +372,7 @@ function WinRing({ wins, losses, winPct }: { wins: number; losses: number; winPc
         viewBox="0 0 120 120"
         role="img"
         aria-label={t(
-          `Taux de victoire ${pct(winPct, 0)} : ${wins} victoires, ${losses} défaites`,
+          `Taux de victoire ${pct(winPct, 0)} : ${wins} victoire${wins > 1 ? "s" : ""}, ${losses} défaite${losses > 1 ? "s" : ""}`,
           `Win rate ${pct(winPct, 0)}: ${wins} ${wins === 1 ? "win" : "wins"}, ${losses} ${losses === 1 ? "loss" : "losses"}`,
         )}
       >
