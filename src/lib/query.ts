@@ -1,4 +1,4 @@
-import { useEffect, useRef, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
 import { errorMessage } from "./api";
 
 export type Query<T> = { key: string; fetch: () => Promise<T> };
@@ -10,42 +10,89 @@ type Entry = {
   generation: number;
 };
 
+const KEEP = 40;
+
 const entries = new Map<string, Entry>();
-const listeners = new Set<() => void>();
+const listeners = new Map<string, Set<() => void>>();
+const sources = new Map<string, Query<unknown>>();
 let generation = 0;
-let version = 0;
 
-function notify() {
-  version += 1;
-  listeners.forEach((listener) => listener());
+function watched(key: string) {
+  return listeners.has(key);
 }
 
-function subscribe(listener: () => void) {
-  listeners.add(listener);
-  return () => listeners.delete(listener);
+function notify(key: string) {
+  listeners.get(key)?.forEach((listener) => listener());
 }
 
-function load(query: Query<unknown>): Promise<void> {
-  const current = entries.get(query.key);
-  if (current?.promise) return current.promise;
-  const started = generation;
-  const entry: Entry = { ...current, generation: current?.generation ?? -1 };
-  entry.promise = query
-    .fetch()
-    .then((data) => {
-      entries.set(query.key, { data, generation: started });
-    })
-    .catch((err) => {
-      entries.set(query.key, { ...entries.get(query.key), error: errorMessage(err), promise: undefined, generation: started });
-    })
-    .finally(notify);
-  entries.set(query.key, entry);
-  return entry.promise;
+function trim() {
+  let idle = 0;
+  for (const [key, entry] of entries) if (!entry.promise && !watched(key)) idle += 1;
+  for (const [key, entry] of entries) {
+    if (idle <= KEEP) return;
+    if (entry.promise || watched(key)) continue;
+    entries.delete(key);
+    idle -= 1;
+  }
+}
+
+function put(key: string, entry: Entry) {
+  entries.delete(key);
+  entries.set(key, entry);
+  trim();
+}
+
+function touch(key: string) {
+  const entry = entries.get(key);
+  if (entry === undefined) return;
+  entries.delete(key);
+  entries.set(key, entry);
+}
+
+function watch(key: string, listener: () => void) {
+  let set = listeners.get(key);
+  if (!set) {
+    set = new Set();
+    listeners.set(key, set);
+  }
+  set.add(listener);
+  touch(key);
+  return () => {
+    set.delete(listener);
+    if (set.size > 0 || listeners.get(key) !== set) return;
+    listeners.delete(key);
+    sources.delete(key);
+    trim();
+  };
 }
 
 function fresh(key: string) {
   const entry = entries.get(key);
   return entry !== undefined && entry.promise === undefined && entry.generation === generation;
+}
+
+function load(query: Query<unknown>): Promise<void> {
+  const key = query.key;
+  const current = entries.get(key);
+  if (current?.promise) return current.promise;
+  const started = generation;
+  const promise = query
+    .fetch()
+    .then(
+      (data) => {
+        put(key, { data, generation: started });
+      },
+      (err) => {
+        put(key, { data: entries.get(key)?.data, error: errorMessage(err), generation: started });
+      },
+    )
+    .finally(() => {
+      notify(key);
+      const source = sources.get(key);
+      if (source && !fresh(key)) load(source);
+    });
+  put(key, { ...current, generation: current?.generation ?? -1, promise });
+  return promise;
 }
 
 export function peek<T>(key: string): T | undefined {
@@ -62,25 +109,34 @@ export function invalidate(prefix?: string) {
   } else {
     for (const [key, entry] of entries) if (key.startsWith(prefix)) entries.set(key, { ...entry, generation: -1 });
   }
-  notify();
+  for (const [key, source] of sources) {
+    if ((prefix === undefined || key.startsWith(prefix)) && !fresh(key)) load(source);
+  }
 }
 
 export function setQueryData<T>(key: string, data: T) {
-  entries.set(key, { data, generation });
-  notify();
+  put(key, { data, generation });
+  notify(key);
 }
 
+const idle = () => () => undefined;
+
 export function useQuery<T>(query: Query<T> | null): { data: T | undefined; error: string | null; pending: boolean } {
-  useSyncExternalStore(subscribe, () => version);
-  const last = useRef<T | undefined>(undefined);
   const key = query?.key ?? null;
-  const entry = key === null ? undefined : entries.get(key);
+  const latest = useRef(query);
+  latest.current = query;
+  const subscribe = useCallback((listener: () => void) => (key === null ? idle() : watch(key, listener)), [key]);
+  const entry = useSyncExternalStore(subscribe, () => (key === null ? undefined : entries.get(key)));
+  const last = useRef<T | undefined>(undefined);
 
   useEffect(() => {
-    if (query && !fresh(query.key)) load(query as Query<unknown>);
-  });
+    const source = latest.current as Query<unknown> | null;
+    if (key === null || source === null) return;
+    sources.set(key, source);
+    if (!fresh(key)) load(source);
+  }, [key]);
 
-  if (entry && "data" in entry && entry.data !== undefined) last.current = entry.data as T;
+  if (entry && entry.data !== undefined) last.current = entry.data as T;
   return {
     data: (entry?.data as T | undefined) ?? last.current,
     error: entry?.error ?? null,
