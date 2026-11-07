@@ -81,6 +81,8 @@ pub struct RecentMatch {
     pub deaths: i64,
     pub assists: i64,
     pub acs: f64,
+    pub adr: f64,
+    pub hs_pct: f64,
     pub won: bool,
     pub rounds_won: i64,
     pub rounds_lost: i64,

@@ -92,6 +92,8 @@ export type RecentMatch = {
   deaths: number;
   assists: number;
   acs: number;
+  adr: number;
+  hsPct: number;
   won: boolean;
   roundsWon: number;
   roundsLost: number;

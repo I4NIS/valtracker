@@ -1,7 +1,7 @@
 import { Fragment } from "react";
 import type { Account, RecentMatch } from "../lib/api";
 import { agentIcon, seasonLabel, tierIcon, tierNameById } from "../lib/assets";
-import { fmt, placeLabel, signed, timeAgo } from "../lib/format";
+import { fmt, pct, placeLabel, signed, timeAgo } from "../lib/format";
 import { t } from "../lib/i18n";
 import { Art, fadeIn } from "./GameArt";
 import { repeat, SkeletonBlock, SkeletonGroup, SkeletonLine } from "./Skeleton";
@@ -41,6 +41,8 @@ export function MatchList({ matches, onOpen, startIndex = 0, accounts }: Props) 
               <span className="muted">
                 {game.kills} / {game.deaths} / {game.assists}
               </span>
+              <strong>{pct(game.hsPct, 0)}</strong>
+              <span className="muted">{fmt(game.adr)}</span>
               <span className="muted">{fmt(game.acs)}</span>
               <strong style={{ textAlign: "right" }}>{placeLabel(game.place)}</strong>
             </button>
@@ -60,6 +62,8 @@ function TrackHead() {
       <span>{t("Résultat", "Result")}</span>
       <span>{t("Rang", "Rank")}</span>
       <span>K / D / A</span>
+      <span>HS</span>
+      <span>ADR</span>
       <span>ACS</span>
       <span style={{ textAlign: "right" }}>{t("Place", "Place")}</span>
     </div>
@@ -85,6 +89,8 @@ export function MatchListSkeleton({ rows = 10, head = true }: { rows?: number; h
               <SkeletonLine width={24} size={13} />
             </span>
             <SkeletonLine width="58%" size={14} />
+            <SkeletonLine width={30} size={14} />
+            <SkeletonLine width={30} size={14} />
             <SkeletonLine width={32} size={14} />
             <SkeletonLine width={28} size={14} style={{ marginLeft: "auto" }} />
           </div>
