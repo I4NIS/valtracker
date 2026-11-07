@@ -61,10 +61,10 @@ async fn sync(app: &AppHandle, state: &AppState, puuid: &str) -> AppResult<SyncR
 
     emit(app, puuid, tr("Historique de RR", "RR history"), 0, true, None);
     let history = api.mmr_history(region, platform, puuid).await?;
-    {
+    let history_changed = {
         let mut conn = state.conn()?;
-        repo::upsert_mmr_history(&mut conn, puuid, &history)?;
-    }
+        repo::upsert_mmr_history(&mut conn, puuid, &history)? > 0
+    };
 
     let mut new_matches = sync_mode(app, &api, region, platform, puuid, COMPETITIVE, tr("Matchs compétitifs", "Competitive matches"), 0).await?;
     if new_matches > 0 && had_matches {
@@ -73,7 +73,7 @@ async fn sync(app: &AppHandle, state: &AppState, puuid: &str) -> AppResult<SyncR
         }
     }
     new_matches += backfill(app, state, &api, region, puuid, new_matches).await;
-    if new_matches > 0 {
+    if new_matches > 0 || history_changed {
         refreshed(app, state, puuid);
     }
 

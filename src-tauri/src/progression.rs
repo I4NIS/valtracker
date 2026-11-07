@@ -52,6 +52,7 @@ pub struct Progression {
     pub games: Vec<GameSummary>,
     pub lobby_acs: f64,
     pub lobby_hs_pct: f64,
+    pub rr_breakdown: crate::ranked::RrBreakdown,
 }
 
 #[derive(Debug, Clone, Default, Serialize)]
@@ -217,6 +218,7 @@ pub fn progression(conn: &Connection, puuid: &str, season: Option<&str>) -> AppR
         games: games(conn, puuid, season, None)?,
         lobby_acs: overview.lobby.acs,
         lobby_hs_pct: overview.lobby.hs_pct,
+        rr_breakdown: crate::ranked::breakdown(conn, puuid, season)?,
     })
 }
 

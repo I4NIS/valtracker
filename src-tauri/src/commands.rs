@@ -198,6 +198,7 @@ fn match_detail(conn: &Connection, puuid: &str, match_id: &str) -> AppResult<Mat
         detail.rr_change = change;
         detail.rr_after = rr;
     }
+    detail.rr_detail = crate::ranked::rr_detail(conn, puuid, match_id)?;
     Ok(detail)
 }
 

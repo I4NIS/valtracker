@@ -1,4 +1,5 @@
-use rusqlite::{Connection, OptionalExtension, Row, params};
+use rusqlite::types::Value as SqlValue;
+use rusqlite::{Connection, OptionalExtension, Row, params, params_from_iter};
 use serde_json::Value;
 
 use crate::error::AppResult;
@@ -104,33 +105,111 @@ pub fn set_last_sync(conn: &Connection, puuid: &str, at: &str) -> AppResult<()> 
     Ok(())
 }
 
+const HISTORY_BASE: [&str; 8] = ["date", "season_short", "map_name", "tier", "tier_name", "rr", "last_change", "elo"];
+
+const HISTORY_DETAIL: [&str; 14] = [
+    "rr_before_update",
+    "tier_before_update",
+    "tier_before_update_name",
+    "rr_performance_bonus",
+    "rr_penalty",
+    "afk_penalty",
+    "refunded_rr",
+    "was_derank_protected",
+    "was_derank_protection_replenished",
+    "new_map_incentive_rr_forgiven",
+    "is_placement_match",
+    "match_length",
+    "competitive_movement",
+    "queue_id",
+];
+
+fn history_upsert_sql() -> String {
+    let columns: Vec<&str> = HISTORY_BASE.iter().chain(HISTORY_DETAIL.iter()).copied().collect();
+    let placeholders: Vec<String> = (1..=columns.len() + 2).map(|index| format!("?{index}")).collect();
+    let updates: Vec<String> = HISTORY_BASE
+        .iter()
+        .map(|column| format!("{column} = excluded.{column}"))
+        .chain(HISTORY_DETAIL.iter().map(|column| format!("{column} = COALESCE(excluded.{column}, mmr_history.{column})")))
+        .collect();
+    let changed: Vec<String> = HISTORY_BASE
+        .iter()
+        .map(|column| format!("mmr_history.{column} IS NOT excluded.{column}"))
+        .chain(
+            HISTORY_DETAIL
+                .iter()
+                .map(|column| format!("(excluded.{column} IS NOT NULL AND mmr_history.{column} IS NOT excluded.{column})")),
+        )
+        .collect();
+    format!(
+        "INSERT INTO mmr_history (puuid, match_id, {}) VALUES ({})
+         ON CONFLICT(puuid, match_id) DO UPDATE SET {} WHERE {}",
+        columns.join(", "),
+        placeholders.join(", "),
+        updates.join(", "),
+        changed.join(" OR "),
+    )
+}
+
+fn sql_int(value: &Value, pointer: &str) -> SqlValue {
+    value.pointer(pointer).and_then(Value::as_i64).map_or(SqlValue::Null, SqlValue::Integer)
+}
+
+fn sql_real(value: &Value, pointer: &str) -> SqlValue {
+    value.pointer(pointer).and_then(Value::as_f64).map_or(SqlValue::Null, SqlValue::Real)
+}
+
+fn sql_text(value: &Value, pointer: &str) -> SqlValue {
+    text(value, pointer).map_or(SqlValue::Null, |found| SqlValue::Text(found.to_string()))
+}
+
+fn sql_bool(value: &Value, pointer: &str) -> SqlValue {
+    value.pointer(pointer).and_then(Value::as_bool).map_or(SqlValue::Null, |flag| SqlValue::Integer(i64::from(flag)))
+}
+
+fn history_values(puuid: &str, match_id: &str, entry: &Value) -> Vec<SqlValue> {
+    vec![
+        SqlValue::Text(puuid.to_string()),
+        SqlValue::Text(match_id.to_string()),
+        SqlValue::Text(text(entry, "/date").unwrap_or_default().to_string()),
+        sql_text(entry, "/season/short"),
+        sql_text(entry, "/map/name"),
+        sql_int(entry, "/tier/id"),
+        sql_text(entry, "/tier/name"),
+        sql_int(entry, "/rr"),
+        sql_int(entry, "/last_change"),
+        sql_int(entry, "/elo"),
+        sql_int(entry, "/rr_before_update"),
+        sql_int(entry, "/tier_before_update/id"),
+        sql_text(entry, "/tier_before_update/name"),
+        sql_int(entry, "/rr_performance_bonus"),
+        sql_real(entry, "/rr_penalty"),
+        sql_int(entry, "/afk_penalty"),
+        sql_int(entry, "/refunded_rr"),
+        sql_bool(entry, "/was_derank_protected"),
+        sql_bool(entry, "/was_derank_protection_replenished"),
+        sql_int(entry, "/new_map_incentive_rr_forgiven"),
+        sql_bool(entry, "/is_placement_match"),
+        sql_int(entry, "/match_length"),
+        sql_text(entry, "/competitive_movement"),
+        sql_text(entry, "/queue_id"),
+    ]
+}
+
 pub fn upsert_mmr_history(conn: &mut Connection, puuid: &str, history: &Value) -> AppResult<usize> {
     let Some(entries) = history.as_array() else {
         return Ok(0);
     };
     let tx = conn.transaction()?;
     let mut count = 0;
-    for entry in entries {
-        let Some(match_id) = text(entry, "/match_id") else {
-            continue;
-        };
-        count += tx.execute(
-            "INSERT OR REPLACE INTO mmr_history
-                (puuid, match_id, date, season_short, map_name, tier, tier_name, rr, last_change, elo)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
-            params![
-                puuid,
-                match_id,
-                text(entry, "/date").unwrap_or_default(),
-                text(entry, "/season/short"),
-                text(entry, "/map/name"),
-                entry.pointer("/tier/id").and_then(Value::as_i64),
-                text(entry, "/tier/name"),
-                entry.pointer("/rr").and_then(Value::as_i64),
-                entry.pointer("/last_change").and_then(Value::as_i64),
-                entry.pointer("/elo").and_then(Value::as_i64),
-            ],
-        )?;
+    {
+        let mut stmt = tx.prepare(&history_upsert_sql())?;
+        for entry in entries {
+            let Some(match_id) = text(entry, "/match_id") else {
+                continue;
+            };
+            count += stmt.execute(params_from_iter(history_values(puuid, match_id, entry)))?;
+        }
     }
     tx.commit()?;
     Ok(count)

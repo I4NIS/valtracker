@@ -1,6 +1,7 @@
 import "../styles/progression.css";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { ExportRecapButton } from "../components/ExportRecap";
+import { RrBreakdownFacts } from "../components/RrBreakdownFacts";
 import { SeasonPicker } from "../components/SeasonPicker";
 import { repeat, SkeletonBlock, SkeletonGroup, SkeletonLine } from "../components/Skeleton";
 import type { Account, GameSummary, RrPoint } from "../lib/api";
@@ -162,6 +163,7 @@ export function Progression({ account }: Props) {
                 </span>
               </div>
               <RrChart points={data.rr} />
+              <RrBreakdownFacts breakdown={data.rrBreakdown} />
             </section>
 
             <section className="stack" style={{ gap: 12 }}>

@@ -218,6 +218,21 @@ INSERT INTO unavailable_matches_compact
     SELECT match_id, checked_at FROM unavailable_matches WHERE match_id IS NOT NULL;
 DROP TABLE unavailable_matches;
 ALTER TABLE unavailable_matches_compact RENAME TO unavailable_matches;
+", "
+ALTER TABLE mmr_history ADD COLUMN rr_before_update INTEGER;
+ALTER TABLE mmr_history ADD COLUMN tier_before_update INTEGER;
+ALTER TABLE mmr_history ADD COLUMN tier_before_update_name TEXT;
+ALTER TABLE mmr_history ADD COLUMN rr_performance_bonus INTEGER;
+ALTER TABLE mmr_history ADD COLUMN rr_penalty REAL;
+ALTER TABLE mmr_history ADD COLUMN afk_penalty INTEGER;
+ALTER TABLE mmr_history ADD COLUMN refunded_rr INTEGER;
+ALTER TABLE mmr_history ADD COLUMN was_derank_protected INTEGER;
+ALTER TABLE mmr_history ADD COLUMN was_derank_protection_replenished INTEGER;
+ALTER TABLE mmr_history ADD COLUMN new_map_incentive_rr_forgiven INTEGER;
+ALTER TABLE mmr_history ADD COLUMN is_placement_match INTEGER;
+ALTER TABLE mmr_history ADD COLUMN match_length INTEGER;
+ALTER TABLE mmr_history ADD COLUMN competitive_movement TEXT;
+ALTER TABLE mmr_history ADD COLUMN queue_id TEXT;
 "];
 
 const REBUILT_AT: i64 = 10;

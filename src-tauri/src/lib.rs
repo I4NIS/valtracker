@@ -21,6 +21,7 @@ mod http;
 mod models;
 mod notify;
 mod progression;
+mod ranked;
 mod recap;
 mod reports;
 mod scan;

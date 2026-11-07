@@ -4,6 +4,7 @@ import { ExportRecapButton } from "../components/ExportRecap";
 import { FavoriteButton } from "../components/FavoriteButton";
 import { fadeIn } from "../components/GameArt";
 import { Icon } from "../components/Icon";
+import { MatchRrDetail } from "../components/MatchRrDetail";
 import { NoteEditor } from "../components/NoteEditor";
 import type { Account, RoundLine } from "../lib/api";
 import { RankBadge } from "../components/RankBadge";
@@ -225,6 +226,8 @@ export function MatchDetail({ account, matchId, initialRound, initialDeath, back
             )}
             <HeadStat label="ACS" value={fmt(detail.acs)} sub={t(`${fmt(detail.adr)} dégâts par round`, `${fmt(detail.adr)} damage per round`)} />
           </div>
+
+          <MatchRrDetail detail={detail.rrDetail} />
 
           <section className="stack" style={{ gap: 10 }}>
             <div className="section-head">
