@@ -62,6 +62,13 @@ fn located(entry: &mut Value) -> Value {
     ])
 }
 
+fn someone(value: Option<&mut Value>) -> Value {
+    match value {
+        Some(value) if value.is_object() => person(Some(value)),
+        _ => Value::Null,
+    }
+}
+
 fn action(value: Option<&mut Value>) -> Value {
     match value {
         Some(value) if value.is_object() => object([
@@ -122,6 +129,8 @@ fn round(round: &mut Value) -> Value {
         ("winning_team_role", take(round, "winning_team_role")),
         ("result", take(round, "result")),
         ("ceremony", take(round, "ceremony")),
+        ("ceremony_player", someone(round.get_mut("ceremony_player"))),
+        ("ceremony_team", take(round, "ceremony_team")),
         ("plant", action(round.get_mut("plant"))),
         ("defuse", action(round.get_mut("defuse"))),
         ("stats", each(round.get_mut("stats"), round_stat)),
@@ -147,11 +156,11 @@ pub fn slim(mut game: Value) -> Value {
             "metadata",
             pick(
                 game.get_mut("metadata"),
-                &["match_id", "map", "started_at", "queue", "season", "game_length_in_ms", "region", "cluster", "platform"],
+                &["match_id", "map", "started_at", "queue", "season", "game_length_in_ms", "region", "cluster", "platform", "mvp"],
             ),
         ),
         ("players", each(game.get_mut("players"), player)),
-        ("teams", each(game.get_mut("teams"), |team| pick(Some(team), &["team_id", "won", "rounds"]))),
+        ("teams", each(game.get_mut("teams"), |team| pick(Some(team), &["team_id", "won", "rounds", "mvp"]))),
         ("rounds", each(game.get_mut("rounds"), round)),
         ("kills", each(game.get_mut("kills"), kill)),
     ])
@@ -296,7 +305,7 @@ mod tests {
             json!({
                 "metadata": pick(
                     &game["metadata"],
-                    &["match_id", "map", "started_at", "queue", "season", "game_length_in_ms", "region", "cluster", "platform"],
+                    &["match_id", "map", "started_at", "queue", "season", "game_length_in_ms", "region", "cluster", "platform", "mvp"],
                 ),
                 "players": each(&game["players"], |player| json!({
                     "puuid": player["puuid"],
@@ -312,12 +321,14 @@ mod tests {
                     "performance": player["performance"],
                     "behavior": player["behavior"],
                 })),
-                "teams": each(&game["teams"], |team| pick(team, &["team_id", "won", "rounds"])),
+                "teams": each(&game["teams"], |team| pick(team, &["team_id", "won", "rounds", "mvp"])),
                 "rounds": each(&game["rounds"], |round| json!({
                     "winning_team": round["winning_team"],
                     "winning_team_role": round["winning_team_role"],
                     "result": round["result"],
                     "ceremony": round["ceremony"],
+                    "ceremony_player": if round["ceremony_player"].is_object() { person(&round["ceremony_player"]) } else { Value::Null },
+                    "ceremony_team": round["ceremony_team"],
                     "plant": action(&round["plant"]),
                     "defuse": action(&round["defuse"]),
                     "stats": each(&round["stats"], |stat| json!({
@@ -385,7 +396,12 @@ mod tests {
 
     fn recent_match() -> Value {
         json!({
-            "metadata": { "match_id": "m", "queue": { "id": "competitive" }, "premier": null },
+            "metadata": {
+                "match_id": "m",
+                "queue": { "id": "competitive" },
+                "premier": null,
+                "mvp": { "puuid": "p", "name": "P", "tag": "0000", "team": "Red" },
+            },
             "players": [{
                 "puuid": "p",
                 "team_id": "Red",
@@ -397,9 +413,13 @@ mod tests {
                 },
                 "behavior": { "afk_rounds": 2.0, "friendly_fire": { "incoming": 30.0, "outgoing": 0.0 }, "rounds_in_spawn": 2.0 },
             }],
-            "teams": [{ "team_id": "Red", "won": true }],
+            "teams": [{ "team_id": "Red", "won": true, "mvp": { "puuid": "p", "name": "P", "tag": "0000", "team": "Red" }, "health": null }],
             "rounds": [{
                 "winning_team": "Red",
+                "ceremony": "CeremonyClutch",
+                "ceremony_player": { "puuid": "p", "name": "P", "tag": "0000", "team": "Red", "card": "c" },
+                "ceremony_team": "Red",
+                "first_blood": null,
                 "plant": {
                     "round_time_in_ms": 41000,
                     "site": "B",
@@ -427,6 +447,11 @@ mod tests {
         assert_eq!(slim.pointer("/players/0/behavior/friendly_fire/incoming"), Some(&json!(30.0)));
         assert_eq!(slim.pointer("/rounds/0/stats/0/was_afk"), Some(&json!(true)));
         assert_eq!(slim.pointer("/rounds/0/stats/0/received_penalty"), Some(&json!(false)));
+        assert_eq!(slim.pointer("/metadata/mvp/puuid"), Some(&json!("p")));
+        assert_eq!(slim.pointer("/teams/0/mvp/name"), Some(&json!("P")));
+        assert_eq!(slim.pointer("/rounds/0/ceremony_player"), Some(&json!({ "puuid": "p", "name": "P", "tag": "0000", "team": "Red" })));
+        assert_eq!(slim.pointer("/rounds/0/ceremony_team"), Some(&json!("Red")));
+        assert!(slim.pointer("/teams/0/health").is_none());
         assert!(slim.pointer("/players/0/account_level").is_none());
         assert!(slim.pointer("/metadata/premier").is_none());
     }

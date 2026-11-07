@@ -9,7 +9,7 @@ import { NoteEditor } from "../components/NoteEditor";
 import { MatchAccolades } from "../components/RiotRecords";
 import type { Account, RoundLine } from "../lib/api";
 import { RankBadge } from "../components/RankBadge";
-import { GradeBadge, MatchRiot } from "../components/RiotFacts";
+import { GradeBadge, MatchRiot, MvpBadge } from "../components/RiotFacts";
 import { RoundDetail } from "../components/RoundDetail";
 import { repeat, SkeletonBlock, SkeletonGroup, SkeletonLine } from "../components/Skeleton";
 import { agentIcon } from "../lib/assets";
@@ -279,6 +279,7 @@ export function MatchDetail({ account, matchId, initialRound, initialDeath, back
                           <span className="name-line">
                             <strong className="ellipsis">{player.name}</strong>
                             <GradeBadge grade={player.riotGrade} />
+                            <MvpBadge rank={player.riotMvp} />
                           </span>
                           <span className="faint ellipsis" style={{ fontSize: 12 }}>
                             {player.badge ?? roleLabel(player.role)}

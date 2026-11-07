@@ -143,7 +143,10 @@ export type PlayerLine = {
   isMe: boolean;
   riotScore?: number;
   riotGrade?: string;
+  riotMvp?: "match" | "team";
 };
+
+export type Who = { puuid: string; name: string; agentId: string | null; ally: boolean; me: boolean };
 
 export type TeamBlock = {
   mine: boolean;
@@ -203,6 +206,8 @@ export type RoundLine = {
   economy: EconomyLine[];
   plantPositions?: PlayerSpot[];
   defusePositions?: PlayerSpot[];
+  ceremonyPlayer?: Who;
+  ceremonyAlly?: boolean;
 };
 
 export type PlayerSpot = { x: number; y: number; name: string; agentId: string | null; ally: boolean; me: boolean };
@@ -269,6 +274,7 @@ export type MatchDetail = {
   flaws: Flaw[];
   riot?: RiotPerformance;
   behavior?: Fact[];
+  mvp?: { player: Who | null; teams: Who[] };
 };
 
 export type Fact = { tone: "bad" | "neutral" | "gold"; text: string };

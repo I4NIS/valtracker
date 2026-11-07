@@ -307,6 +307,38 @@
   box-shadow: 0 0 0 2px #f2f3f5;
 }
 
+.round-picker button.ceremony {
+  position: relative;
+}
+
+.round-picker button.ceremony::after {
+  content: "";
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--gold);
+}
+
+.round-ceremonies {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: -8px;
+}
+
+.round-ceremonies .chip {
+  min-height: 30px;
+  padding: 0 12px;
+}
+
+.round-ceremonies .chip.active .faint {
+  color: inherit;
+  opacity: 0.7;
+}
+
 .round-map .round-map-player img,
 .round-map .round-map-player .art-empty {
   position: static;

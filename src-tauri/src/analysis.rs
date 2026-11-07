@@ -50,6 +50,8 @@ pub struct PlayerLine {
     pub riot_score: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub riot_grade: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub riot_mvp: Option<&'static str>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -120,6 +122,10 @@ pub struct RoundLine {
     pub plant_positions: Option<Vec<riot::PlayerSpot>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub defuse_positions: Option<Vec<riot::PlayerSpot>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ceremony_player: Option<riot::Who>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ceremony_ally: Option<bool>,
 }
 
 fn result_label(raw: &str) -> String {
@@ -226,6 +232,8 @@ pub struct MatchDetail {
     pub riot: Option<riot::RiotPerformance>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub behavior: Option<Vec<riot::Fact>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mvp: Option<riot::Mvp>,
 }
 
 pub fn text<'a>(value: &'a Value, pointer: &str) -> Option<&'a str> {
@@ -377,6 +385,7 @@ pub fn analyze(
                 is_me: id == puuid,
                 riot_score: riot::score(player),
                 riot_grade: riot::grade(player),
+                riot_mvp: riot::mvp_rank(game, game.pointer("/teams").and_then(Value::as_array).map_or(&[], Vec::as_slice), id),
             }
         })
         .collect();
@@ -561,6 +570,18 @@ pub fn analyze(
                     .collect();
                 (!spots.is_empty()).then_some(spots)
             };
+            let ceremony = text(round, "/ceremony").and_then(ceremony_label);
+            let ceremony_player = round
+                .get("ceremony_player")
+                .filter(|_| ceremony.is_some())
+                .and_then(|value| {
+                    let id = text(value, "/puuid")?;
+                    let (name, agent_id, ally, me) = person(id, text(value, "/name"));
+                    Some(riot::Who { puuid: id.to_string(), name, agent_id, ally, me })
+                });
+            let ceremony_ally = ceremony
+                .as_ref()
+                .and(ceremony_player.as_ref().map(|who| who.ally).or_else(|| text(round, "/ceremony_team").map(|team| team == my_team)));
             RoundLine {
                 number: index + 1,
                 won: text(round, "/winning_team") == Some(my_team.as_str()),
@@ -572,11 +593,13 @@ pub fn analyze(
                 my_kills: mine.1,
                 died: died_in.contains(&index),
                 result: result_label(text(round, "/result").unwrap_or_default()),
-                ceremony: text(round, "/ceremony").and_then(ceremony_label),
+                ceremony,
                 events,
                 economy,
                 plant_positions: snapshot("/plant/player_locations"),
                 defuse_positions: snapshot("/defuse/player_locations"),
+                ceremony_player,
+                ceremony_ally,
             }
         })
         .collect();
@@ -747,6 +770,18 @@ pub fn analyze(
         .collect();
     teams.sort_by_key(|team| !team.mine);
 
+    let mvp = riot::mvp(game, teams_json, |value| {
+        let id = text(value, "/puuid")?;
+        let line = find_line(id);
+        Some(riot::Who {
+            puuid: id.to_string(),
+            name: line.map_or_else(|| text(value, "/name").unwrap_or(tr("Inconnu", "Unknown")).to_string(), |line| line.name.clone()),
+            agent_id: line.and_then(|line| line.agent_id.clone()),
+            ally: team_of(id) == Some(my_team.as_str()),
+            me: id == puuid,
+        })
+    });
+
     Some(MatchDetail {
         match_id: text(game, "/metadata/match_id").unwrap_or_default().to_string(),
         map_id: text(game, "/metadata/map/id").map(str::to_string),
@@ -783,6 +818,7 @@ pub fn analyze(
         flaws,
         riot: riot::performance(me),
         behavior: riot::behavior(game, puuid),
+        mvp,
     })
 }
 
@@ -1063,6 +1099,32 @@ mod tests {
             .map(|spot| (spot.name.clone(), spot.ally, spot.me, ((spot.x * 100.0).round(), (spot.y * 100.0).round())))
             .collect();
         assert_eq!(at_plant, [("foe".into(), false, false, (50.0, 60.0)), ("me".into(), true, true, (60.0, 50.0))]);
+    }
+
+    #[test]
+    fn reads_riot_mvps_and_ceremonies() {
+        let mut game = sample();
+        let detail = analyze(&game, "me", None, &HashMap::new(), &Thresholds::default()).expect("sample match");
+        assert!(detail.mvp.is_none() && detail.rounds[0].ceremony_player.is_none() && detail.rounds[0].ceremony_ally.is_none());
+        assert!(detail.teams.iter().flat_map(|team| team.players.iter()).all(|line| line.riot_mvp.is_none()));
+
+        game["metadata"]["mvp"] = json!({ "puuid": "foe", "name": "foe" });
+        game["teams"][0]["mvp"] = json!({ "puuid": "me", "name": "me" });
+        game["teams"][1]["mvp"] = json!({ "puuid": "foe", "name": "foe" });
+        game["rounds"][0]["ceremony"] = json!("CeremonyClutch");
+        game["rounds"][0]["ceremony_player"] = json!({ "puuid": "foe", "name": "foe" });
+        game["rounds"][0]["ceremony_team"] = json!("Blue");
+        let detail = analyze(&game, "me", None, &HashMap::new(), &Thresholds::default()).expect("sample match");
+        let mvp = detail.mvp.as_ref().expect("Riot MVPs");
+        assert_eq!(mvp.player.as_ref().map(|who| (who.name.as_str(), who.ally, who.me)), Some(("foe", false, false)));
+        assert_eq!(mvp.teams.iter().map(|who| who.me).collect::<Vec<_>>(), [true, false]);
+        let ranks: Vec<(&str, Option<&str>)> =
+            detail.teams.iter().flat_map(|team| team.players.iter()).map(|line| (line.puuid.as_str(), line.riot_mvp)).collect();
+        assert_eq!(ranks, [("me", Some("team")), ("foe", Some("match"))]);
+        let round = &detail.rounds[0];
+        assert_eq!(round.ceremony.as_deref(), Some("Clutch"));
+        assert_eq!(round.ceremony_player.as_ref().map(|who| who.name.as_str()), Some("foe"));
+        assert_eq!(round.ceremony_ally, Some(false));
     }
 
     #[test]

@@ -93,6 +93,42 @@ pub fn performance(player: &Value) -> Option<RiotPerformance> {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct Who {
+    pub puuid: String,
+    pub name: String,
+    pub agent_id: Option<String>,
+    pub ally: bool,
+    pub me: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Mvp {
+    pub player: Option<Who>,
+    pub teams: Vec<Who>,
+}
+
+pub fn mvp_rank(game: &Value, teams: &[Value], puuid: &str) -> Option<&'static str> {
+    if game.pointer("/metadata/mvp/puuid").and_then(Value::as_str) == Some(puuid) {
+        Some("match")
+    } else if teams.iter().any(|team| team.pointer("/mvp/puuid").and_then(Value::as_str) == Some(puuid)) {
+        Some("team")
+    } else {
+        None
+    }
+}
+
+pub fn mvp(game: &Value, teams: &[Value], who: impl Fn(&Value) -> Option<Who>) -> Option<Mvp> {
+    let player = game.pointer("/metadata/mvp").filter(|value| value.is_object());
+    let team_mvps: Vec<&Value> = teams.iter().filter_map(|team| team.get("mvp").filter(|value| value.is_object())).collect();
+    if player.is_none() && team_mvps.is_empty() {
+        return None;
+    }
+    Some(Mvp { player: player.and_then(&who), teams: team_mvps.into_iter().filter_map(&who).collect() })
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Fact {
     pub tone: &'static str,
     pub text: String,

@@ -1,8 +1,90 @@
 import "../styles/riot.css";
-import type { Fact, MatchDetail, RiotPerformance } from "../lib/api";
+import type { Fact, MatchDetail, PlayerLine, RiotPerformance, Who } from "../lib/api";
+import { agentIcon } from "../lib/assets";
 import { fmt } from "../lib/format";
 import { t } from "../lib/i18n";
 import { gradeLabel, gradeTone, notAvailable, trendLabel, trendLevel } from "../lib/riot";
+import { Art } from "./GameArt";
+
+export function MvpBadge({ rank }: { rank: "match" | "team" | undefined }) {
+  if (!rank) return null;
+  return (
+    <span
+      className={`mvp-badge${rank === "match" ? " match" : ""}`}
+      title={rank === "match" ? t("MVP du match selon Riot", "Match MVP according to Riot") : t("MVP de son équipe selon Riot", "Team MVP according to Riot")}
+    >
+      MVP
+    </span>
+  );
+}
+
+export function whoName(who: Who) {
+  return who.me ? t("Toi", "You") : who.name;
+}
+
+function side(who: Who) {
+  if (who.me) return "";
+  return who.ally ? t("ton équipe", "your team") : t("en face", "enemy team");
+}
+
+function Person({ who, sub }: { who: Who; sub?: string }) {
+  const detail = [side(who), sub].filter(Boolean).join(", ");
+  return (
+    <span className="mvp-person">
+      <Art src={agentIcon(who.agentId)} width={32} height={32} alt="" />
+      <span className="stack" style={{ gap: 0, minWidth: 0 }}>
+        <strong className={`ellipsis ${who.me ? "me-text" : who.ally ? "ally-text" : "enemy-text"}`}>{whoName(who)}</strong>
+        {detail && <span className="faint ellipsis" style={{ fontSize: 12 }}>{detail}</span>}
+      </span>
+    </span>
+  );
+}
+
+function asWho(line: PlayerLine, mine: boolean): Who {
+  return { puuid: line.puuid, name: line.name, agentId: line.agentId, ally: mine, me: line.isMe };
+}
+
+function MvpPanel({ detail }: { detail: MatchDetail }) {
+  const ours = detail.teams.flatMap((team) => team.players.map((line) => ({ line, mine: team.mine }))).find((entry) => entry.line.badge === "MVP");
+  const riot = detail.mvp?.player ?? null;
+  const same = riot !== null && ours !== undefined && riot.puuid === ours.line.puuid;
+  const teamMvps = detail.mvp?.teams.filter((who) => who.puuid !== riot?.puuid) ?? [];
+  return (
+    <section className="riot-panel">
+      <div className="section-head">
+        <h2 className="section-title">MVP</h2>
+        <span className="faint" style={{ fontSize: 13 }}>
+          {t("Désigné par Riot et par le score Valtracker", "Picked by Riot and by the Valtracker score")}
+        </span>
+      </div>
+      <div className="riot-body mvp-rows">
+        <div className="mvp-row">
+          <span className="label">{t("MVP Riot", "Riot MVP")}</span>
+          {!detail.mvp ? <span className="faint">{notAvailable()}</span> : riot ? <Person who={riot} /> : <span className="faint">{t("Aucun MVP du match", "No match MVP")}</span>}
+        </div>
+        {teamMvps.length > 0 && (
+          <div className="mvp-row">
+            <span className="label">{t("MVP d'équipe Riot", "Riot team MVP")}</span>
+            <span className="mvp-people">
+              {teamMvps.map((who) => (
+                <Person key={who.puuid} who={who} />
+              ))}
+            </span>
+          </div>
+        )}
+        <div className="mvp-row">
+          <span className="label">{t("MVP Valtracker", "Valtracker MVP")}</span>
+          {ours ? (
+            <Person who={asWho(ours.line, ours.mine)} sub={t(`score ${ours.line.score} sur 100`, `score ${ours.line.score} out of 100`)} />
+          ) : (
+            <span className="faint">{t("Pas de MVP sur un match nul", "No MVP on a draw")}</span>
+          )}
+        </div>
+        {same && <span className="faint" style={{ fontSize: 13 }}>{t("Riot et Valtracker désignent le même joueur.", "Riot and Valtracker pick the same player.")}</span>}
+      </div>
+    </section>
+  );
+}
 
 export function GradeBadge({ grade, large }: { grade: string | null | undefined; large?: boolean }) {
   if (!grade) return null;
@@ -120,6 +202,7 @@ export function MatchRiot({ detail }: { detail: MatchDetail }) {
   return (
     <div className="match-riot">
       <RiotPanel riot={detail.riot} score={detail.score} />
+      <MvpPanel detail={detail} />
       <BehaviorPanel facts={detail.behavior} />
     </div>
   );

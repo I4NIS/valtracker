@@ -32,6 +32,13 @@ type Props = {
 };
 
 const pctOf = (value: number) => `${value * 100}%`;
+
+function ceremonyText(round: RoundLine) {
+  if (!round.ceremony) return "";
+  if (round.ceremonyPlayer) return `${round.ceremony} : ${round.ceremonyPlayer.me ? t("toi", "you") : round.ceremonyPlayer.name}`;
+  if (round.ceremonyAlly !== undefined) return `${round.ceremony} : ${round.ceremonyAlly ? t("ton équipe", "your team") : t("en face", "enemy team")}`;
+  return round.ceremony;
+}
 const tone = (ally: boolean) => (ally ? "ally" : "enemy");
 
 export function RoundDetail({ puuid, matchId, rounds, selected, onSelect, minimap, rotation }: Props) {
@@ -63,15 +70,29 @@ export function RoundDetail({ puuid, matchId, rounds, selected, onSelect, minima
           <button
             type="button"
             key={item.number}
-            className={`${item.won ? "won" : "lost"}${index === selected ? " active" : ""}`}
+            className={`${item.won ? "won" : "lost"}${index === selected ? " active" : ""}${item.ceremony ? " ceremony" : ""}`}
             onClick={() => onSelect(index)}
             aria-pressed={index === selected}
-            title={t(`Round ${item.number}, ${item.won ? "gagné" : "perdu"}`, `Round ${item.number}, ${item.won ? "won" : "lost"}`)}
+            title={
+              t(`Round ${item.number}, ${item.won ? "gagné" : "perdu"}`, `Round ${item.number}, ${item.won ? "won" : "lost"}`) +
+              (item.ceremony ? `, ${ceremonyText(item)}` : "")
+            }
           >
             {item.number}
           </button>
         ))}
       </div>
+      {rounds.some((item) => item.ceremony) && (
+        <div className="round-ceremonies" role="group" aria-label={t("Cérémonies des rounds", "Round ceremonies")}>
+          {rounds.map((item, index) =>
+            item.ceremony ? (
+              <button type="button" key={item.number} className={`chip${index === selected ? " active" : ""}`} onClick={() => onSelect(index)}>
+                <span className="faint">R{item.number}</span> {ceremonyText(item)}
+              </button>
+            ) : null,
+          )}
+        </div>
+      )}
 
       <div className="round-layout">
         <RoundMap
@@ -96,7 +117,7 @@ export function RoundDetail({ puuid, matchId, rounds, selected, onSelect, minima
               </span>
               <span className="muted">
                 <strong className={round.won ? "win" : "bad"}>{round.won ? t("Gagné", "Won") : t("Perdu", "Lost")}</strong>, {round.result.toLowerCase()}
-                {round.ceremony ? `, ${round.ceremony}` : ""}
+                {round.ceremony ? `, ${ceremonyText(round)}` : ""}
               </span>
             </div>
             <FavoriteButton puuid={puuid} matchId={matchId} kind="round" roundIndex={index} />
