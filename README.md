@@ -57,6 +57,15 @@ Un match, une période, une session ou un acte complet en image 1600×900, copi�
 
 <img src="docs/screenshots/recap.webp" alt="Image récap d'une période">
 
+## Et aussi
+
+- Duels, clutchs et premiers kills
+- Heatmaps des kills et des morts
+- Journal : notes, matchs favoris et viseurs utilisés
+- Échauffement en Deathmatch et Team Deathmatch
+- Actes passés, stats par patch et records Riot
+- Plusieurs comptes, en français ou en anglais
+
 ## Installation
 
 1. [Télécharge Valtracker](https://github.com/I4NIS/valtracker/releases/latest/download/Valtracker-setup.exe).
@@ -65,7 +74,14 @@ Un match, une période, une session ou un acte complet en image 1600×900, copi�
 
 Les nouvelles versions sont proposées au lancement et s'installent en un clic.
 
-**Avertissement SmartScreen.** L'application n'est pas encore signée, Windows peut afficher un avertissement au premier lancement. Clique sur « Informations complémentaires » puis « Exécuter quand même ».
+### Si Windows bloque l'installation
+
+Valtracker n'a pas de certificat de signature payant. Windows ne connaît donc pas son éditeur et peut afficher un avertissement.
+
+- **« Windows a protégé votre ordinateur »** : clique sur « Informations complémentaires », puis « Exécuter quand même ».
+- **« Virus détecté » dans le navigateur** : Microsoft Defender a supprimé le fichier. La détection se termine par `!ml`, c'est une estimation automatique, fréquente pour les applications récentes et non signées. Ouvre Sécurité Windows, Protection contre les virus et menaces, Historique de protection, ouvre l'élément Valtracker-setup.exe, puis Actions et Restaurer.
+
+Le code source est public, chaque version est compilée par GitHub Actions à partir de ce dépôt, et les [journaux de compilation](https://github.com/I4NIS/valtracker/actions/workflows/release.yml) sont publics. Les mises à jour automatiques sont signées : l'application refuse toute mise à jour qui ne vient pas de ce dépôt.
 
 ## Ce que Valtracker ne fait pas
 
@@ -111,6 +127,10 @@ Le workflow GitHub Actions compile et signe l'installateur, puis publie la relea
 Sources de données : [HenrikDev API](https://docs.henrikdev.xyz) pour les comptes et les matchs, [valorant-api.com](https://valorant-api.com) pour les visuels du jeu.
 
 </details>
+
+## Licence
+
+[MIT](LICENSE)
 
 ## Mentions légales
 
