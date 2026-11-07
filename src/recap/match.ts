@@ -1,6 +1,7 @@
 import type { Account, MatchDetail, PlayerLine, RoundLine, TeamBlock } from "../lib/api";
 import { tierNameById } from "../lib/assets";
 import { fmt, pct, placeLabel } from "../lib/format";
+import { lang, t } from "../lib/i18n";
 import {
   C,
   H,
@@ -67,22 +68,22 @@ function clutchesWon(rounds: RoundLine[], allies: number, enemies: number): numb
 function facts(detail: MatchDetail, me: PlayerLine): string[] {
   const list: string[] = [];
   if (me.badge) list.push(me.badge.charAt(0).toUpperCase() + me.badge.slice(1));
-  if (me.place === 1 && me.badge !== "MVP") list.push("1er du lobby");
+  if (me.place === 1 && me.badge !== "MVP") list.push(t("1er du lobby", "Top of the lobby"));
   const counts = [5, 4, 3].map((size) => detail.rounds.filter((round) => (size === 5 ? round.myKills >= 5 : round.myKills === size)).length);
   if (counts[0]) list.push(counts[0] > 1 ? `${counts[0]} aces` : "Ace");
-  if (counts[1]) list.push(counts[1] > 1 ? `${counts[1]} rounds à 4 kills` : "1 round à 4 kills");
-  if (counts[2]) list.push(counts[2] > 1 ? `${counts[2]} rounds à 3 kills` : "1 round à 3 kills");
+  if (counts[1]) list.push(counts[1] > 1 ? t(`${counts[1]} rounds à 4 kills`, `${counts[1]} 4K rounds`) : t("1 round à 4 kills", "4K round"));
+  if (counts[2]) list.push(counts[2] > 1 ? t(`${counts[2]} rounds à 3 kills`, `${counts[2]} 3K rounds`) : t("1 round à 3 kills", "3K round"));
   if (me.firstBloods) list.push(me.firstBloods > 1 ? `${me.firstBloods} first bloods` : "1 first blood");
   const mine = detail.teams.find((team) => team.mine);
   const other = detail.teams.find((team) => !team.mine);
   const clutches = clutchesWon(detail.rounds, mine?.players.length ?? 5, other?.players.length ?? 5);
-  if (clutches) list.push(clutches > 1 ? `${clutches} clutchs gagnés` : "1 clutch gagné");
+  if (clutches) list.push(clutches > 1 ? t(`${clutches} clutchs gagnés`, `${clutches} clutches won`) : t("1 clutch gagné", "1 clutch won"));
   return list;
 }
 
 function resultWord(detail: MatchDetail, draw: boolean): string {
-  if (detail.won) return "Victoire";
-  return draw ? "Égalité" : "Défaite";
+  if (detail.won) return t("Victoire", "Victory");
+  return draw ? t("Égalité", "Draw") : t("Défaite", "Defeat");
 }
 
 function scoreboard(ctx: Ctx, teams: TeamBlock[], icons: Map<string, HTMLImageElement | null>, ranks: Map<number, HTMLImageElement | null>) {
@@ -97,8 +98,8 @@ function scoreboard(ctx: Ctx, teams: TeamBlock[], icons: Map<string, HTMLImageEl
   let y = top + 26;
   for (const team of teams) {
     const color = team.won ? C.win : team.roundsWon === team.roundsLost ? C.text2 : C.bad;
-    label(ctx, team.mine ? "Ton équipe" : "Adversaires", inner, y + 16, C.text2);
-    text(ctx, String(team.roundsWon), inner + (team.mine ? 128 : 124), y + 17, { font: font(800, 18), color });
+    const teamWidth = label(ctx, team.mine ? t("Ton équipe", "Your team") : t("Adversaires", "Enemies"), inner, y + 16, C.text2);
+    text(ctx, String(team.roundsWon), inner + (lang() === "en" ? teamWidth + 12 : team.mine ? 128 : 124), y + 17, { font: font(800, 18), color });
     label(ctx, "K / D / A", kdaX, y + 16, C.text3, "center");
     label(ctx, "ACS", right, y + 16, C.text3, "right");
     y += 32;
@@ -140,7 +141,7 @@ function scoreboard(ctx: Ctx, teams: TeamBlock[], icons: Map<string, HTMLImageEl
 export async function renderMatchRecap(detail: MatchDetail, account: Account): Promise<HTMLCanvasElement> {
   const players = detail.teams.flatMap((team) => team.players);
   const me = players.find((player) => player.isMe);
-  if (!me) throw new Error("Joueur introuvable dans ce match");
+  if (!me) throw new Error(t("Joueur introuvable dans ce match", "Player not found in this match"));
   const agentIds = [...new Set(players.map((player) => player.agentId).filter((id): id is string => Boolean(id)))];
   const [, art, iconList] = await Promise.all([
     ensureFonts(),
@@ -184,25 +185,25 @@ export async function renderMatchRecap(detail: MatchDetail, account: Account): P
     shade(ctx, [[0, "rgba(14,17,22,0)"], [0.78, "rgba(14,17,22,0)"], [0.93, "rgba(14,17,22,0.85)"], [1, "rgba(14,17,22,1)"]], 0, 0, 0, H);
   }
 
-  header(ctx, "Récap de match");
+  header(ctx, t("Récap de match", "Match recap"));
 
   text(ctx, resultWord(detail, draw).toUpperCase(), M, 178, { font: font(800, 30), color: tone, spacing: 5 });
   const won = text(ctx, String(detail.roundsWon), M - 6, 330, { font: font(800, 168), spacing: -6 });
   const dash = text(ctx, "-", M - 6 + won + 22, 318, { font: font(700, 110), color: C.text3 });
   text(ctx, String(detail.roundsLost), M - 6 + won + dash + 44, 330, { font: font(800, 168), color: C.text2, spacing: -6 });
 
-  const mapWidth = text(ctx, detail.mapName ?? "Map inconnue", M, 400, { font: font(800, 40), spacing: -0.6 });
+  const mapWidth = text(ctx, detail.mapName ?? t("Map inconnue", "Unknown map"), M, 400, { font: font(800, 40), spacing: -0.6 });
   if (detail.lengthMs) text(ctx, playTime(detail.lengthMs), M + mapWidth + 16, 400, { font: font(500, 22), color: C.text2 });
-  text(ctx, `${dayLabel(detail.startedAt, true)} à ${timeLabel(detail.startedAt)}`, M, 436, { font: font(500, 20), color: C.text2 });
+  text(ctx, t(`${dayLabel(detail.startedAt, true)} à ${timeLabel(detail.startedAt)}`, `${dayLabel(detail.startedAt, true)} at ${timeLabel(detail.startedAt)}`), M, 436, { font: font(500, 20), color: C.text2 });
 
   let x = M;
   const rowY = 476;
   if (art.rank) contain(ctx, art.rank, x, rowY, 64);
-  label(ctx, "Rang", x + 80, rowY + 22);
+  label(ctx, t("Rang", "Rank"), x + 80, rowY + 22);
   const rankWidth = text(ctx, tierNameById(me.tier), x + 80, rowY + 52, { font: font(700, 24) });
   x += 80 + Math.max(rankWidth, 60) + 36;
   label(ctx, "Agent", x, rowY + 22);
-  const agentWidth = text(ctx, detail.agentName ?? "Inconnu", x, rowY + 52, { font: font(700, 24) });
+  const agentWidth = text(ctx, detail.agentName ?? t("Inconnu", "Unknown"), x, rowY + 52, { font: font(700, 24) });
   x += Math.max(agentWidth, 60) + 36;
   if (detail.rrChange !== null) {
     label(ctx, "RR", x, rowY + 22);
@@ -219,14 +220,14 @@ export async function renderMatchRecap(detail: MatchDetail, account: Account): P
     { title: "ADR", value: fmt(me.adr) },
     { title: "HS", value: pct(me.hsPct) },
     { title: "Score", value: `${me.score}`, suffix: "/100" },
-    { title: "Place", value: placeLabel(me.place), suffix: "sur 10" },
+    { title: "Place", value: placeLabel(me.place), suffix: t("sur 10", "of 10") },
   ], 38);
 
   let chipX = M;
   for (const fact of facts(detail, me).slice(0, 5)) {
-    const width = pill(ctx, fact, chipX, 740, fact.startsWith("MVP") ? C.gold : C.text, {
+    const width = pill(ctx, fact, chipX, 740, fact.includes("MVP") ? C.gold : C.text, {
       size: 17,
-      fill: fact.startsWith("MVP") ? withAlpha(C.gold, 0.16) : "rgba(255,255,255,0.08)",
+      fill: fact.includes("MVP") ? withAlpha(C.gold, 0.16) : "rgba(255,255,255,0.08)",
     });
     chipX += width + 10;
     if (chipX > PANEL_X - 160) break;

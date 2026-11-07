@@ -1,5 +1,6 @@
 import type { Account } from "../lib/api";
 import { fmt, pct } from "../lib/format";
+import { t } from "../lib/i18n";
 import type { RecapMatch, SessionRecap } from "../lib/recap";
 import {
   C,
@@ -44,6 +45,8 @@ import {
 const LEFT_W = 1010;
 const MAX_CARDS = 16;
 
+const matchCount = (count: number) => plural(count, t("partie", "match"), t("parties", "matches"));
+
 type Art = Map<string, HTMLImageElement | null>;
 
 function arrow(ctx: Ctx, x: number, y: number) {
@@ -64,8 +67,8 @@ function arrow(ctx: Ctx, x: number, y: number) {
 
 export function record(ctx: Ctx, x: number, y: number, wins: number, losses: number, draws: number, size: number): number {
   let cx = x;
-  const parts: [number, string, string][] = [[wins, "V", C.win], [losses, "D", C.bad]];
-  if (draws) parts.push([draws, "N", C.text2]);
+  const parts: [number, string, string][] = [[wins, t("V", "W"), C.win], [losses, t("D", "L"), C.bad]];
+  if (draws) parts.push([draws, t("N", "D"), C.text2]);
   parts.forEach(([value, letter, color], index) => {
     cx += text(ctx, String(value), cx, y, { font: font(800, size), spacing: -1 });
     cx += 4;
@@ -124,7 +127,7 @@ function card(ctx: Ctx, game: RecapMatch, x: number, y: number, w: number, h: nu
     text(ctx, `${fmt(game.acs)} ACS`, x + w - pad, y + h - 26, { font: font(600, 16), color: C.text2, align: "right" });
   }
   if (best) {
-    const tag = "Meilleur match";
+    const tag = t("Meilleur match", "Best match");
     const tagW = measure(ctx, tag.toUpperCase(), font(700, 11), 1.2) + 16;
     fillRounded(ctx, x + pad, y - 11, tagW, 22, 11, C.gold);
     text(ctx, tag.toUpperCase(), x + pad + tagW / 2, y + 4, { font: font(700, 11), color: C.bg, align: "center", spacing: 1.2 });
@@ -142,7 +145,7 @@ function strip(ctx: Ctx, recap: SessionRecap, art: Art) {
   const cardW = Math.min(300, (width - gap * (perRow - 1)) / perRow);
   const cardH = rows === 1 ? bottom - top - 16 : (bottom - top - 16 - gap) / 2;
   const showBest = games.length > 1;
-  label(ctx, recap.matches.length > MAX_CARDS ? `${MAX_CARDS} dernières parties` : "Parties", M, top - 6, C.text2);
+  label(ctx, recap.matches.length > MAX_CARDS ? t(`${MAX_CARDS} dernières parties`, `Last ${MAX_CARDS} matches`) : t("Parties", "Matches"), M, top - 6, C.text2);
   games.forEach((game, index) => {
     const row = Math.floor(index / perRow);
     const col = index % perRow;
@@ -151,14 +154,14 @@ function strip(ctx: Ctx, recap: SessionRecap, art: Art) {
 }
 
 function rankBlock(ctx: Ctx, recap: SessionRecap, art: Art, x: number, y: number) {
-  label(ctx, "Rang", x, y);
+  label(ctx, t("Rang", "Rank"), x, y);
   const before = art.get("before");
   const after = art.get("after");
   if (before) contain(ctx, before, x, y + 14, 76);
   arrow(ctx, x + 92, y + 52);
   if (after) contain(ctx, after, x + 142, y + 14, 76);
   text(ctx, rankLine(recap.after), x + 236, y + 50, { font: font(700, 24) });
-  text(ctx, `Avant : ${rankLine(recap.before)}`, x + 236, y + 80, { font: font(500, 17), color: C.text2 });
+  text(ctx, t(`Avant : ${rankLine(recap.before)}`, `Before: ${rankLine(recap.before)}`), x + 236, y + 80, { font: font(500, 17), color: C.text2 });
 }
 
 export async function renderSessionRecap(recap: SessionRecap, account: Account): Promise<HTMLCanvasElement> {
@@ -205,27 +208,27 @@ export async function renderSessionRecap(recap: SessionRecap, account: Account):
   ctx.fillStyle = glow;
   ctx.fillRect(0, 0, W, H);
 
-  header(ctx, "Récap de session");
+  header(ctx, t("Récap de session", "Session recap"));
 
-  text(ctx, `Session du ${dayLabel(recap.startedAt)}`, M, 178, { font: font(800, 58), spacing: -1.4 });
-  const span = `${timeLabel(recap.startedAt)} à ${timeLabel(recap.endedAt)}`;
-  text(ctx, `${span}, ${plural(recap.matches.length, "partie")}, ${playTime(recap.playedMs)} de jeu`, M, 220, {
+  text(ctx, t(`Session du ${dayLabel(recap.startedAt)}`, `${dayLabel(recap.startedAt)} session`), M, 178, { font: font(800, 58), spacing: -1.4 });
+  const span = t(`${timeLabel(recap.startedAt)} à ${timeLabel(recap.endedAt)}`, `${timeLabel(recap.startedAt)} to ${timeLabel(recap.endedAt)}`);
+  text(ctx, t(`${span}, ${matchCount(recap.matches.length)}, ${playTime(recap.playedMs)} de jeu`, `${span}, ${matchCount(recap.matches.length)}, ${playTime(recap.playedMs)} played`), M, 220, {
     font: font(500, 22),
     color: C.text2,
   });
 
   const heroY = 270;
-  label(ctx, "Bilan", M, heroY);
+  label(ctx, t("Bilan", "Record"), M, heroY);
   record(ctx, M, heroY + 74, recap.wins, recap.losses, recap.draws, 68);
   const rrX = M + 250;
   label(ctx, "RR", rrX, heroY);
   if (recap.rrKnown > 0) {
     text(ctx, signedRr(recap.rrNet), rrX, heroY + 74, { font: font(800, 68), color: recap.rrNet >= 0 ? C.win : C.bad, spacing: -1 });
     if (recap.rrKnown < recap.matches.length) {
-      text(ctx, `sur ${plural(recap.rrKnown, "partie")}`, rrX, heroY + 104, { font: font(500, 17), color: C.text2 });
+      text(ctx, t(`sur ${matchCount(recap.rrKnown)}`, `over ${matchCount(recap.rrKnown)}`), rrX, heroY + 104, { font: font(500, 17), color: C.text2 });
     }
   } else {
-    text(ctx, "Inconnu", rrX, heroY + 74, { font: font(800, 44), color: C.text2 });
+    text(ctx, t("Inconnu", "Unknown"), rrX, heroY + 74, { font: font(800, 44), color: C.text2 });
   }
   rankBlock(ctx, recap, art, M + 530, heroY);
 
@@ -236,7 +239,7 @@ export async function renderSessionRecap(recap: SessionRecap, account: Account):
   statRow(ctx, M + 32, boxY + 40, boxW - 64, [
     { title: "K / D / A", value: `${recap.kills} / ${recap.deaths} / ${recap.assists}` },
     { title: "K/D", value: fmt(recap.kd, 2) },
-    { title: "ACS moyen", value: fmt(recap.acs) },
+    { title: t("ACS moyen", "Avg ACS"), value: fmt(recap.acs) },
     { title: "HS", value: pct(recap.hsPct) },
     { title: "ADR", value: fmt(recap.adr) },
   ], 36);
@@ -245,7 +248,7 @@ export async function renderSessionRecap(recap: SessionRecap, account: Account):
   const agentsW = W - M - agentsX;
   fillRounded(ctx, agentsX, boxY, agentsW, 120, 22, C.panel);
   strokeRounded(ctx, agentsX + 0.5, boxY + 0.5, agentsW - 1, 119, 22, C.line);
-  label(ctx, recap.agents.length > 1 ? "Agents joués" : "Agent joué", agentsX + 24, boxY + 40);
+  label(ctx, recap.agents.length > 1 ? t("Agents joués", "Agents played") : t("Agent joué", "Agent played"), agentsX + 24, boxY + 40);
   let ax = agentsX + 24;
   for (const agent of recap.agents.slice(0, recap.agents.length > 1 ? 6 : 1)) {
     const icon = art.get(agent.agentId);
@@ -258,7 +261,7 @@ export async function renderSessionRecap(recap: SessionRecap, account: Account):
     }
     if (recap.agents.length === 1) {
       text(ctx, agent.agentName ?? "Agent", ax + 58, boxY + 76, { font: font(700, 22) });
-      text(ctx, `${agent.wins} V sur ${plural(agent.matches, "partie")}`, ax + 58, boxY + 98, { font: font(500, 16), color: C.text2 });
+      text(ctx, t(`${agent.wins} V sur ${matchCount(agent.matches)}`, `${agent.wins} W in ${matchCount(agent.matches)}`), ax + 58, boxY + 98, { font: font(500, 16), color: C.text2 });
       ax += 56;
     } else {
       const count = text(ctx, String(agent.matches), ax + 54, boxY + 84, { font: font(700, 20) });

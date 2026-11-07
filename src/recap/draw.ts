@@ -1,6 +1,7 @@
 import type { Account } from "../lib/api";
 import { tierIcon, tierLabel, tierNameById } from "../lib/assets";
 import { fmt } from "../lib/format";
+import { lang, locale, t } from "../lib/i18n";
 import type { RankPoint } from "../lib/recap";
 
 export const W = 1600;
@@ -44,7 +45,7 @@ export function createCanvas(): { canvas: HTMLCanvasElement; ctx: Ctx } {
   canvas.width = W;
   canvas.height = H;
   const ctx = canvas.getContext("2d");
-  if (!ctx) throw new Error("Canvas indisponible");
+  if (!ctx) throw new Error(t("Canvas indisponible", "Canvas unavailable"));
   ctx.textBaseline = "alphabetic";
   ctx.imageSmoothingQuality = "high";
   return { canvas, ctx };
@@ -93,7 +94,7 @@ export function rankArt(tier: number | null | undefined): string {
 
 export function toBlob(canvas: HTMLCanvasElement): Promise<Blob> {
   return new Promise((resolve, reject) => {
-    canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("Export de l'image impossible"))), "image/png");
+    canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error(t("Export de l'image impossible", "Couldn't export the image")))), "image/png");
   });
 }
 
@@ -282,7 +283,7 @@ export function rankName(rank: RankPoint): string {
 }
 
 export function rankLine(rank: RankPoint): string {
-  if (!rank.tier || rank.tier < 3) return "Non classé";
+  if (!rank.tier || rank.tier < 3) return t("Non classé", "Unranked");
   return rank.rr === null ? rankName(rank) : `${rankName(rank)}, ${rank.rr} RR`;
 }
 
@@ -296,25 +297,26 @@ export function playTime(ms: number): string {
   if (minutes < 60) return `${minutes} min`;
   const hours = Math.floor(minutes / 60);
   const rest = minutes % 60;
+  if (lang() === "en") return rest ? `${hours}h ${String(rest).padStart(2, "0")}m` : `${hours}h`;
   return rest ? `${hours} h ${String(rest).padStart(2, "0")}` : `${hours} h`;
 }
 
 export function dayLabel(iso: string | null | undefined, year = false): string {
   if (!iso) return "";
-  return new Date(iso).toLocaleDateString("fr-FR", year ? { day: "numeric", month: "long", year: "numeric" } : { day: "numeric", month: "long" });
+  return new Date(iso).toLocaleDateString(locale(), year ? { day: "numeric", month: "long", year: "numeric" } : { day: "numeric", month: "long" });
 }
 
 export function timeLabel(iso: string | null | undefined): string {
   if (!iso) return "";
-  return new Date(iso).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+  return new Date(iso).toLocaleTimeString(locale(), { hour: "2-digit", minute: "2-digit" });
 }
 
 export function today(): string {
-  return new Date().toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
+  return new Date().toLocaleDateString(locale(), { day: "numeric", month: "long", year: "numeric" });
 }
 
 export function plural(count: number, one: string, many = `${one}s`): string {
-  return `${fmt(count)} ${count > 1 ? many : one}`;
+  return `${fmt(count)} ${(lang() === "en" ? count !== 1 : count > 1) ? many : one}`;
 }
 
 export function resultColor(won: boolean, draw: boolean): string {
