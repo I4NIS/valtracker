@@ -59,6 +59,7 @@ Les trackers en ligne donnent des chiffres. Valtracker va plus loin sur un point
 **Journal**
 - Une note et des tags sur chaque match.
 - Tes résultats avec et sans chaque tag.
+- Favoris : un match, un round ou une de tes morts, en un clic sur l'étoile, puis retrouvés dans le journal.
 
 **Progression**
 - Courbe de RR, jauge de forme, projection de rang.
@@ -68,6 +69,9 @@ Les trackers en ligne donnent des chiffres. Valtracker va plus loin sur un point
 **Confort**
 - Premier lancement guidé en trois étapes, puis une visite de l'application, relançable depuis les paramètres.
 - Synchronisation automatique au lancement puis toutes les 10 minutes, en remontant le plus loin possible dans ton historique compétitif.
+- Icône dans la barre des tâches : fermer la fenêtre la réduit et la synchro continue. Pas de démarrage avec Windows.
+- Notification Windows après l'analyse d'un nouveau match, désactivable dans les paramètres.
+- Export et import de la base locale depuis les paramètres.
 - Pages instantanées : les statistiques sont précalculées au lancement et après chaque synchro.
 - Recherche rapide avec Ctrl+K : pages, actions et matchs.
 - Plusieurs comptes Riot, thème sombre et clair.
@@ -75,7 +79,6 @@ Les trackers en ligne donnent des chiffres. Valtracker va plus loin sur un point
 
 **À venir**
 - Seuils d'analyse réglables.
-- Export et import de la base locale.
 - Filtres par map, agent, rôle et période sur l'accueil.
 - Version anglaise.
 
