@@ -7,7 +7,7 @@ import { RankBadge } from "../components/RankBadge";
 import { SeasonPicker } from "../components/SeasonPicker";
 import type { Account, RecentMatch } from "../lib/api";
 import { seasonLabel, tierLabel } from "../lib/assets";
-import { fmt, greeting, pct, signed, timeAgo, tradeWindowText } from "../lib/format";
+import { fmt, greeting, pct, signed, tradeWindowText } from "../lib/format";
 import { t } from "../lib/i18n";
 import { useQuery } from "../lib/query";
 import { ALL_ACCOUNTS, defaultSeason, queries } from "../lib/queries";
@@ -109,23 +109,30 @@ export function Home({ account, accounts, onOpenMatch }: Props) {
   const recentWins = timeline.filter((game) => game.won).length;
 
   return (
-    <div className="content">
-      <div className="stack">
-        <h1 className="title">
-          {accounts ? t("Tous les comptes", "All accounts") : `${greeting()}, ${account.name}`}
-        </h1>
-        <p className="muted">
-          {accounts
-            ? t(`Stats cumulées de tes ${accounts.length} comptes.`, `Combined stats from your ${accounts.length} accounts.`)
-            : account.lastSyncAt
-              ? t(`Dernière synchro ${timeAgo(account.lastSyncAt)}.`, `Last synced ${timeAgo(account.lastSyncAt)}.`)
-              : t("Première synchro en cours.", "First sync in progress.")}
-        </p>
-      </div>
+    <div className="content home">
+      <header className="page-head">
+        <div className="page-head-title">
+          <h1 className="title">
+            {accounts ? t("Tous les comptes", "All accounts") : `${greeting()}, ${account.name}`}
+          </h1>
+          {(accounts || !account.lastSyncAt) && (
+            <span className="faint">
+              {accounts
+                ? t(`Stats cumulées de tes ${accounts.length} comptes`, `Combined stats from your ${accounts.length} accounts`)
+                : t("Première synchro en cours", "First sync in progress")}
+            </span>
+          )}
+        </div>
+        {!accounts && timeline.length > 0 && (
+          <div className="page-head-tools">
+            <ExportRecapButton kind="session" account={account} label={t("Exporter ma dernière session", "Export my last session")} />
+          </div>
+        )}
+      </header>
 
       {error && <p className="form-error">{error}</p>}
 
-      <div className="hero">
+      <div className="home-hero">
         {accounts ? (
           <ul className="home-accounts" aria-label={t("Comptes", "Accounts")}>
             {accounts.map((item) => (
@@ -144,9 +151,9 @@ export function Home({ account, accounts, onOpenMatch }: Props) {
             ))}
           </ul>
         ) : (
-          <div className="rank">
-            <RankBadge tier={account.tier} size={104} label={tierLabel(account.tierName)} />
-            <div className="stack" style={{ gap: 10, flexGrow: 1 }}>
+          <div className="rank home-rank">
+            <RankBadge tier={account.tier} size={84} label={tierLabel(account.tierName)} />
+            <div className="stack" style={{ gap: 8, flexGrow: 1 }}>
               <span className="rank-name">{tierLabel(account.tierName)}</span>
               {account.tier ? (
                 <div className="row" style={{ maxWidth: 300 }}>
@@ -188,25 +195,18 @@ export function Home({ account, accounts, onOpenMatch }: Props) {
             </div>
           </div>
         )}
-      </div>
-
-      {timeline.length > 0 && (
-        <section className="stack" style={{ gap: 14 }}>
-          <div className="row between wrap" style={{ alignItems: "baseline" }}>
-            <h2 className="section-title">{t("Forme récente", "Recent form")}</h2>
-            <div className="row wrap" style={{ gap: 14, alignItems: "center" }}>
-              <span className="faint" style={{ fontSize: 13 }}>
+        {timeline.length > 0 && (
+          <section className="home-form-block stack">
+            <span className="label">
+              {t("Forme récente", "Recent form")}
+              <span className="faint">
                 {t(
-                  `${recentWins} V ${timeline.length - recentWins} D sur les ${timeline.length} derniers`,
-                  `${recentWins}W ${timeline.length - recentWins}L in the last ${timeline.length}`,
+                  `, ${recentWins} V ${timeline.length - recentWins} D sur les ${timeline.length} derniers`,
+                  `, ${recentWins}W ${timeline.length - recentWins}L in the last ${timeline.length}`,
                 )}
               </span>
-              {!accounts && (
-                <ExportRecapButton kind="session" account={account} label={t("Exporter ma dernière session", "Export my last session")} />
-              )}
-            </div>
-          </div>
-          <ul className="home-form" aria-label={t("Résultats des derniers matchs, du plus ancien au plus récent", "Recent match results, oldest to newest")}>
+            </span>
+            <ul className="home-form" aria-label={t("Résultats des derniers matchs, du plus ancien au plus récent", "Recent match results, oldest to newest")}>
             {timeline.map((game) => {
               const text = matchText(game);
               return (
@@ -223,11 +223,12 @@ export function Home({ account, accounts, onOpenMatch }: Props) {
                 </li>
               );
             })}
-          </ul>
-        </section>
-      )}
+            </ul>
+          </section>
+        )}
+      </div>
 
-      <section className="stack" style={{ gap: 20 }}>
+      <section className="stack" style={{ gap: 18 }}>
         <div className="filter-bar">
           <SeasonPicker puuid={puuid} value={season} onChange={setSeason} />
           <MatchFilters puuid={puuid} value={extra} onChange={setExtra} />
@@ -250,7 +251,6 @@ export function Home({ account, accounts, onOpenMatch }: Props) {
                     <span className="faint">{stat.reference}</span>
                   </span>
                   <CompareBar stat={stat} />
-                  {stat.label === "ACS" && timeline.length >= 3 && <Sparkline matches={timeline} />}
                 </div>
               ))}
             </div>
@@ -261,6 +261,7 @@ export function Home({ account, accounts, onOpenMatch }: Props) {
               <Small label={t("Morts", "Deaths")} value={fmt(overview.deaths)} />
               <Small label={t("Assists", "Assists")} value={fmt(overview.assists)} />
               <Small label={t("Rounds", "Rounds")} value={fmt(overview.rounds)} />
+              {timeline.length >= 3 && <Sparkline matches={timeline} />}
             </div>
           </>
         ) : (
@@ -274,18 +275,31 @@ export function Home({ account, accounts, onOpenMatch }: Props) {
         )}
       </section>
 
+      <div className={`home-bottom${flaws && flaws.deaths > 0 ? "" : " is-single"}`}>
+        <section className="stack" style={{ gap: 12 }}>
+          <div className="section-head">
+            <h2 className="section-title">{t("Derniers matchs", "Recent matches")}</h2>
+            {recent.length > 0 && <span className="faint">{t("Clique sur un match pour son détail", "Click a match for its details")}</span>}
+          </div>
+          {recent.length === 0 ? (
+            <div className="empty">{t("Tes matchs apparaîtront ici dès la fin de la synchro.", "Your matches will show up here once the sync is done.")}</div>
+          ) : (
+            <MatchList matches={recent} accounts={accounts} onOpen={(matchId, owner) => onOpenMatch(matchId, undefined, owner)} />
+          )}
+        </section>
+
       {flaws && flaws.deaths > 0 && (
-        <section className="stack" style={{ gap: 20 }}>
-          <div className="row between wrap" style={{ alignItems: "baseline" }}>
+        <section className="stack" style={{ gap: 12 }}>
+          <div className="section-head">
             <h2 className="section-title">{t("Tes défauts du moment", "Your current flaws")}</h2>
-            <span className="faint" style={{ fontSize: 13 }}>
+            <span className="faint">
               {t(
-                `Sur tes ${flaws.matches} derniers matchs compétitifs`,
-                `Over your last ${flaws.matches} competitive ${flaws.matches === 1 ? "match" : "matches"}`,
+                `Sur tes ${flaws.matches} derniers matchs`,
+                `Over your last ${flaws.matches} ${flaws.matches === 1 ? "match" : "matches"}`,
               )}
             </span>
           </div>
-          <div className="stat-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
+          <div className="home-flaws">
             <FlawStat
               value={pct((flaws.untraded * 100) / flaws.deaths, 0)}
               ratio={flaws.untraded / flaws.deaths}
@@ -316,16 +330,7 @@ export function Home({ account, accounts, onOpenMatch }: Props) {
           </div>
         </section>
       )}
-
-      <section className="stack" style={{ gap: 10 }}>
-        <h2 className="section-title">{t("Derniers matchs", "Recent matches")}</h2>
-        {recent.length > 0 && <span className="faint" style={{ fontSize: 13 }}>{t("Clique sur un match pour voir son détail.", "Click a match to see its details.")}</span>}
-        {recent.length === 0 ? (
-          <div className="empty">{t("Tes matchs apparaîtront ici dès la fin de la synchro.", "Your matches will show up here once the sync is done.")}</div>
-        ) : (
-          <MatchList matches={recent} accounts={accounts} onOpen={(matchId, owner) => onOpenMatch(matchId, undefined, owner)} />
-        )}
-      </section>
+      </div>
     </div>
   );
 }
@@ -446,15 +451,17 @@ function Sparkline({ matches }: { matches: RecentMatch[] }) {
 function FlawStat({ value, ratio, title, detail }: { value: string; ratio: number; title: string; detail: string }) {
   const share = Math.min(Math.max(ratio, 0), 1) * 100;
   return (
-    <div className="stack" style={{ gap: 8 }}>
-      <span className="flaw-value" style={{ fontSize: 44 }}>
-        {value}
-      </span>
-      <div className="home-gauge" role="img" aria-label={t(`${pct(share, 0)} des cas`, `${pct(share, 0)} of cases`)}>
-        <span style={{ width: `${share}%` }} />
+    <div className="home-flaw">
+      <div className="stack" style={{ gap: 8 }}>
+        <span className="flaw-value">{value}</span>
+        <div className="home-gauge" role="img" aria-label={t(`${pct(share, 0)} des cas`, `${pct(share, 0)} of cases`)}>
+          <span style={{ width: `${share}%` }} />
+        </div>
       </div>
-      <strong style={{ fontSize: 15 }}>{title}</strong>
-      <span className="hint">{detail}</span>
+      <div className="stack" style={{ gap: 2 }}>
+        <strong>{title}</strong>
+        <span className="hint">{detail}</span>
+      </div>
     </div>
   );
 }

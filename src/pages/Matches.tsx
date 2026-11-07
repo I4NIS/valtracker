@@ -42,16 +42,17 @@ export function Matches({ account, accounts, onOpen }: Props) {
 
   return (
     <div className="content">
-      <div className="stack">
-        <h1 className="title">{t("Matchs", "Matches")}</h1>
-        <p className="muted">
-          {accounts
-            ? t("Les matchs compétitifs de tous tes comptes.", "Competitive matches from all your accounts.")
-            : t("Tes matchs compétitifs.", "Your competitive matches.")}{" "}
-          {t("Clique sur un match pour voir son détail et revoir tes morts.", "Click a match to see its details and review your deaths.")}
-        </p>
-      </div>
-      <div className="filter-bar">
+      <header className="page-head">
+        <div className="page-head-title">
+          <h1 className="title">{t("Matchs", "Matches")}</h1>
+          <span className="faint">
+            {accounts
+              ? t("Les matchs compétitifs de tous tes comptes", "Competitive matches from all your accounts")
+              : t("Tes matchs compétitifs", "Your competitive matches")}
+          </span>
+        </div>
+      </header>
+      <div className="filter-bar sticky-bar">
         <SeasonPicker puuid={puuid} value={season} onChange={(next) => setView({ ...view, season: next, count: PAGE })} />
         <MatchFilters puuid={puuid} value={extra} onChange={(next) => setView({ ...view, extra: next, count: PAGE })} />
       </div>

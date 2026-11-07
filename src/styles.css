@@ -227,7 +227,7 @@ a {
   align-items: center;
   justify-content: flex-end;
   gap: 10px;
-  padding: 14px 20px;
+  padding: 12px 20px;
   background: var(--panel);
 }
 
@@ -296,10 +296,50 @@ a {
 .content {
   width: 100%;
   box-sizing: border-box;
-  padding: 16px 40px 64px;
+  padding: 2px 40px 40px;
   display: flex;
   flex-direction: column;
-  gap: 48px;
+  gap: 28px;
+}
+
+.page-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 24px;
+  min-height: 40px;
+}
+
+.page-head-title {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  min-width: 0;
+}
+
+.page-head-title .faint {
+  font-size: 13px;
+}
+
+.page-head-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+}
+
+.section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+
+.section-head .faint {
+  font-size: 13px;
 }
 
 .eyebrow {
@@ -310,7 +350,7 @@ a {
 
 .title {
   margin: 0;
-  font-size: 34px;
+  font-size: 28px;
   font-weight: 700;
   letter-spacing: -0.035em;
   line-height: 1.05;
@@ -318,7 +358,7 @@ a {
 
 .section-title {
   margin: 0;
-  font-size: 22px;
+  font-size: 19px;
   font-weight: 700;
   letter-spacing: -0.03em;
 }
@@ -431,8 +471,9 @@ a {
 
 .filter-bar {
   display: flex;
-  flex-direction: column;
-  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 20px;
 }
 
 .filter-pill {
@@ -1016,6 +1057,19 @@ a {
   background: transparent;
   color: inherit;
   text-align: left;
+}
+
+.track > strong:nth-child(4) {
+  white-space: nowrap;
+}
+
+.sticky-bar {
+  position: sticky;
+  top: 60px;
+  z-index: 1;
+  margin: -8px 0;
+  padding: 8px 0;
+  background: var(--panel);
 }
 
 .gold {
@@ -1741,23 +1795,23 @@ a {
   }
 
   .content {
-    padding: 12px 28px 48px;
-    gap: 40px;
+    padding: 2px 28px 36px;
+    gap: 24px;
   }
 }
 
 @media (max-width: 900px) {
   .content {
-    padding: 8px 20px 40px;
-    gap: 32px;
+    padding: 2px 20px 32px;
+    gap: 24px;
   }
 
   .title {
-    font-size: 28px;
+    font-size: 24px;
   }
 
   .section-title {
-    font-size: 19px;
+    font-size: 17px;
   }
 
   .hero {
