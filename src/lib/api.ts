@@ -191,6 +191,68 @@ export type MatchDetail = {
   flaws: Flaw[];
 };
 
+export type HeatPoint = {
+  kind: "death" | "kill" | "killer";
+  x: number;
+  y: number;
+  attack: boolean;
+  phase: "early" | "mid" | "post";
+  zone: string | null;
+};
+
+export type MapOption = { id: string; name: string; matches: number };
+
+export type Heatmap = {
+  maps: MapOption[];
+  mapId: string | null;
+  minimap: string | null;
+  matches: number;
+  points: HeatPoint[];
+};
+
+export type RrPoint = {
+  date: string;
+  tier: number | null;
+  tierName: string | null;
+  rr: number | null;
+  change: number | null;
+};
+
+export type GameSummary = {
+  matchId: string;
+  startedAt: string;
+  mapName: string | null;
+  agentId: string | null;
+  won: boolean;
+  rounds: number;
+  kills: number;
+  deaths: number;
+  assists: number;
+  acs: number;
+  hsPct: number;
+  score: number;
+  place: number;
+  traded: number;
+  firstDeaths: number;
+  isolated: number;
+};
+
+export type Progression = {
+  rr: RrPoint[];
+  games: GameSummary[];
+  lobbyAcs: number;
+  lobbyHsPct: number;
+};
+
+export type RecentFlaws = {
+  matches: number;
+  rounds: number;
+  deaths: number;
+  untraded: number;
+  isolated: number;
+  firstDeaths: number;
+};
+
 export const api = {
   bootstrap: () => invoke<Bootstrap>("bootstrap"),
   saveApiKey: (key: string) => invoke<void>("save_api_key", { key }),
@@ -204,6 +266,10 @@ export const api = {
   getRecentMatches: (puuid: string, limit = 10, offset = 0) =>
     invoke<RecentMatch[]>("get_recent_matches", { puuid, limit, offset }),
   getMatch: (puuid: string, matchId: string) => invoke<MatchDetail>("get_match", { puuid, matchId }),
+  getHeatmap: (puuid: string, mapId: string | null, season: string | null) =>
+    invoke<Heatmap>("get_heatmap", { puuid, mapId, season }),
+  getProgression: (puuid: string, season: string | null) => invoke<Progression>("get_progression", { puuid, season }),
+  getRecentFlaws: (puuid: string) => invoke<RecentFlaws>("get_recent_flaws", { puuid }),
   getSeasons: (puuid: string) => invoke<Season[]>("get_seasons", { puuid }),
   setPreference: (key: "theme" | "language" | "tutorial_done", value: string) =>
     invoke<void>("set_preference", { key, value }),
