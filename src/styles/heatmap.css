@@ -1,8 +1,10 @@
 .advanced-filters {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  padding: 20px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  grid-auto-flow: dense;
+  align-items: start;
+  gap: 16px 32px;
+  padding: 16px 20px;
   border-radius: 16px;
   background: var(--raised);
 }
@@ -11,6 +13,10 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.filter-block.wide {
+  grid-column: 1 / -1;
 }
 
 .agent-chip {
@@ -32,73 +38,42 @@
   accent-color: var(--accent);
 }
 
-.heat-banner {
-  position: relative;
-  min-height: 160px;
-  border-radius: 20px;
-  overflow: hidden;
-  background: #15171b;
-  display: flex;
-  align-items: flex-end;
-}
-
-.heat-banner img {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.heat-banner::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(90deg, rgba(8, 9, 12, 0.82) 0%, rgba(8, 9, 12, 0.45) 60%, rgba(8, 9, 12, 0.2) 100%),
-    linear-gradient(0deg, rgba(8, 9, 12, 0.6) 0%, rgba(8, 9, 12, 0) 60%);
-}
-
-.heat-banner-text {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 24px 28px;
-  min-width: 0;
-  color: #f2f3f5;
-}
-
-.heat-banner-eyebrow {
-  font-size: 13px;
-  font-weight: 500;
-  color: rgba(242, 243, 245, 0.75);
-}
-
-.heat-banner-title {
-  margin: 0;
-  font-size: 42px;
-  font-weight: 700;
-  letter-spacing: -0.035em;
-  line-height: 1.05;
-  overflow-wrap: anywhere;
-}
-
-.heat-banner-sub {
-  font-size: 14px;
-  font-weight: 500;
-  color: rgba(242, 243, 245, 0.8);
-}
-
 .map-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
   gap: 10px;
+}
+
+.heatmaps {
+  gap: 22px;
+}
+
+.heat-layout .minimap {
+  max-width: min(100%, max(360px, calc(100vh - 300px)));
+}
+
+@container main (min-width: 1001px) {
+  .heat-layout {
+    grid-template-columns: minmax(0, max(360px, calc(100vh - 300px))) minmax(300px, 1fr);
+  }
+}
+
+.heat-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.heat-count {
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 1;
 }
 
 .map-card {
   position: relative;
-  height: 84px;
+  height: 60px;
   padding: 0;
   border: 0;
   border-radius: 14px;
@@ -167,7 +142,7 @@
 
 .zone-row.zone-button {
   width: 100%;
-  padding: 8px 10px;
+  padding: 6px 10px;
   border: 0;
   border-radius: 10px;
   background: transparent;
@@ -224,13 +199,6 @@
 }
 
 @container main (max-width: 640px) {
-  .heat-banner-title {
-    font-size: 32px;
-  }
-
-  .heat-banner-text {
-    padding: 20px;
-  }
 
   .map-cards {
     grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));

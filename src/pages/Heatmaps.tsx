@@ -144,22 +144,15 @@ export function Heatmaps({ account }: Props) {
   const top = zones[0]?.[1] ?? 1;
   const selectedMap = data?.maps.find((map) => map.id === data.mapId);
   const mapName = selectedMap?.name ?? "Heatmaps";
-  const splash = data?.splash ?? selectedMap?.image ?? null;
   const pointClass = (base: string, pointZone: string | null) => (zone && pointZone === zone ? `${base} in-zone` : base);
 
   return (
-    <div className="content">
-      <header className="heat-banner">
-        {splash && <img src={splash} alt="" />}
-        <div className="heat-banner-text">
-          <span className="heat-banner-eyebrow">Heatmaps</span>
-          <h1 className="heat-banner-title">{mapName}</h1>
-          <span className="heat-banner-sub">{matchCount(data?.matches ?? 0)}</span>
+    <div className="content heatmaps">
+      <header className="page-head">
+        <div className="page-head-title">
+          <h1 className="title">Heatmaps</h1>
+          <span className="faint">{summary(season, data, agentId, result, limit)}</span>
         </div>
-      </header>
-
-      <div className="row wrap between">
-        <span className="muted">{summary(season, data, agentId, result, limit)}</span>
         <button
           type="button"
           className={`btn ${advanced ? "btn-primary" : "btn-secondary"}`}
@@ -169,7 +162,7 @@ export function Heatmaps({ account }: Props) {
           {t("Filtres avancés", "Advanced filters")}
           {activeFilters > 0 ? ` (${activeFilters})` : ""}
         </button>
-      </div>
+      </header>
 
       {advanced && (
         <section className="advanced-filters" aria-label={t("Filtres avancés", "Advanced filters")}>
@@ -186,7 +179,7 @@ export function Heatmaps({ account }: Props) {
               }}
             />
           </div>
-          <div className="filter-block">
+          <div className="filter-block wide">
             <span className="label">Agent</span>
             <div className="chips" role="group" aria-label="Agent">
               <button type="button" className={`chip${agentId === null ? " active" : ""}`} onClick={() => setAgentId(null)}>
@@ -247,32 +240,25 @@ export function Heatmaps({ account }: Props) {
         <div className="empty">{t("Aucun match synchronisé sur cette période.", "No matches synced for this period.")}</div>
       ) : (
         <>
-          <div className="stack" style={{ gap: 16 }}>
-            <div className="map-cards" role="group" aria-label="Map">
-              {data?.maps.map((map) => (
-                <button
-                  key={map.id}
-                  type="button"
-                  className={`map-card${data.mapId === map.id ? " active" : ""}`}
-                  aria-pressed={data.mapId === map.id}
-                  onClick={() => changeMap(map.id)}
-                >
-                  {map.image && <img src={map.image} alt="" />}
-                  <span className="map-card-text">
-                    <strong>{map.name}</strong>
-                    <span>{matchCount(map.matches)}</span>
-                  </span>
-                </button>
-              ))}
-            </div>
-            <div className="row wrap">
-              <Segmented label={t("Afficher", "Show")} options={layers} value={layer} onChange={setLayer} />
-              <Segmented label={t("Côté", "Side")} options={sideOptions()} value={side} onChange={setSide} />
-              <Segmented label={t("Moment", "Timing")} options={phaseOptions()} value={phase} onChange={setPhase} />
-            </div>
+          <div className="map-cards" role="group" aria-label="Map">
+            {data?.maps.map((map) => (
+              <button
+                key={map.id}
+                type="button"
+                className={`map-card${data.mapId === map.id ? " active" : ""}`}
+                aria-pressed={data.mapId === map.id}
+                onClick={() => changeMap(map.id)}
+              >
+                {map.image && <img src={map.image} alt="" />}
+                <span className="map-card-text">
+                  <strong>{map.name}</strong>
+                  <span>{matchCount(map.matches)}</span>
+                </span>
+              </button>
+            ))}
           </div>
 
-          <div className="review">
+          <div className="review heat-layout">
             <div className={`minimap${zone ? " has-focus" : ""}`}>
               {data?.minimap && <img src={data.minimap} alt={t(`Minimap de ${mapName}`, `${mapName} minimap`)} style={rotationStyle(rotation)} />}
               {points.map((point, i) => (
@@ -301,13 +287,18 @@ export function Heatmaps({ account }: Props) {
               {data && !data.minimap && <span className="minimap-empty">{t("Minimap indisponible, relance une synchro", "Minimap unavailable, run a sync again")}</span>}
             </div>
 
-            <div className="stack" style={{ gap: 24 }}>
-              <div className="stack" style={{ gap: 4 }}>
-                <span className="big-number">{points.length}</span>
+            <div className="stack" style={{ gap: 14 }}>
+              <div className="heat-controls">
+                <Segmented label={t("Afficher", "Show")} options={layers} value={layer} onChange={setLayer} />
+                <Segmented label={t("Côté", "Side")} options={sideOptions()} value={side} onChange={setSide} />
+                <Segmented label={t("Moment", "Timing")} options={phaseOptions()} value={phase} onChange={setPhase} />
+              </div>
+              <div className="row" style={{ gap: 12, alignItems: "baseline" }}>
+                <span className="heat-count">{points.length}</span>
                 <span className="muted">{t(`${style.unit} avec ces filtres`, `${style.unit} with these filters`)}</span>
               </div>
-              <div className="stack" style={{ gap: 4 }}>
-                <span style={{ fontSize: 17, fontWeight: 700, letterSpacing: "-0.02em", paddingBottom: 6 }}>
+              <div className="stack" style={{ gap: 2 }}>
+                <span style={{ fontSize: 16, fontWeight: 700, letterSpacing: "-0.02em", paddingBottom: 4 }}>
                   {t("Par zone", "By zone")}
                 </span>
                 {zones.length === 0 && <span className="faint">{t("Rien à afficher avec ces filtres.", "Nothing to show with these filters.")}</span>}
