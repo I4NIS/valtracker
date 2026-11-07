@@ -216,7 +216,7 @@ export function Heatmaps({ account, refreshKey }: Props) {
           {available > 1 && (
             <div className="filter-block">
               <label className="label" htmlFor="heat-limit">
-                Matchs pris en compte : {limitDraft === null ? `tous (${available})` : `les ${limitDraft} derniers`}
+                Matchs sur {mapName} pris en compte : {limitDraft === null ? `tous (${available})` : `les ${limitDraft} derniers`}
               </label>
               <input
                 id="heat-limit"
