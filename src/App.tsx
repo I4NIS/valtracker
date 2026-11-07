@@ -4,7 +4,10 @@ import { Shell, type Page, type SyncView, type TourTarget } from "./components/S
 import { TitleBar } from "./components/TitleBar";
 import { Tour } from "./components/Tour";
 import { UpdateBanner } from "./components/UpdateBanner";
+import { listen } from "@tauri-apps/api/event";
 import { api, errorMessage, onSyncProgress, type Account, type Bootstrap, type Theme } from "./lib/api";
+import { prefetchAccount } from "./lib/queries";
+import { invalidate } from "./lib/query";
 import { Agents } from "./pages/Agents";
 import { Duels } from "./pages/Duels";
 import { Heatmaps } from "./pages/Heatmaps";
@@ -26,6 +29,7 @@ export default function App() {
   const [theme, setTheme] = useState<Theme>("dark");
   const [page, setPage] = useState<Page>("home");
   const [openMatch, setOpenMatch] = useState<string | null>(null);
+  const [openRound, setOpenRound] = useState<number | undefined>(undefined);
   const [sync, setSync] = useState<SyncView>(IDLE);
   const [refreshKey, setRefreshKey] = useState(0);
   const [tourOpen, setTourOpen] = useState(false);
@@ -59,9 +63,10 @@ export default function App() {
     setPage(next);
   };
 
-  const showMatch = (matchId: string) => {
+  const showMatch = (matchId: string, round?: number) => {
     setPage("matches");
     setOpenMatch(matchId);
+    setOpenRound(round);
   };
 
   useEffect(() => {
@@ -74,17 +79,28 @@ export default function App() {
         newMatches: progress.newMatches,
         error: progress.error,
       }));
-      if (!progress.running) {
-        load().catch(() => undefined);
-        setRefreshKey((key) => key + 1);
-      }
+      if (!progress.running) load().catch(() => undefined);
     }).then((unlisten) => {
       stop = unlisten;
     });
     return () => stop?.();
   }, [load]);
 
+  useEffect(() => {
+    const stop = listen("data-changed", () => {
+      invalidate();
+      setRefreshKey((key) => key + 1);
+    });
+    return () => {
+      stop.then((unlisten) => unlisten());
+    };
+  }, []);
+
   const account: Account | null = boot?.accounts.find((item) => item.puuid === boot.activePuuid) ?? null;
+
+  useEffect(() => {
+    if (account) prefetchAccount(account.puuid).catch(() => undefined);
+  }, [account?.puuid, refreshKey]);
   const needsSetup = boot !== null && (!boot.hasApiKey || boot.accounts.length === 0);
 
   useEffect(() => {
@@ -167,7 +183,7 @@ export default function App() {
         {page === "duels" && account && <Duels account={account} refreshKey={refreshKey} />}
         {page === "journal" && account && <Journal account={account} refreshKey={refreshKey} onOpenMatch={showMatch} />}
         {page === "matches" && account && openMatch && (
-          <MatchDetail account={account} matchId={openMatch} onBack={() => setOpenMatch(null)} />
+          <MatchDetail account={account} matchId={openMatch} initialRound={openRound} onBack={() => setOpenMatch(null)} />
         )}
         {page === "settings" && (
           <Settings

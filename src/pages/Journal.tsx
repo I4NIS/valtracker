@@ -1,9 +1,11 @@
 import "../styles/journal.css";
 import { useEffect, useMemo, useState } from "react";
-import { errorMessage, type Account } from "../lib/api";
+import type { Account } from "../lib/api";
 import { agentIcon } from "../lib/assets";
 import { fmt, fullDate, pct } from "../lib/format";
-import { firstLine, journal, sameTag, type NoteEntry, type TagStat } from "../lib/journal";
+import { firstLine, sameTag, type NoteEntry, type TagStat } from "../lib/journal";
+import { useQuery } from "../lib/query";
+import { queries } from "../lib/queries";
 
 type Props = {
   account: Account;
@@ -13,31 +15,17 @@ type Props = {
 
 const SMALL_SAMPLE = 3;
 
-export function Journal({ account, refreshKey, onOpenMatch }: Props) {
-  const [notes, setNotes] = useState<NoteEntry[] | null>(null);
-  const [tags, setTags] = useState<TagStat[]>([]);
+export function Journal({ account, onOpenMatch }: Props) {
+  const notesQuery = useQuery(queries.notes(account.puuid));
+  const tagsQuery = useQuery(queries.tags(account.puuid));
+  const notes = notesQuery.data ?? (notesQuery.error ? [] : null);
+  const tags = tagsQuery.data ?? [];
+  const error = notesQuery.error ?? tagsQuery.error;
   const [filter, setFilter] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    let alive = true;
-    setError(null);
-    Promise.all([journal.listNotes(account.puuid), journal.listTags(account.puuid)])
-      .then(([list, stats]) => {
-        if (!alive) return;
-        setNotes(list);
-        setTags(stats);
-        setFilter((current) => (current && stats.some((item) => sameTag(item.tag, current)) ? current : null));
-      })
-      .catch((err) => {
-        if (!alive) return;
-        setNotes([]);
-        setError(errorMessage(err));
-      });
-    return () => {
-      alive = false;
-    };
-  }, [account.puuid, refreshKey]);
+    setFilter((current) => (current && tags.some((item) => sameTag(item.tag, current)) ? current : null));
+  }, [tags]);
 
   const visible = useMemo(
     () => (notes ?? []).filter((entry) => !filter || entry.tags.some((tag) => sameTag(tag, filter))),

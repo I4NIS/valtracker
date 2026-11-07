@@ -1,10 +1,12 @@
 import "../styles/heatmap.css";
 import { useEffect, useMemo, useState } from "react";
 import { SeasonPicker } from "../components/SeasonPicker";
-import { api, errorMessage, type Account, type HeatPoint, type Heatmap } from "../lib/api";
+import type { Account, HeatPoint, Heatmap } from "../lib/api";
 import { agentIcon, seasonLabel } from "../lib/assets";
 import { pct } from "../lib/format";
 import { rotatePoint, rotationStyle } from "../lib/minimap";
+import { useQuery } from "../lib/query";
+import { defaultSeason, queries } from "../lib/queries";
 
 type Layer = HeatPoint["kind"];
 type Side = "all" | "attack" | "defense";
@@ -59,11 +61,9 @@ type Props = {
   refreshKey: number;
 };
 
-export function Heatmaps({ account, refreshKey }: Props) {
-  const [season, setSeason] = useState<string | null | undefined>(undefined);
+export function Heatmaps({ account }: Props) {
+  const [season, setSeason] = useState<string | null | undefined>(() => defaultSeason(account.puuid));
   const [mapId, setMapId] = useState<string | null>(null);
-  const [data, setData] = useState<Heatmap | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [layer, setLayer] = useState<Layer>("death");
   const [side, setSide] = useState<Side>("all");
   const [phase, setPhase] = useState<Phase>("all");
@@ -74,26 +74,21 @@ export function Heatmaps({ account, refreshKey }: Props) {
   const [limit, setLimit] = useState<number | null>(null);
   const [limitDraft, setLimitDraft] = useState<number | null>(null);
 
+  const seasons = useQuery(queries.seasons(account.puuid));
+
   useEffect(() => {
-    api
-      .getSeasons(account.puuid)
-      .then((list) => setSeason((current) => (current === undefined ? (list[0]?.short ?? null) : current)))
-      .catch(() => setSeason(null));
-  }, [account.puuid]);
+    if (season === undefined && seasons.data) setSeason(seasons.data[0]?.short ?? null);
+    if (season === undefined && seasons.error) setSeason(null);
+  }, [season, seasons.data, seasons.error]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => setLimit(limitDraft), 250);
     return () => window.clearTimeout(timer);
   }, [limitDraft]);
 
-  useEffect(() => {
-    if (season === undefined) return;
-    setError(null);
-    api
-      .getHeatmap(account.puuid, { mapId, season, agentId, limit })
-      .then(setData)
-      .catch((err) => setError(errorMessage(err)));
-  }, [account.puuid, mapId, season, agentId, limit, refreshKey]);
+  const query = useQuery(season === undefined ? null : queries.heatmap(account.puuid, { mapId, season, agentId, limit }));
+  const data = query.data ?? null;
+  const error = query.error;
 
   useEffect(() => {
     setZone(null);

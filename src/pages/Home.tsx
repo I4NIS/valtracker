@@ -2,9 +2,11 @@ import "../styles/home.css";
 import { useEffect, useState } from "react";
 import { MatchList } from "../components/MatchList";
 import { RankBadge } from "../components/RankBadge";
-import { api, errorMessage, type Account, type Overview, type RecentFlaws, type RecentMatch, type Season } from "../lib/api";
+import type { Account, RecentMatch } from "../lib/api";
 import { seasonLabel, tierLabel } from "../lib/assets";
 import { fmt, greeting, pct, signed, timeAgo } from "../lib/format";
+import { useQuery } from "../lib/query";
+import { defaultSeason, queries } from "../lib/queries";
 
 type Props = {
   account: Account;
@@ -24,39 +26,19 @@ type BigStat = {
   lobbyText: string;
 };
 
-export function Home({ account, refreshKey, onOpenMatch }: Props) {
-  const [seasons, setSeasons] = useState<Season[]>([]);
-  const [season, setSeason] = useState<string | null | undefined>(undefined);
-  const [overview, setOverview] = useState<Overview | null>(null);
-  const [recent, setRecent] = useState<RecentMatch[]>([]);
-  const [flaws, setFlaws] = useState<RecentFlaws | null>(null);
-  const [error, setError] = useState<string | null>(null);
+export function Home({ account, onOpenMatch }: Props) {
+  const [season, setSeason] = useState<string | null | undefined>(() => defaultSeason(account.puuid));
+  const seasonsQuery = useQuery(queries.seasons(account.puuid));
+  const seasons = seasonsQuery.data ?? [];
+  const overviewQuery = useQuery(season === undefined ? null : queries.overview(account.puuid, season));
+  const recent = useQuery(queries.recent(account.puuid, 10)).data ?? [];
+  const flaws = useQuery(queries.flaws(account.puuid)).data ?? null;
+  const overview = overviewQuery.data ?? null;
+  const error = overviewQuery.error ?? seasonsQuery.error;
 
   useEffect(() => {
-    api
-      .getSeasons(account.puuid)
-      .then((list) => {
-        setSeasons(list);
-        setSeason((current) => (current === undefined ? (list[0]?.short ?? null) : current));
-      })
-      .catch((err) => setError(errorMessage(err)));
-    api
-      .getRecentMatches(account.puuid, 10)
-      .then(setRecent)
-      .catch((err) => setError(errorMessage(err)));
-    api
-      .getRecentFlaws(account.puuid)
-      .then(setFlaws)
-      .catch(() => setFlaws(null));
-  }, [account.puuid, refreshKey]);
-
-  useEffect(() => {
-    if (season === undefined) return;
-    api
-      .getOverview(account.puuid, season)
-      .then(setOverview)
-      .catch((err) => setError(errorMessage(err)));
-  }, [account.puuid, season, refreshKey]);
+    if (season === undefined && seasonsQuery.data) setSeason(seasonsQuery.data[0]?.short ?? null);
+  }, [season, seasonsQuery.data]);
 
   const rr = account.rr ?? 0;
   const stats: BigStat[] = overview

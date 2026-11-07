@@ -8,7 +8,7 @@ use crate::analysis::{self, MatchDetail};
 use crate::assets;
 use crate::db;
 use crate::error::{AppError, AppResult};
-use crate::heatmap::{self, Heatmap};
+use crate::heatmap;
 use crate::henrik::Henrik;
 use crate::models::{Account, Season, SyncReport};
 use crate::reports::Report;
@@ -117,7 +117,7 @@ pub fn get_recent_matches(
     limit: Option<i64>,
     offset: Option<i64>,
 ) -> AppResult<Response> {
-    Report::Recent(limit.unwrap_or(10).clamp(1, 100), offset.unwrap_or(0).max(0)).serve(&state, &puuid)
+    Report::Recent(limit.unwrap_or(10).clamp(1, 2000), offset.unwrap_or(0).max(0)).serve(&state, &puuid)
 }
 
 #[tauri::command(async)]

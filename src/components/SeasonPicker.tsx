@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
-import { api, type Season } from "../lib/api";
+import { useEffect } from "react";
 import { seasonLabel } from "../lib/assets";
+import { useQuery } from "../lib/query";
+import { queries } from "../lib/queries";
 
 type Props = {
   puuid: string;
@@ -9,17 +10,14 @@ type Props = {
 };
 
 export function SeasonPicker({ puuid, value, onChange }: Props) {
-  const [seasons, setSeasons] = useState<Season[]>([]);
+  const query = useQuery(queries.seasons(puuid));
+  const seasons = query.data ?? [];
 
   useEffect(() => {
-    api
-      .getSeasons(puuid)
-      .then((list) => {
-        setSeasons(list);
-        if (value === undefined) onChange(list[0]?.short ?? null);
-      })
-      .catch(() => onChange(null));
-  }, [puuid]);
+    if (value !== undefined) return;
+    if (query.data) onChange(query.data[0]?.short ?? null);
+    else if (query.error) onChange(null);
+  }, [value, query.data, query.error]);
 
   return (
     <div className="chips" role="group" aria-label="Période">
