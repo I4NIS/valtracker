@@ -71,36 +71,6 @@ Les nouvelles versions sont proposées au lancement et s'installent en un clic.
 
 Valtracker ne lit jamais le jeu ni le client Valorant, et ne tourne pas en parallèle de tes parties. Toutes les données viennent de l'API HenrikDev, une fois les matchs terminés. Rien n'est injecté, rien n'est lu en mémoire. Tout reste en local sur ton PC.
 
-## Politique de signature du code
-
-Code signing policy
-
-Free code signing provided by [SignPath.io](https://about.signpath.io), certificate by [SignPath Foundation](https://signpath.org)
-
-L'installateur et l'exécutable sont compilés par GitHub Actions depuis ce dépôt, puis signés. Chaque release est approuvée à la main avant la signature.
-
-| Rôle | Membres |
-| --- | --- |
-| Auteurs | [I4NIS](https://github.com/I4NIS) |
-| Relecteurs | [I4NIS](https://github.com/I4NIS) |
-| Approbateurs | [I4NIS](https://github.com/I4NIS) |
-
-### Confidentialité
-
-This program will not transfer any information to other networked systems unless specifically requested by the user or the person installing or operating it.
-
-Valtracker contacte seulement trois services, et seulement pour ce que tu lui demandes :
-
-- l'API HenrikDev, avec ton Riot ID et ta clé API, pour récupérer ton compte et tes matchs ;
-- valorant-api.com, pour les images des maps, des agents et des rangs ;
-- GitHub, pour vérifier et télécharger les mises à jour.
-
-Aucune statistique d'usage n'est envoyée. Tes données restent dans une base locale sur ton PC.
-
-## Licence
-
-[MIT](LICENSE)
-
 <details>
 <summary><strong>Développement</strong></summary>
 
@@ -128,18 +98,7 @@ git tag v0.2.0
 git push origin v0.2.0
 ```
 
-Le workflow GitHub Actions compile l'application, la fait signer par SignPath, puis publie la release avec `Valtracker-setup.exe` et le `latest.json` de la mise à jour automatique. Chaque release attend deux approbations dans SignPath : l'exécutable, puis l'installateur.
-
-| Réglage GitHub | Type | Rôle |
-| --- | --- | --- |
-| `TAURI_SIGNING_PRIVATE_KEY` | Secret | Signature des mises à jour |
-| `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | Secret | Mot de passe de cette clé, s'il y en a un |
-| `SIGNPATH_API_TOKEN` | Secret | Jeton d'un utilisateur SignPath qui peut soumettre |
-| `SIGNPATH_ORGANIZATION_ID` | Variable | Identifiant de l'organisation SignPath |
-| `SIGNPATH_PROJECT_SLUG` | Variable | Projet SignPath |
-| `SIGNPATH_SIGNING_POLICY_SLUG` | Variable | Politique de signature SignPath |
-
-Sans `SIGNPATH_ORGANIZATION_ID`, la release est publiée sans signature Windows.
+Le workflow GitHub Actions compile et signe l'installateur, puis publie la release avec `Valtracker-setup.exe` et le `latest.json` de la mise à jour automatique. Secrets requis : `TAURI_SIGNING_PRIVATE_KEY`, et `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` si la clé a un mot de passe.
 
 ### Architecture
 
