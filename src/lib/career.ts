@@ -51,6 +51,12 @@ export function accoladeLabel(kind: string | null): string | null {
   return label ? t(label[0], label[1]) : null;
 }
 
+const SCORE_ONLY = new Set(["mvp", "distinction"]);
+
+export function accoladeHasValue(kind: string | null): boolean {
+  return !kind || !SCORE_ONLY.has(kind);
+}
+
 export function accoladeValue(kind: string | null, value: number): string {
   if (kind === "headshot_percentage") return pct(value <= 1 ? value * 100 : value, 0);
   if (kind === "damage_per_round") return fmt(value);

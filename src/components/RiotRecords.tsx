@@ -1,5 +1,5 @@
 import "../styles/ranked.css";
-import { accoladeLabel, accoladeValue, type Accolades, type MatchAccolade } from "../lib/career";
+import { accoladeHasValue, accoladeLabel, accoladeValue, type Accolades, type MatchAccolade } from "../lib/career";
 import { t } from "../lib/i18n";
 
 export function RiotRecords({ accolades }: { accolades: Accolades | undefined }) {
@@ -15,8 +15,17 @@ export function RiotRecords({ accolades }: { accolades: Accolades | undefined })
         {stats.map((stat) => (
           <div className="riot-record" key={stat.id}>
             <span className="label">{accoladeLabel(stat.kind)}</span>
-            <strong>{accoladeValue(stat.kind, stat.best)}</strong>
-            <span className="faint">{t(`meilleur score, obtenu ${stat.count} fois`, `best value, earned ${stat.count} ${stat.count === 1 ? "time" : "times"}`)}</span>
+            {accoladeHasValue(stat.kind) ? (
+              <>
+                <strong>{accoladeValue(stat.kind, stat.best)}</strong>
+                <span className="faint">{t(`meilleur score, obtenu ${stat.count} fois`, `best value, earned ${stat.count} ${stat.count === 1 ? "time" : "times"}`)}</span>
+              </>
+            ) : (
+              <>
+                <strong>{stat.count}</strong>
+                <span className="faint">{t("nombre de fois obtenu", stat.count === 1 ? "time earned" : "times earned")}</span>
+              </>
+            )}
           </div>
         ))}
       </div>
@@ -33,11 +42,17 @@ export function MatchAccolades({ accolades }: { accolades: MatchAccolade[] | und
       <ul className="rr-facts">
         {known.map((accolade) => (
           <li key={accolade.id} className="rr-fact">
-            <strong className={accolade.actRecord ? "gold" : ""}>{accoladeValue(accolade.kind, accolade.value)}</strong>
-            <span className="muted">
-              {accoladeLabel(accolade.kind)}
-              {accolade.actRecord ? t(", record de l'acte", ", act record") : ""}
-            </span>
+            {accoladeHasValue(accolade.kind) ? (
+              <>
+                <strong className={accolade.actRecord ? "gold" : ""}>{accoladeValue(accolade.kind, accolade.value)}</strong>
+                <span className="muted">
+                  {accoladeLabel(accolade.kind)}
+                  {accolade.actRecord ? t(", record de l'acte", ", act record") : ""}
+                </span>
+              </>
+            ) : (
+              <strong>{accoladeLabel(accolade.kind)}</strong>
+            )}
           </li>
         ))}
       </ul>
