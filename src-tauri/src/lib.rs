@@ -1,6 +1,10 @@
 mod db;
 mod error;
 mod henrik;
+mod models;
+mod repo;
+mod state;
+mod sync;
 
 #[tauri::command]
 fn greet(name: &str) -> String {
