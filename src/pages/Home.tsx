@@ -8,6 +8,7 @@ import { RankBadge } from "../components/RankBadge";
 import type { Account, OverviewFilters, Party, RecentMatch } from "../lib/api";
 import { agentIcon, seasonLabel, tierLabel } from "../lib/assets";
 import { fmt, greeting, pct, roleLabel, signed, timeAgo, tradeWindowText } from "../lib/format";
+import { t } from "../lib/i18n";
 import { useQuery } from "../lib/query";
 import { ALL_ACCOUNTS, defaultSeason, queries } from "../lib/queries";
 
@@ -22,14 +23,14 @@ type Extra = Omit<OverviewFilters, "season">;
 
 const NO_EXTRA: Extra = { mapId: null, agentId: null, role: null, days: null, party: null };
 
-const PERIODS: PillOption<number>[] = [
-  { value: 7, label: "7 derniers jours" },
-  { value: 30, label: "30 derniers jours" },
+const PERIODS = (): PillOption<number>[] => [
+  { value: 7, label: t("7 derniers jours", "Last 7 days") },
+  { value: 30, label: t("30 derniers jours", "Last 30 days") },
 ];
 
-const PARTIES: PillOption<Party>[] = [
-  { value: "solo", label: "Solo" },
-  { value: "group", label: "En groupe" },
+const PARTIES = (): PillOption<Party>[] => [
+  { value: "solo", label: t("Solo", "Solo") },
+  { value: "group", label: t("En groupe", "In a group") },
 ];
 
 let remembered: { puuid: string; extra: Extra } | null = null;
@@ -90,7 +91,7 @@ export function Home({ account, accounts, onOpenMatch }: Props) {
           lobbyText: fmt(overview.lobby.acs),
         },
         {
-          label: "Dégâts par round",
+          label: t("Dégâts par round", "Damage per round"),
           value: fmt(overview.adr, 1),
           delta: overview.adr - overview.lobby.adr,
           digits: 1,
@@ -112,11 +113,11 @@ export function Home({ account, accounts, onOpenMatch }: Props) {
           lobbyText: fmt(overview.lobby.kd, 2),
         },
         {
-          label: "Headshot",
+          label: t("Headshot", "Headshot"),
           value: pct(overview.hsPct),
           delta: overview.hsPct - overview.lobby.hsPct,
           digits: 1,
-          suffix: " pt",
+          suffix: t(" pt", " pts"),
           reference: `lobby ${pct(overview.lobby.hsPct)}`,
           you: overview.hsPct,
           lobby: overview.lobby.hsPct,
@@ -131,14 +132,14 @@ export function Home({ account, accounts, onOpenMatch }: Props) {
     <div className="content">
       <div className="stack">
         <h1 className="title">
-          {accounts ? "Tous les comptes" : `${greeting()}, ${account.name}`}
+          {accounts ? t("Tous les comptes", "All accounts") : `${greeting()}, ${account.name}`}
         </h1>
         <p className="muted">
           {accounts
-            ? `Stats cumulées de tes ${accounts.length} comptes.`
+            ? t(`Stats cumulées de tes ${accounts.length} comptes.`, `Combined stats from your ${accounts.length} accounts.`)
             : account.lastSyncAt
-              ? `Dernière synchro ${timeAgo(account.lastSyncAt)}.`
-              : "Première synchro en cours."}
+              ? t(`Dernière synchro ${timeAgo(account.lastSyncAt)}.`, `Last synced ${timeAgo(account.lastSyncAt)}.`)
+              : t("Première synchro en cours.", "First sync in progress.")}
         </p>
       </div>
 
@@ -146,7 +147,7 @@ export function Home({ account, accounts, onOpenMatch }: Props) {
 
       <div className="hero">
         {accounts ? (
-          <ul className="home-accounts" aria-label="Comptes">
+          <ul className="home-accounts" aria-label={t("Comptes", "Accounts")}>
             {accounts.map((item) => (
               <li key={item.puuid}>
                 <RankBadge tier={item.tier} size={44} label={tierLabel(item.tierName)} />
@@ -177,7 +178,7 @@ export function Home({ account, accounts, onOpenMatch }: Props) {
               ) : null}
               {account.peakTierName && (
                 <span className="row muted" style={{ gap: 6, fontSize: 13 }}>
-                  Peak
+                  {t("Peak", "Peak")}
                   <RankBadge tier={account.peakTier} size={24} label={tierLabel(account.peakTierName)} />
                   {tierLabel(account.peakTierName)}
                 </span>
@@ -190,19 +191,19 @@ export function Home({ account, accounts, onOpenMatch }: Props) {
             <WinRing wins={overview.wins} losses={overview.losses} winPct={overview.winPct} />
             <div className="stack" style={{ gap: 10 }}>
               <span className="label">
-                {season ? seasonLabel(season) : "Global"}
-                {filtered ? ", avec filtres" : ""}
+                {season ? seasonLabel(season) : t("Global", "All time")}
+                {filtered ? t(", avec filtres", ", filtered") : ""}
               </span>
               <span className="home-legend">
                 <i className="home-dot is-win" aria-hidden="true" />
-                {overview.wins} victoires
+                {t(`${overview.wins} victoires`, `${overview.wins} ${overview.wins === 1 ? "win" : "wins"}`)}
               </span>
               <span className="home-legend">
                 <i className="home-dot is-loss" aria-hidden="true" />
-                {overview.losses} défaites
+                {t(`${overview.losses} défaites`, `${overview.losses} ${overview.losses === 1 ? "loss" : "losses"}`)}
               </span>
               <span className="faint" style={{ fontSize: 13 }}>
-                {overview.matches} matchs joués
+                {t(`${overview.matches} matchs joués`, `${overview.matches} ${overview.matches === 1 ? "match" : "matches"} played`)}
               </span>
             </div>
           </div>
@@ -212,15 +213,20 @@ export function Home({ account, accounts, onOpenMatch }: Props) {
       {timeline.length > 0 && (
         <section className="stack" style={{ gap: 14 }}>
           <div className="row between wrap" style={{ alignItems: "baseline" }}>
-            <h2 className="section-title">Forme récente</h2>
+            <h2 className="section-title">{t("Forme récente", "Recent form")}</h2>
             <div className="row wrap" style={{ gap: 14, alignItems: "center" }}>
               <span className="faint" style={{ fontSize: 13 }}>
-                {recentWins} V {timeline.length - recentWins} D sur les {timeline.length} derniers
+                {t(
+                  `${recentWins} V ${timeline.length - recentWins} D sur les ${timeline.length} derniers`,
+                  `${recentWins}W ${timeline.length - recentWins}L in the last ${timeline.length}`,
+                )}
               </span>
-              {!accounts && <ExportRecapButton kind="session" account={account} label="Exporter ma dernière session" />}
+              {!accounts && (
+                <ExportRecapButton kind="session" account={account} label={t("Exporter ma dernière session", "Export my last session")} />
+              )}
             </div>
           </div>
-          <ul className="home-form" aria-label="Résultats des derniers matchs, du plus ancien au plus récent">
+          <ul className="home-form" aria-label={t("Résultats des derniers matchs, du plus ancien au plus récent", "Recent match results, oldest to newest")}>
             {timeline.map((game) => {
               const text = matchText(game);
               return (
@@ -229,10 +235,10 @@ export function Home({ account, accounts, onOpenMatch }: Props) {
                     type="button"
                     className={`home-form-cell ${game.won ? "is-win" : "is-loss"}`}
                     title={text}
-                    aria-label={`${text}. Ouvrir le match`}
+                    aria-label={t(`${text}. Ouvrir le match`, `${text}. Open the match`)}
                     onClick={() => onOpenMatch(game.matchId, undefined, game.puuid)}
                   >
-                    {game.won ? "V" : "D"}
+                    {game.won ? t("V", "W") : t("D", "L")}
                   </button>
                 </li>
               );
@@ -243,7 +249,7 @@ export function Home({ account, accounts, onOpenMatch }: Props) {
 
       <section className="stack" style={{ gap: 20 }}>
         <div className="home-filters">
-          <div className="chips" role="group" aria-label="Acte">
+          <div className="chips" role="group" aria-label={t("Acte", "Act")}>
             {seasons.map((item) => (
               <button
                 key={item.short}
@@ -255,14 +261,14 @@ export function Home({ account, accounts, onOpenMatch }: Props) {
               </button>
             ))}
             <button type="button" className={`chip${season === null ? " active" : ""}`} onClick={() => setSeason(null)}>
-              Global
+              {t("Global", "All time")}
             </button>
           </div>
-          <div className="chips" role="group" aria-label="Filtres">
+          <div className="chips" role="group" aria-label={t("Filtres", "Filters")}>
             {(options?.maps.length ?? 0) > 1 && (
               <FilterPill
-                label="Map"
-                allLabel="Toutes les maps"
+                label={t("Map", "Map")}
+                allLabel={t("Toutes les maps", "All maps")}
                 value={extra.mapId}
                 options={options!.maps.map((map) => ({ value: map.id, label: map.name, count: map.matches }))}
                 onChange={(mapId) => setExtra({ ...extra, mapId })}
@@ -270,8 +276,8 @@ export function Home({ account, accounts, onOpenMatch }: Props) {
             )}
             {(options?.agents.length ?? 0) > 1 && (
               <FilterPill
-                label="Agent"
-                allLabel="Tous les agents"
+                label={t("Agent", "Agent")}
+                allLabel={t("Tous les agents", "All agents")}
                 value={extra.agentId}
                 options={options!.agents.map((agent) => ({
                   value: agent.id,
@@ -284,31 +290,31 @@ export function Home({ account, accounts, onOpenMatch }: Props) {
             )}
             {(options?.roles.length ?? 0) > 1 && (
               <FilterPill
-                label="Rôle"
-                allLabel="Tous les rôles"
+                label={t("Rôle", "Role")}
+                allLabel={t("Tous les rôles", "All roles")}
                 value={extra.role}
                 options={options!.roles.map((role) => ({ value: role.id, label: roleLabel(role.id), count: role.matches }))}
                 onChange={(role) => setExtra({ ...extra, role })}
               />
             )}
             <FilterPill
-              label="Période"
-              allLabel="Tout"
+              label={t("Période", "Period")}
+              allLabel={t("Tout", "All")}
               value={extra.days}
-              options={PERIODS}
+              options={PERIODS()}
               onChange={(days) => setExtra({ ...extra, days })}
             />
             <FilterPill
-              label="Solo ou en groupe"
-              allLabel="Solo et en groupe"
+              label={t("Solo ou en groupe", "Solo or group")}
+              allLabel={t("Solo et en groupe", "Solo and group")}
               value={extra.party}
-              options={PARTIES}
+              options={PARTIES()}
               onChange={(party) => setExtra({ ...extra, party })}
             />
             {filtered && (
               <button type="button" className="chip filter-reset" onClick={() => setExtra(NO_EXTRA)}>
                 <Icon name="close" size={14} strokeWidth={2} />
-                Réinitialiser
+                {t("Réinitialiser", "Reset")}
               </button>
             )}
           </div>
@@ -336,21 +342,21 @@ export function Home({ account, accounts, onOpenMatch }: Props) {
               ))}
             </div>
             <div className="small-stats">
-              <Small label="KAD" value={fmt(overview.kad, 2)} />
-              <Small label="Kills par round" value={fmt(overview.killsPerRound, 2)} />
-              <Small label="Kills" value={fmt(overview.kills)} />
-              <Small label="Morts" value={fmt(overview.deaths)} />
-              <Small label="Assists" value={fmt(overview.assists)} />
-              <Small label="Rounds" value={fmt(overview.rounds)} />
+              <Small label={t("KAD", "KAD")} value={fmt(overview.kad, 2)} />
+              <Small label={t("Kills par round", "Kills per round")} value={fmt(overview.killsPerRound, 2)} />
+              <Small label={t("Kills", "Kills")} value={fmt(overview.kills)} />
+              <Small label={t("Morts", "Deaths")} value={fmt(overview.deaths)} />
+              <Small label={t("Assists", "Assists")} value={fmt(overview.assists)} />
+              <Small label={t("Rounds", "Rounds")} value={fmt(overview.rounds)} />
             </div>
           </>
         ) : (
           <div className="empty">
             {!overview
-              ? "Chargement des statistiques..."
+              ? t("Chargement des statistiques...", "Loading stats...")
               : filtered
-                ? "Aucun match ne correspond à ces filtres."
-                : "Aucun match compétitif synchronisé sur cette période pour l'instant."}
+                ? t("Aucun match ne correspond à ces filtres.", "No matches fit these filters.")
+                : t("Aucun match compétitif synchronisé sur cette période pour l'instant.", "No competitive matches synced for this period yet.")}
           </div>
         )}
       </section>
@@ -358,39 +364,51 @@ export function Home({ account, accounts, onOpenMatch }: Props) {
       {flaws && flaws.deaths > 0 && (
         <section className="stack" style={{ gap: 20 }}>
           <div className="row between wrap" style={{ alignItems: "baseline" }}>
-            <h2 className="section-title">Tes défauts du moment</h2>
+            <h2 className="section-title">{t("Tes défauts du moment", "Your current flaws")}</h2>
             <span className="faint" style={{ fontSize: 13 }}>
-              Sur tes {flaws.matches} derniers matchs compétitifs
+              {t(
+                `Sur tes ${flaws.matches} derniers matchs compétitifs`,
+                `Over your last ${flaws.matches} competitive ${flaws.matches === 1 ? "match" : "matches"}`,
+              )}
             </span>
           </div>
           <div className="stat-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
             <FlawStat
               value={pct((flaws.untraded * 100) / flaws.deaths, 0)}
               ratio={flaws.untraded / flaws.deaths}
-              title="de tes morts ne sont pas tradées"
-              detail={`${flaws.untraded} sur ${flaws.deaths} : personne n'a tué ton tueur ${tradeWindowText(thresholds?.tradeWindowMs ?? 3000)}.`}
+              title={t("de tes morts ne sont pas tradées", "of your deaths go untraded")}
+              detail={t(
+                `${flaws.untraded} sur ${flaws.deaths} : personne n'a tué ton tueur ${tradeWindowText(thresholds?.tradeWindowMs ?? 3000)}.`,
+                `${flaws.untraded} of ${flaws.deaths}: nobody killed your killer ${tradeWindowText(thresholds?.tradeWindowMs ?? 3000)}.`,
+              )}
             />
             <FlawStat
               value={pct((flaws.isolated * 100) / flaws.deaths, 0)}
               ratio={flaws.isolated / flaws.deaths}
-              title="de tes morts arrivent isolé"
-              detail={`${flaws.isolated} sur ${flaws.deaths}, sans coéquipier à moins de ${fmt(thresholds?.isolationMeters ?? 15)} m.`}
+              title={t("de tes morts arrivent isolé", "of your deaths happen isolated")}
+              detail={t(
+                `${flaws.isolated} sur ${flaws.deaths}, sans coéquipier à moins de ${fmt(thresholds?.isolationMeters ?? 15)} m.`,
+                `${flaws.isolated} of ${flaws.deaths}, with no teammate within ${fmt(thresholds?.isolationMeters ?? 15)} m.`,
+              )}
             />
             <FlawStat
               value={flaws.firstDeaths ? `1 / ${Math.max(1, Math.round(flaws.rounds / flaws.firstDeaths))}` : "0"}
               ratio={flaws.rounds ? flaws.firstDeaths / flaws.rounds : 0}
-              title="rounds où tu meurs en premier"
-              detail={`${flaws.firstDeaths} first deaths en ${flaws.rounds} rounds.`}
+              title={t("rounds où tu meurs en premier", "rounds where you die first")}
+              detail={t(
+                `${flaws.firstDeaths} first deaths en ${flaws.rounds} rounds.`,
+                `${flaws.firstDeaths} first ${flaws.firstDeaths === 1 ? "death" : "deaths"} in ${flaws.rounds} rounds.`,
+              )}
             />
           </div>
         </section>
       )}
 
       <section className="stack" style={{ gap: 10 }}>
-        <h2 className="section-title">Derniers matchs</h2>
-        {recent.length > 0 && <span className="faint" style={{ fontSize: 13 }}>Clique sur un match pour voir son détail.</span>}
+        <h2 className="section-title">{t("Derniers matchs", "Recent matches")}</h2>
+        {recent.length > 0 && <span className="faint" style={{ fontSize: 13 }}>{t("Clique sur un match pour voir son détail.", "Click a match to see its details.")}</span>}
         {recent.length === 0 ? (
-          <div className="empty">Tes matchs apparaîtront ici dès la fin de la synchro.</div>
+          <div className="empty">{t("Tes matchs apparaîtront ici dès la fin de la synchro.", "Your matches will show up here once the sync is done.")}</div>
         ) : (
           <MatchList matches={recent} accounts={accounts} onOpen={(matchId, owner) => onOpenMatch(matchId, undefined, owner)} />
         )}
@@ -400,8 +418,8 @@ export function Home({ account, accounts, onOpenMatch }: Props) {
 }
 
 function matchText(game: RecentMatch): string {
-  const result = game.won ? "Victoire" : "Défaite";
-  return `${game.mapName ?? "Map inconnue"}, ${result} ${game.roundsWon}-${game.roundsLost}, ACS ${fmt(game.acs)}`;
+  const result = game.won ? t("Victoire", "Victory") : t("Défaite", "Defeat");
+  return `${game.mapName ?? t("Map inconnue", "Unknown map")}, ${result} ${game.roundsWon}-${game.roundsLost}, ACS ${fmt(game.acs)}`;
 }
 
 function WinRing({ wins, losses, winPct }: { wins: number; losses: number; winPct: number }) {
@@ -414,7 +432,14 @@ function WinRing({ wins, losses, winPct }: { wins: number; losses: number; winPc
   const lossLength = Math.max((1 - share) * circumference - gap, 0);
   return (
     <div className="home-ring">
-      <svg viewBox="0 0 120 120" role="img" aria-label={`Taux de victoire ${pct(winPct, 0)} : ${wins} victoires, ${losses} défaites`}>
+      <svg
+        viewBox="0 0 120 120"
+        role="img"
+        aria-label={t(
+          `Taux de victoire ${pct(winPct, 0)} : ${wins} victoires, ${losses} défaites`,
+          `Win rate ${pct(winPct, 0)}: ${wins} ${wins === 1 ? "win" : "wins"}, ${losses} ${losses === 1 ? "loss" : "losses"}`,
+        )}
+      >
         <g transform="rotate(-90 60 60)">
           {total === 0 && <circle cx="60" cy="60" r={radius} className="home-ring-empty" />}
           {lossLength > 0 && (
@@ -442,7 +467,7 @@ function WinRing({ wins, losses, winPct }: { wins: number; losses: number; winPc
       <div className="home-ring-center" aria-hidden="true">
         <span className="home-ring-value">{pct(winPct, 0)}</span>
         <span className="home-ring-record">
-          {wins} V {losses} D
+          {t(`${wins} V ${losses} D`, `${wins}W ${losses}L`)}
         </span>
       </div>
     </div>
@@ -454,13 +479,17 @@ function CompareBar({ stat }: { stat: BigStat }) {
   const you = max > 0 ? (Math.max(stat.you, 0) / max) * 100 : 0;
   const lobby = max > 0 ? (Math.max(stat.lobby, 0) / max) * 100 : 0;
   return (
-    <div className="home-compare" role="img" aria-label={`${stat.label} : toi ${stat.value}, moyenne du lobby ${stat.lobbyText}`}>
+    <div className="home-compare" role="img" aria-label={t(
+        `${stat.label} : toi ${stat.value}, moyenne du lobby ${stat.lobbyText}`,
+        `${stat.label}: you ${stat.value}, lobby average ${stat.lobbyText}`,
+      )}
+    >
       <div className="home-compare-track">
         <span className={`home-compare-fill ${stat.delta >= 0 ? "is-above" : "is-below"}`} style={{ width: `${you}%` }} />
         <span className="home-compare-tick" style={{ left: `${lobby}%` }} />
       </div>
       <span className="home-compare-label" style={{ left: `${lobby}%` }} aria-hidden="true">
-        lobby
+        {t("lobby", "lobby")}
       </span>
     </div>
   );
@@ -481,7 +510,14 @@ function Sparkline({ matches }: { matches: RecentMatch[] }) {
   }));
   return (
     <div className="home-spark">
-      <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`ACS sur les ${matches.length} derniers matchs, de ${fmt(min)} à ${fmt(max)}`}>
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
+        role="img"
+        aria-label={t(
+          `ACS sur les ${matches.length} derniers matchs, de ${fmt(min)} à ${fmt(max)}`,
+          `ACS over the last ${matches.length} matches, from ${fmt(min)} to ${fmt(max)}`,
+        )}
+      >
         <polyline className="home-spark-line" points={points.map((point) => `${point.x},${point.y}`).join(" ")} />
         {points.map((point) => (
           <circle key={point.game.matchId} cx={point.x} cy={point.y} r="3.2" className={point.game.won ? "is-win" : "is-loss"}>
@@ -489,7 +525,7 @@ function Sparkline({ matches }: { matches: RecentMatch[] }) {
           </circle>
         ))}
       </svg>
-      <span className="faint">ACS des {matches.length} derniers matchs</span>
+      <span className="faint">{t(`ACS des ${matches.length} derniers matchs`, `ACS over the last ${matches.length} matches`)}</span>
     </div>
   );
 }
@@ -501,7 +537,7 @@ function FlawStat({ value, ratio, title, detail }: { value: string; ratio: numbe
       <span className="flaw-value" style={{ fontSize: 44 }}>
         {value}
       </span>
-      <div className="home-gauge" role="img" aria-label={`${pct(share, 0)} des cas`}>
+      <div className="home-gauge" role="img" aria-label={t(`${pct(share, 0)} des cas`, `${pct(share, 0)} of cases`)}>
         <span style={{ width: `${share}%` }} />
       </div>
       <strong style={{ fontSize: 15 }}>{title}</strong>

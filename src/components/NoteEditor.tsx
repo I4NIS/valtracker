@@ -1,7 +1,8 @@
 import "../styles/journal.css";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { errorMessage } from "../lib/api";
-import { journal, sameTag, SUGGESTED_TAGS } from "../lib/journal";
+import { t } from "../lib/i18n";
+import { journal, sameTag, suggestedTags } from "../lib/journal";
 import { invalidate } from "../lib/query";
 import { Icon } from "./Icon";
 
@@ -123,7 +124,7 @@ export function NoteEditor({ puuid, matchId }: Props) {
     changeTags([...latest.current.tags, tag]);
   };
 
-  const options = [...SUGGESTED_TAGS];
+  const options = [...suggestedTags()];
   for (const tag of [...known, ...tags]) {
     if (!options.some((item) => sameTag(item, tag))) options.push(tag);
   }
@@ -134,8 +135,13 @@ export function NoteEditor({ puuid, matchId }: Props) {
     <section className="note-editor">
       <div className="row between wrap">
         <div className="stack" style={{ gap: 4 }}>
-          <h2 className="section-title">Ta note</h2>
-          <span className="hint">Ce que tu retiens du match, ton état, ton setup. Visible uniquement par toi.</span>
+          <h2 className="section-title">{t("Ta note", "Your note")}</h2>
+          <span className="hint">
+            {t(
+              "Ce que tu retiens du match, ton état, ton setup. Visible uniquement par toi.",
+              "What you take from the match, your state, your setup. Only visible to you.",
+            )}
+          </span>
         </div>
         <SaveStatus status={status} />
       </div>
@@ -144,13 +150,20 @@ export function NoteEditor({ puuid, matchId }: Props) {
         className="input note-text"
         value={note}
         disabled={disabled}
-        placeholder={status === "loading" ? "Chargement..." : "Par exemple : trop de peeks secs en défense, bonne communication avec le duo."}
+        placeholder={
+          status === "loading"
+            ? t("Chargement...", "Loading...")
+            : t(
+                "Par exemple : trop de peeks secs en défense, bonne communication avec le duo.",
+                "For example: too many dry peeks on defense, good comms with the duo.",
+              )
+        }
         onChange={(event) => changeNote(event.target.value)}
-        aria-label="Note du match"
+        aria-label={t("Note du match", "Match note")}
       />
 
       <div className="stack" style={{ gap: 12 }}>
-        <span className="label">Tags</span>
+        <span className="label">{t("Tags", "Tags")}</span>
         <div className="chips">
           {options.map((tag) => {
             const active = tags.some((item) => sameTag(item, tag));
@@ -174,12 +187,12 @@ export function NoteEditor({ puuid, matchId }: Props) {
             value={custom}
             maxLength={MAX_TAG_CHARS}
             disabled={disabled}
-            placeholder="Ajouter un tag"
+            placeholder={t("Ajouter un tag", "Add a tag")}
             onChange={(event) => setCustom(event.target.value)}
-            aria-label="Nouveau tag"
+            aria-label={t("Nouveau tag", "New tag")}
           />
           <button type="submit" className="btn btn-secondary" disabled={disabled || !custom.trim()}>
-            Ajouter
+            {t("Ajouter", "Add")}
           </button>
         </form>
       </div>
@@ -194,12 +207,12 @@ function SaveStatus({ status }: { status: Status }) {
     return (
       <span className="note-status saved">
         <Icon name="check" size={14} strokeWidth={2.4} />
-        Enregistré
+        {t("Enregistré", "Saved")}
       </span>
     );
   }
-  if (status === "saving") return <span className="note-status">Enregistrement...</span>;
-  if (status === "pending") return <span className="note-status">Modifications en cours</span>;
-  if (status === "error") return <span className="note-status error">Non enregistré</span>;
+  if (status === "saving") return <span className="note-status">{t("Enregistrement...", "Saving...")}</span>;
+  if (status === "pending") return <span className="note-status">{t("Modifications en cours", "Unsaved changes")}</span>;
+  if (status === "error") return <span className="note-status error">{t("Non enregistré", "Not saved")}</span>;
   return null;
 }

@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { t } from "./i18n";
 
 export type FavoriteKind = "match" | "round" | "death";
 
@@ -33,7 +34,7 @@ export function isFavorite(list: FavoriteEntry[] | undefined, matchId: string, k
 
 export function favoriteLabel(entry: FavoriteEntry): string {
   const round = (entry.roundIndex ?? 0) + 1;
-  if (entry.kind === "round") return `Round ${round}`;
-  if (entry.kind === "death") return `Ta mort au round ${round}`;
-  return "Match entier";
+  if (entry.kind === "round") return t(`Round ${round}`, `Round ${round}`);
+  if (entry.kind === "death") return t(`Ta mort au round ${round}`, `Your death in round ${round}`);
+  return t("Match entier", "Full match");
 }

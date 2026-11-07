@@ -9,16 +9,17 @@ import { RankBadge } from "../components/RankBadge";
 import { RoundDetail } from "../components/RoundDetail";
 import { agentIcon } from "../lib/assets";
 import { duration, fmt, fullDate, pct, placeLabel, roleLabel, scoreTone, signed } from "../lib/format";
+import { t } from "../lib/i18n";
 import { useQuery } from "../lib/query";
 import { queries } from "../lib/queries";
 
 type Tab = "summary" | "rounds" | "review" | "note";
 
-const TABS: { id: Tab; label: string }[] = [
-  { id: "summary", label: "Résumé" },
-  { id: "rounds", label: "Rounds" },
-  { id: "review", label: "Revue des morts" },
-  { id: "note", label: "Note" },
+const TABS = (): { id: Tab; label: string }[] => [
+  { id: "summary", label: t("Résumé", "Summary") },
+  { id: "rounds", label: t("Rounds", "Rounds") },
+  { id: "review", label: t("Revue des morts", "Death review") },
+  { id: "note", label: t("Note", "Note") },
 ];
 
 type Props = {
@@ -67,7 +68,7 @@ export function MatchDetail({ account, matchId, initialRound, initialDeath, onBa
     return (
       <div className="content">
         <BackButton onBack={onBack} />
-        <div className="empty">Analyse du match...</div>
+        <div className="empty">{t("Analyse du match...", "Analyzing the match...")}</div>
       </div>
     );
   }
@@ -81,18 +82,18 @@ export function MatchDetail({ account, matchId, initialRound, initialDeath, onBa
       <header className="match-hero">
         {agentIcon(detail.agentId) && <img src={agentIcon(detail.agentId)} alt={detail.agentName ?? ""} />}
         <div className="stack" style={{ gap: 8, flex: "1 1 320px" }}>
-          <span className="eyebrow">Match compétitif</span>
-          <h1 className="match-title">{detail.mapName ?? "Map inconnue"}</h1>
+          <span className="eyebrow">{t("Match compétitif", "Competitive match")}</span>
+          <h1 className="match-title">{detail.mapName ?? t("Map inconnue", "Unknown map")}</h1>
           <span className="muted">
             <strong className={detail.won ? "win" : "bad"}>
-              {detail.won ? "Victoire" : "Défaite"} {detail.roundsWon}-{detail.roundsLost}
+              {detail.won ? t("Victoire", "Victory") : t("Défaite", "Defeat")} {detail.roundsWon}-{detail.roundsLost}
             </strong>
             , {fullDate(detail.startedAt)}, {duration(detail.lengthMs)}
             {detail.agentName ? `, ${detail.agentName}` : ""}
           </span>
           <div className="row" style={{ paddingTop: 10 }}>
             <button type="button" className="btn btn-primary" onClick={() => setTab("review")}>
-              Revoir mes morts
+              {t("Revoir mes morts", "Review my deaths")}
             </button>
             <ExportRecapButton kind="match" account={account} matchId={matchId} />
             <FavoriteButton puuid={account.puuid} matchId={matchId} kind="match" labeled />
@@ -101,23 +102,32 @@ export function MatchDetail({ account, matchId, initialRound, initialDeath, onBa
       </header>
 
       <div className="stat-grid">
-        <HeadStat label="Ton score" value={String(detail.score)} tone={scoreTone(detail.score)} sub={`sur 100, ${placeLabel(detail.place)} sur 10`} />
-        <HeadStat label="Ton équipe" value={detail.teamLevel} sub={`ACS moyen ${fmt(detail.teamAcs)} contre ${fmt(detail.enemyAcs)}`} />
+        <HeadStat
+          label={t("Ton score", "Your score")}
+          value={String(detail.score)}
+          tone={scoreTone(detail.score)}
+          sub={t(`sur 100, ${placeLabel(detail.place)} sur 10`, `out of 100, ${placeLabel(detail.place)} of 10`)}
+        />
+        <HeadStat
+          label={t("Ton équipe", "Your team")}
+          value={detail.teamLevel}
+          sub={t(`ACS moyen ${fmt(detail.teamAcs)} contre ${fmt(detail.enemyAcs)}`, `Avg ACS ${fmt(detail.teamAcs)} vs ${fmt(detail.enemyAcs)}`)}
+        />
         {detail.rrChange !== null ? (
           <HeadStat
             label="RR"
             value={signed(detail.rrChange)}
             tone={detail.rrChange >= 0 ? "good" : "bad"}
-            sub={detail.rrAfter !== null ? `${detail.rrAfter} RR après le match` : ""}
+            sub={detail.rrAfter !== null ? t(`${detail.rrAfter} RR après le match`, `${detail.rrAfter} RR after the match`) : ""}
           />
         ) : (
           <HeadStat label="K / D / A" value={`${detail.kills} / ${detail.deaths} / ${detail.assists}`} sub="" />
         )}
-        <HeadStat label="ACS" value={fmt(detail.acs)} sub={`${fmt(detail.adr)} dégâts par round`} />
+        <HeadStat label="ACS" value={fmt(detail.acs)} sub={t(`${fmt(detail.adr)} dégâts par round`, `${fmt(detail.adr)} damage per round`)} />
       </div>
 
-      <div className="segmented" role="tablist" aria-label="Sections du match" style={{ alignSelf: "flex-start" }}>
-        {TABS.map((item) => (
+      <div className="segmented" role="tablist" aria-label={t("Sections du match", "Match sections")} style={{ alignSelf: "flex-start" }}>
+        {TABS().map((item) => (
           <button
             key={item.id}
             type="button"
@@ -150,9 +160,12 @@ export function MatchDetail({ account, matchId, initialRound, initialDeath, onBa
         <>
           <section className="stack" style={{ gap: 14 }}>
             <div className="row between wrap">
-              <h2 className="section-title">Rounds</h2>
+              <h2 className="section-title">{t("Rounds", "Rounds")}</h2>
               <span className="faint" style={{ fontSize: 12 }}>
-                Barres : équipement de ton équipe et en face. Point orange : tu es mort. Clique sur un round pour son détail.
+                {t(
+                  "Barres : équipement de ton équipe et en face. Point orange : tu es mort. Clique sur un round pour son détail.",
+                  "Bars: your team's loadout and the enemy's. Orange dot: you died. Click a round for its details.",
+                )}
               </span>
             </div>
             <Timeline rounds={detail.rounds} onSelect={openRound} />
@@ -163,18 +176,21 @@ export function MatchDetail({ account, matchId, initialRound, initialDeath, onBa
               {detail.teams.map((team) => (
                 <section className="stack" style={{ gap: 6 }} key={team.mine ? "mine" : "enemy"}>
                   <div className="row between">
-                    <h2 className="section-title">{team.mine ? "Ton équipe" : "Adversaires"}</h2>
+                    <h2 className="section-title">{team.mine ? t("Ton équipe", "Your team") : t("Adversaires", "Opponents")}</h2>
                     <span className="faint" style={{ fontSize: 13 }}>
-                      {team.roundsWon} rounds, ACS moyen {fmt(team.avgAcs)}
+                      {t(
+                        `${team.roundsWon} rounds, ACS moyen ${fmt(team.avgAcs)}`,
+                        `${team.roundsWon} ${team.roundsWon === 1 ? "round" : "rounds"}, avg ACS ${fmt(team.avgAcs)}`,
+                      )}
                     </span>
                   </div>
                   <div className="list-scroll">
                     <div>
                       <div className="score-row head">
                         <span />
-                        <span>Joueur</span>
+                        <span>{t("Joueur", "Player")}</span>
                         <span />
-                        <span>Score</span>
+                        <span>{t("Score", "Score")}</span>
                         <span>K / D / A</span>
                         <span>ACS</span>
                         <span>ADR</span>
@@ -206,8 +222,8 @@ export function MatchDetail({ account, matchId, initialRound, initialDeath, onBa
             </div>
 
             <section className="stack" style={{ gap: 20 }}>
-              <h2 className="section-title">Défauts détectés</h2>
-              {detail.flaws.length === 0 && <span className="good">Aucun défaut marquant sur ce match.</span>}
+              <h2 className="section-title">{t("Défauts détectés", "Detected flaws")}</h2>
+              {detail.flaws.length === 0 && <span className="good">{t("Aucun défaut marquant sur ce match.", "No notable flaws this match.")}</span>}
               {flaws.map((flaw) => (
                 <div className="stack" style={{ gap: 4 }} key={flaw.title}>
                   <span className="flaw-value">{flaw.value}</span>
@@ -217,7 +233,9 @@ export function MatchDetail({ account, matchId, initialRound, initialDeath, onBa
               ))}
               {detail.flaws.length > VISIBLE_FLAWS && (
                 <button type="button" className="btn btn-secondary" style={{ alignSelf: "flex-start" }} onClick={() => setAllFlaws(!allFlaws)}>
-                  {allFlaws ? "Masquer" : `Voir les ${detail.flaws.length - VISIBLE_FLAWS} autres`}
+                  {allFlaws
+                    ? t("Masquer", "Hide")
+                    : t(`Voir les ${detail.flaws.length - VISIBLE_FLAWS} autres`, `Show ${detail.flaws.length - VISIBLE_FLAWS} more`)}
                 </button>
               )}
             </section>
@@ -232,7 +250,7 @@ function BackButton({ onBack }: { onBack: () => void }) {
   return (
     <button type="button" className="back-btn" onClick={onBack}>
       <Icon name="arrowRight" size={16} strokeWidth={2} className="flip" />
-      Matchs
+      {t("Matchs", "Matches")}
     </button>
   );
 }
@@ -258,13 +276,13 @@ function Timeline({ rounds, onSelect }: { rounds: RoundLine[]; onSelect: (index:
     <div className="list-scroll">
       <div className="timeline">
         {rounds.map((round, i) => (
-          <div key={round.number} className={`round${i === firstDefense ? " half" : ""}`} title={`Round ${round.number}, ${round.attack ? "attaque" : "défense"}`}>
-            <span className="side">{i === 0 || i === firstDefense ? (round.attack ? "ATT" : "DEF") : ""}</span>
+          <div key={round.number} className={`round${i === firstDefense ? " half" : ""}`} title={t(`Round ${round.number}, ${round.attack ? "attaque" : "défense"}`, `Round ${round.number}, ${round.attack ? "attack" : "defense"}`)}>
+            <span className="side">{i === 0 || i === firstDefense ? (round.attack ? t("ATT", "ATK") : "DEF") : ""}</span>
             <div className="bars">
               <span className="mine" style={{ height: `${(round.teamLoadout / max) * 46}px` }} />
               <span className="theirs" style={{ height: `${(round.enemyLoadout / max) * 46}px` }} />
             </div>
-            <button type="button" className={`cell${round.won ? " won" : ""}`} onClick={() => onSelect(i)} aria-label={`Détail du round ${round.number}`}>
+            <button type="button" className={`cell${round.won ? " won" : ""}`} onClick={() => onSelect(i)} aria-label={t(`Détail du round ${round.number}`, `Round ${round.number} details`)}>
               {round.number}
             </button>
             <span className={`death-dot${round.died ? " on" : ""}`} />

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { api, errorMessage, type Account } from "../lib/api";
+import { t } from "../lib/i18n";
 import { recapApi } from "../lib/recap";
 import { toBlob } from "../recap/draw";
 import { Icon } from "./Icon";
@@ -34,7 +35,7 @@ async function render(props: Props): Promise<{ canvas: HTMLCanvasElement; name: 
     return { canvas: await renderSessionRecap(recap, account), name: `valtracker-session-${stamp(recap.startedAt)}` };
   }
   const [recap, { renderActRecap }] = await Promise.all([recapApi.getActRecap(account.puuid, props.season), import("../recap/act")]);
-  return { canvas: await renderActRecap(recap, account), name: `valtracker-acte-${recap.season ?? "global"}` };
+  return { canvas: await renderActRecap(recap, account), name: t(`valtracker-acte-${recap.season ?? "global"}`, `valtracker-act-${recap.season ?? "global"}`) };
 }
 
 export function ExportRecapButton(props: Props) {
@@ -54,7 +55,9 @@ export function ExportRecapButton(props: Props) {
     try {
       const { canvas, name } = await render(props);
       const saved = await recapApi.saveImage(`${name}.png`, await toBlob(canvas));
-      const message = saved.copied ? "Image copiée et enregistrée" : "Image enregistrée, la copie a échoué";
+      const message = saved.copied
+        ? t("Image copiée et enregistrée", "Image copied and saved")
+        : t("Image enregistrée, la copie a échoué", "Image saved, copy failed");
       setToast({ ok: true, message, path: saved.path });
     } catch (error) {
       setToast({ ok: false, message: errorMessage(error), path: null });
@@ -81,7 +84,7 @@ export function ExportRecapButton(props: Props) {
         aria-busy={busy}
       >
         <Icon name={busy ? "running" : "image"} size={16} className={busy ? "spin" : undefined} />
-        {busy ? "Export en cours" : (props.label ?? "Exporter l'image")}
+        {busy ? t("Export en cours", "Exporting") : (props.label ?? t("Exporter l'image", "Export image"))}
       </button>
       {toast &&
         createPortal(
@@ -92,10 +95,10 @@ export function ExportRecapButton(props: Props) {
             <span className="recap-toast-text">{toast.message}</span>
             {toast.path && (
               <button type="button" className="btn btn-secondary recap-toast-action" onClick={() => reveal(toast.path as string)}>
-                Ouvrir le dossier
+                {t("Ouvrir le dossier", "Open folder")}
               </button>
             )}
-            <button type="button" className="recap-toast-close" aria-label="Fermer" onClick={() => setToast(null)}>
+            <button type="button" className="recap-toast-close" aria-label={t("Fermer", "Close")} onClick={() => setToast(null)}>
               <Icon name="close" size={15} />
             </button>
           </div>,

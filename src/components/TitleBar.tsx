@@ -1,4 +1,5 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { t } from "../lib/i18n";
 import { Logo } from "./Logo";
 
 const appWindow = getCurrentWindow();
@@ -21,9 +22,9 @@ export function TitleBar() {
         <span data-tauri-drag-region>Valtracker</span>
       </div>
       <div className="window-controls">
-        <Control label="Réduire" path="M2 6h8" onClick={() => appWindow.minimize()} />
-        <Control label="Agrandir" path="M2.5 2.5h7v7h-7z" onClick={() => appWindow.toggleMaximize()} />
-        <Control label="Fermer" path="M2.5 2.5l7 7M9.5 2.5l-7 7" onClick={() => appWindow.close()} danger />
+        <Control label={t("Réduire", "Minimize")} path="M2 6h8" onClick={() => appWindow.minimize()} />
+        <Control label={t("Agrandir", "Maximize")} path="M2.5 2.5h7v7h-7z" onClick={() => appWindow.toggleMaximize()} />
+        <Control label={t("Fermer", "Close")} path="M2.5 2.5l7 7M9.5 2.5l-7 7" onClick={() => appWindow.close()} danger />
       </div>
     </header>
   );

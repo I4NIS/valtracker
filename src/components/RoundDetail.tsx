@@ -3,6 +3,7 @@ import type { RoundEvent, RoundLine } from "../lib/api";
 import { agentIcon } from "../lib/assets";
 import { fmt } from "../lib/format";
 import { useAgentCatalog, weaponArt, type Catalog } from "../lib/gameAssets";
+import { t } from "../lib/i18n";
 import { FavoriteButton } from "./FavoriteButton";
 import { Art, KillMeans, SpikeGlyph } from "./GameArt";
 
@@ -29,11 +30,11 @@ export function RoundDetail({ puuid, matchId, rounds, selected, onSelect }: Prop
   const index = Math.min(selected, rounds.length - 1);
   const round = rounds[index];
   const catalog = useAgentCatalog();
-  if (!round) return <div className="empty">Aucun round à afficher.</div>;
+  if (!round) return <div className="empty">{t("Aucun round à afficher.", "No rounds to show.")}</div>;
 
   return (
     <div className="stack" style={{ gap: 28 }}>
-      <div className="round-picker" role="group" aria-label="Choisir un round">
+      <div className="round-picker" role="group" aria-label={t("Choisir un round", "Pick a round")}>
         {rounds.map((item, index) => (
           <button
             type="button"
@@ -41,7 +42,7 @@ export function RoundDetail({ puuid, matchId, rounds, selected, onSelect }: Prop
             className={`${item.won ? "won" : "lost"}${index === selected ? " active" : ""}`}
             onClick={() => onSelect(index)}
             aria-pressed={index === selected}
-            title={`Round ${item.number}, ${item.won ? "gagné" : "perdu"}`}
+            title={t(`Round ${item.number}, ${item.won ? "gagné" : "perdu"}`, `Round ${item.number}, ${item.won ? "won" : "lost"}`)}
           >
             {item.number}
           </button>
@@ -51,10 +52,10 @@ export function RoundDetail({ puuid, matchId, rounds, selected, onSelect }: Prop
       <div className="row between" style={{ alignItems: "flex-start", gap: 16 }}>
         <div className="stack" style={{ gap: 6, minWidth: 0 }}>
           <span className="review-title">
-            Round {round.number}, {round.attack ? "attaque" : "défense"}
+            Round {round.number}, {round.attack ? t("attaque", "attack") : t("défense", "defense")}
           </span>
           <span className="muted">
-            <strong className={round.won ? "win" : "bad"}>{round.won ? "Gagné" : "Perdu"}</strong>, {round.result.toLowerCase()}
+            <strong className={round.won ? "win" : "bad"}>{round.won ? t("Gagné", "Won") : t("Perdu", "Lost")}</strong>, {round.result.toLowerCase()}
             {round.ceremony ? `, ${round.ceremony}` : ""}
           </span>
         </div>
@@ -63,8 +64,8 @@ export function RoundDetail({ puuid, matchId, rounds, selected, onSelect }: Prop
 
       <div className="summary-grid">
         <section className="stack" style={{ gap: 10 }}>
-          <h2 className="section-title">Actions</h2>
-          {round.events.length === 0 && <span className="faint">Aucune action enregistrée.</span>}
+          <h2 className="section-title">{t("Actions", "Events")}</h2>
+          {round.events.length === 0 && <span className="faint">{t("Aucune action enregistrée.", "No events recorded.")}</span>}
           <div className="events round-feed">
             {round.events.map((event, i) => (
               <EventRow key={i} event={event} catalog={catalog} />
@@ -73,7 +74,7 @@ export function RoundDetail({ puuid, matchId, rounds, selected, onSelect }: Prop
         </section>
 
         <section className="stack" style={{ gap: 10 }}>
-          <h2 className="section-title">Économie</h2>
+          <h2 className="section-title">{t("Économie", "Economy")}</h2>
           <div className="economy round-economy">
             {round.economy.map((line) => (
               <div key={line.name} className={`economy-row${line.me ? " me" : ""}`}>
@@ -81,8 +82,8 @@ export function RoundDetail({ puuid, matchId, rounds, selected, onSelect }: Prop
                 <span className="stack" style={{ gap: 0, minWidth: 0 }}>
                   <strong className={`ellipsis ${line.ally ? "ally-text" : "enemy-text"}`}>{line.name}</strong>
                   <span className="faint ellipsis" style={{ fontSize: 12 }}>
-                    {line.weapon ?? "Arme de base"}
-                    {line.armor ? `, ${ARMOR[line.armor] ?? line.armor}` : ""}
+                    {line.weapon ?? t("Arme de base", "Starting weapon")}
+                    {line.armor ? `, ${t(ARMOR[line.armor] ?? line.armor, line.armor)}` : ""}
                   </span>
                 </span>
                 <span className="round-economy-weapon">
@@ -91,13 +92,15 @@ export function RoundDetail({ puuid, matchId, rounds, selected, onSelect }: Prop
                 <span className="stack" style={{ gap: 0, textAlign: "right" }}>
                   <strong>{fmt(line.loadout)}</strong>
                   <span className="faint" style={{ fontSize: 12 }}>
-                    reste {fmt(line.remaining)}
+                    {t(`reste ${fmt(line.remaining)}`, `${fmt(line.remaining)} left`)}
                   </span>
                 </span>
                 <span className="stack" style={{ gap: 0, textAlign: "right" }}>
-                  <strong>{line.kills} kill{line.kills > 1 ? "s" : ""}</strong>
+                  <strong>
+                    {line.kills} {t(`kill${line.kills > 1 ? "s" : ""}`, line.kills === 1 ? "kill" : "kills")}
+                  </strong>
                   <span className="faint" style={{ fontSize: 12 }}>
-                    {fmt(line.damage)} dégâts
+                    {t(`${fmt(line.damage)} dégâts`, `${fmt(line.damage)} damage`)}
                   </span>
                 </span>
               </div>
@@ -113,7 +116,7 @@ function Who({ name, agentId, ally, me }: { name: string; agentId: string | null
   return (
     <span className="who">
       <Art src={agentIcon(agentId)} width={24} height={24} alt="" />
-      <strong className={`ellipsis ${me ? "me-text" : ally ? "ally-text" : "enemy-text"}`}>{me ? "Toi" : name}</strong>
+      <strong className={`ellipsis ${me ? "me-text" : ally ? "ally-text" : "enemy-text"}`}>{me ? t("Toi", "You") : name}</strong>
     </span>
   );
 }
@@ -146,7 +149,9 @@ function EventRow({ event, catalog }: { event: RoundEvent; catalog: Catalog | nu
       <SpikeGlyph size={20} className={event.kind === "defuse" ? "round-spike-defuse" : undefined} />
       <Who name={event.actor} agentId={event.actorAgentId} ally={event.actorAlly} me={event.actorMe} />
       <span className="muted">
-        {event.kind === "plant" ? `pose le spike${event.site ? ` sur ${event.site}` : ""}` : "désamorce le spike"}
+        {event.kind === "plant"
+          ? t(`pose le spike${event.site ? ` sur ${event.site}` : ""}`, `plants the Spike${event.site ? ` on ${event.site}` : ""}`)
+          : t("désamorce le spike", "defuses the Spike")}
       </span>
     </div>
   );

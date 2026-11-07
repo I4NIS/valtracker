@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import { lang } from "./i18n";
 
 const MEDIA = "https://media.valorant-api.com";
 const AGENTS_URL = "https://valorant-api.com/v1/agents?isPlayableCharacter=true";
@@ -66,8 +67,10 @@ type RawAgent = {
 const SLOT_ORDER = ["Grenade", "Ability1", "Ability2", "Ultimate", "Passive"];
 
 let catalog: Catalog | null = null;
+let catalogLanguage = "";
 let savedAt = 0;
 let loading: Promise<void> | null = null;
+let loadingLanguage = "";
 const listeners = new Set<() => void>();
 
 function build(agents: AgentInfo[]): Catalog {
@@ -81,9 +84,20 @@ function build(agents: AgentInfo[]): Catalog {
   return { agents: new Map(agents.map((agent) => [agent.id, agent])), abilities };
 }
 
-function restore() {
+function apiLanguage(): string {
+  return lang() === "en" ? "en-US" : "fr-FR";
+}
+
+function storageKey(language: string): string {
+  return language === "fr-FR" ? STORAGE_KEY : `${STORAGE_KEY}.${language}`;
+}
+
+function restore(language: string) {
+  catalog = null;
+  savedAt = 0;
+  catalogLanguage = language;
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(storageKey(language));
     if (!raw) return;
     const stored = JSON.parse(raw) as Stored;
     if (!Array.isArray(stored.agents)) return;
@@ -94,9 +108,15 @@ function restore() {
   }
 }
 
-function persist(agents: AgentInfo[]) {
+function current(): Catalog | null {
+  const language = apiLanguage();
+  if (language !== catalogLanguage) restore(language);
+  return catalog;
+}
+
+function persist(language: string, agents: AgentInfo[]) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ savedAt: Date.now(), agents } satisfies Stored));
+    localStorage.setItem(storageKey(language), JSON.stringify({ savedAt: Date.now(), agents } satisfies Stored));
   } catch {
     return;
   }
@@ -140,21 +160,28 @@ function merge(english: RawAgent[], french: RawAgent[]): AgentInfo[] {
 }
 
 function load() {
-  if (loading) return;
-  if (catalog && Date.now() - savedAt < STALE_AFTER_MS) return;
-  loading = Promise.all([fetchAgents("en-US"), fetchAgents("fr-FR")])
-    .then(([english, french]) => {
-      const agents = merge(english, french);
+  const language = apiLanguage();
+  if (loading && loadingLanguage === language) return;
+  if (current() && Date.now() - savedAt < STALE_AFTER_MS) return;
+  const english = fetchAgents("en-US");
+  const localized = language === "en-US" ? english : fetchAgents(language);
+  loadingLanguage = language;
+  const request: Promise<void> = Promise.all([english, localized])
+    .then(([source, translated]) => {
+      const agents = merge(source, translated);
       if (agents.length === 0) return;
+      persist(language, agents);
+      if (apiLanguage() !== language) return;
       catalog = build(agents);
+      catalogLanguage = language;
       savedAt = Date.now();
-      persist(agents);
       listeners.forEach((listener) => listener());
     })
     .catch(() => undefined)
     .finally(() => {
-      loading = null;
+      if (loading === request) loading = null;
     });
+  loading = request;
 }
 
 function subscribe(listener: () => void) {
@@ -165,10 +192,10 @@ function subscribe(listener: () => void) {
   };
 }
 
-restore();
+restore(apiLanguage());
 
 export function useAgentCatalog(): Catalog | null {
-  return useSyncExternalStore(subscribe, () => catalog);
+  return useSyncExternalStore(subscribe, current);
 }
 
 export function findAbility(source: Catalog | null, name: string | null | undefined, agentId?: string | null): Ability | null {

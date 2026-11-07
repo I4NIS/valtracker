@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { seasonLabel } from "../lib/assets";
+import { t } from "../lib/i18n";
 import { useQuery } from "../lib/query";
 import { queries } from "../lib/queries";
 
@@ -20,7 +21,7 @@ export function SeasonPicker({ puuid, value, onChange }: Props) {
   }, [value, query.data, query.error]);
 
   return (
-    <div className="chips" role="group" aria-label="Période">
+    <div className="chips" role="group" aria-label={t("Période", "Period")}>
       {seasons.map((season) => (
         <button
           key={season.short}
@@ -32,7 +33,7 @@ export function SeasonPicker({ puuid, value, onChange }: Props) {
         </button>
       ))}
       <button type="button" className={`chip${value === null ? " active" : ""}`} onClick={() => onChange(null)}>
-        Global
+        {t("Global", "All time")}
       </button>
     </div>
   );

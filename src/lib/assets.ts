@@ -1,3 +1,5 @@
+import { t } from "./i18n";
+
 const MEDIA = "https://media.valorant-api.com";
 const TIER_SET = "03621f52-342b-cf4e-4f86-9350a49c6d04";
 
@@ -23,34 +25,50 @@ const TIER_WORDS: Record<string, string> = {
   Radiant: "Radiant",
 };
 
+const UNRANKED = () => t("Non classé", "Unranked");
+
 export function tierLabel(name: string | null | undefined): string {
-  if (!name) return "Non classé";
+  if (!name) return UNRANKED();
   const [word, ...rest] = name.split(" ");
-  const translated = TIER_WORDS[word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()] ?? word;
+  const key = word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+  const known = key in TIER_WORDS;
+  const english = key === "Unrated" ? "Unranked" : known ? key : word;
+  const translated = t(TIER_WORDS[key] ?? word, english);
   return [translated, ...rest].join(" ");
 }
 
 const TIER_LADDER = ["Fer", "Bronze", "Argent", "Or", "Platine", "Diamant", "Ascendant", "Immortel"];
+const TIER_LADDER_EN = ["Iron", "Bronze", "Silver", "Gold", "Platinum", "Diamond", "Ascendant", "Immortal"];
 
 export function tierNameById(tier: number | null | undefined): string {
-  if (!tier || tier < 3) return "Non classé";
+  if (!tier || tier < 3) return UNRANKED();
   if (tier >= 27) return "Radiant";
   const index = Math.floor((tier - 3) / 3);
-  return `${TIER_LADDER[index]} ${((tier - 3) % 3) + 1}`;
+  const division = ((tier - 3) % 3) + 1;
+  return t(`${TIER_LADDER[index]} ${division}`, `${TIER_LADDER_EN[index]} ${division}`);
 }
 
 export function seasonLabel(short: string): string {
   const match = /^e(\d+)a(\d+)$/i.exec(short);
-  return match ? `Épisode ${match[1]}, acte ${match[2]}` : short;
+  return match ? t(`Épisode ${match[1]}, acte ${match[2]}`, `Episode ${match[1]}, Act ${match[2]}`) : short;
+}
+
+function region(id: string, fr: string, en: string) {
+  return {
+    id,
+    get label() {
+      return t(fr, en);
+    },
+  };
 }
 
 export const REGIONS = [
-  { id: "eu", label: "Europe" },
-  { id: "na", label: "Amérique du Nord" },
-  { id: "latam", label: "Amérique latine" },
-  { id: "br", label: "Brésil" },
-  { id: "ap", label: "Asie-Pacifique" },
-  { id: "kr", label: "Corée" },
+  region("eu", "Europe", "Europe"),
+  region("na", "Amérique du Nord", "North America"),
+  region("latam", "Amérique latine", "Latin America"),
+  region("br", "Brésil", "Brazil"),
+  region("ap", "Asie-Pacifique", "Asia Pacific"),
+  region("kr", "Corée", "Korea"),
 ];
 
 export const HENRIK_DASHBOARD = "https://api.henrikdev.xyz/dashboard/";

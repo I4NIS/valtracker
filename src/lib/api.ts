@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { t } from "./i18n";
 
 export type Theme = "dark" | "light";
 
@@ -381,5 +382,5 @@ export function onSyncProgress(callback: (progress: SyncProgress) => void): Prom
 export function errorMessage(error: unknown): string {
   if (typeof error === "string") return error;
   if (error instanceof Error) return error.message;
-  return "Une erreur inattendue est survenue";
+  return t("Une erreur inattendue est survenue", "Something went wrong");
 }
