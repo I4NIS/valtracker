@@ -1,36 +1,31 @@
 import "../styles/duels.css";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import { Art } from "../components/GameArt";
 import { SeasonPicker } from "../components/SeasonPicker";
-import { errorMessage, type Account } from "../lib/api";
+import type { Account } from "../lib/api";
 import { agentIcon, seasonLabel } from "../lib/assets";
-import { getDuels, type ClutchEntry, type ClutchSize, type DistanceBucket, type DuelReport, type Matchup, type OpeningSide, type Rival } from "../lib/duels";
+import type { ClutchEntry, ClutchSize, DistanceBucket, DuelReport, Matchup, OpeningSide, Rival } from "../lib/duels";
 import { fmt, fullDate, pct, roleLabel } from "../lib/format";
+import { cardArt, mapArt } from "../lib/gameAssets";
+import { useQuery } from "../lib/query";
+import { defaultSeason, queries } from "../lib/queries";
 
 type Props = {
   account: Account;
   refreshKey: number;
+  onOpenRound?: (matchId: string, roundIndex: number) => void;
 };
 
 type Sort = "matches" | "rate";
 
 const MATCHUP_PREVIEW = 12;
+const CLUTCH_PAGE = 10;
 
-export function Duels({ account, refreshKey }: Props) {
-  const [season, setSeason] = useState<string | null | undefined>(undefined);
-  const [data, setData] = useState<DuelReport | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (season === undefined) return;
-    let alive = true;
-    setError(null);
-    getDuels(account.puuid, season)
-      .then((report) => alive && setData(report))
-      .catch((err) => alive && setError(errorMessage(err)));
-    return () => {
-      alive = false;
-    };
-  }, [account.puuid, season, refreshKey]);
+export function Duels({ account, onOpenRound }: Props) {
+  const [season, setSeason] = useState<string | null | undefined>(() => defaultSeason(account.puuid));
+  const query = useQuery(season === undefined ? null : queries.duels(account.puuid, season));
+  const data = query.data ?? null;
+  const error = query.error;
 
   return (
     <div className="content">
@@ -46,7 +41,7 @@ export function Duels({ account, refreshKey }: Props) {
 
       <SeasonPicker puuid={account.puuid} value={season} onChange={setSeason} />
 
-      {error && <p className="form-error">{error}</p>}
+      {error && !data && <p className="form-error">{error}</p>}
 
       {!data ? (
         <div className="empty">{error ? "Impossible de charger tes duels." : "Chargement de tes duels..."}</div>
@@ -55,7 +50,7 @@ export function Duels({ account, refreshKey }: Props) {
       ) : (
         <>
           <OpeningSection data={data} />
-          <ClutchSection data={data} />
+          <ClutchSection key={season ?? "all"} data={data} onOpenRound={onOpenRound} />
           <MatchupSection matchups={data.matchups} />
           <DistanceSection buckets={data.distances} />
           <RivalSection nemeses={data.nemeses} victims={data.victims} />
@@ -209,8 +204,22 @@ function OpeningCard({ title, side }: { title: string; side: OpeningSide }) {
   );
 }
 
-function ClutchSection({ data }: { data: DuelReport }) {
+function ClutchSection({ data, onOpenRound }: { data: DuelReport; onOpenRound?: (matchId: string, roundIndex: number) => void }) {
   const clutches = data.clutches;
+  const [filter, setFilter] = useState<number | null>(null);
+  const [visible, setVisible] = useState(CLUTCH_PAGE);
+  const list = useMemo(
+    () => (filter === null ? clutches.recent : clutches.recent.filter((entry) => entry.enemies === filter)),
+    [clutches.recent, filter],
+  );
+  const shown = list.slice(0, visible);
+  const capped = filter === null ? clutches.attempts > clutches.recent.length : false;
+
+  const choose = (enemies: number) => {
+    setFilter((current) => (current === enemies ? null : enemies));
+    setVisible(CLUTCH_PAGE);
+  };
+
   return (
     <section className="stack" style={{ gap: 24 }}>
       <SectionHead
@@ -221,19 +230,44 @@ function ClutchSection({ data }: { data: DuelReport }) {
         <div className="empty">Tu n'as jamais été le dernier en vie de ton équipe sur cette période.</div>
       ) : (
         <>
-          <div className="duel-clutch-grid">
+          <div className="duel-clutch-grid" role="group" aria-label="Filtrer par situation">
             {clutches.bySize.map((size) => (
-              <ClutchTile key={size.enemies} size={size} />
+              <ClutchTile key={size.enemies} size={size} active={filter === size.enemies} onToggle={() => choose(size.enemies)} />
             ))}
           </div>
           {clutches.recent.length > 0 && (
             <div className="stack" style={{ gap: 10 }}>
-              <h3 className="duel-subtitle">Dernières situations</h3>
-              <ul className="duel-list">
-                {clutches.recent.map((entry) => (
-                  <ClutchRow key={`${entry.matchId}-${entry.round}`} entry={entry} />
-                ))}
-              </ul>
+              <div className="row between wrap" style={{ alignItems: "baseline" }}>
+                <h3 className="duel-subtitle">{filter === null ? "Toutes les situations" : `Situations en 1v${filter}`}</h3>
+                <span className="faint" style={{ fontSize: 13 }}>
+                  {list.length} {list.length > 1 ? "situations" : "situation"}
+                  {capped ? `, les ${clutches.recent.length} plus récentes` : ""}
+                  {filter !== null && (
+                    <>
+                      {", "}
+                      <button type="button" className="duel-link" onClick={() => setFilter(null)}>
+                        tout afficher
+                      </button>
+                    </>
+                  )}
+                </span>
+              </div>
+              {list.length === 0 ? (
+                <p className="hint" style={{ margin: 0 }}>
+                  Aucune situation en 1v{filter} sur cette période.
+                </p>
+              ) : (
+                <ul className="duel-list">
+                  {shown.map((entry) => (
+                    <ClutchRow key={`${entry.matchId}-${entry.roundIndex}`} entry={entry} onOpenRound={onOpenRound} />
+                  ))}
+                </ul>
+              )}
+              {list.length > visible && (
+                <button type="button" className="btn btn-secondary duel-more" onClick={() => setVisible((count) => count + CLUTCH_PAGE)}>
+                  Afficher plus
+                </button>
+              )}
             </div>
           )}
         </>
@@ -242,10 +276,16 @@ function ClutchSection({ data }: { data: DuelReport }) {
   );
 }
 
-function ClutchTile({ size }: { size: ClutchSize }) {
+function ClutchTile({ size, active, onToggle }: { size: ClutchSize; active: boolean; onToggle: () => void }) {
   const empty = size.attempts === 0;
   return (
-    <div className={`duel-clutch${empty ? " is-empty" : ""}`}>
+    <button
+      type="button"
+      className={`duel-clutch${empty ? " is-empty" : ""}${active ? " active" : ""}`}
+      onClick={onToggle}
+      disabled={empty}
+      aria-pressed={active}
+    >
       <span className="duel-clutch-name">1v{size.enemies}</span>
       <Ring
         value={size.winRate}
@@ -261,23 +301,43 @@ function ClutchTile({ size }: { size: ClutchSize }) {
       <span className="faint" style={{ fontSize: 12 }}>
         {empty ? "aucune situation" : size.won > 1 ? "gagnés" : "gagné"}
       </span>
-    </div>
+    </button>
   );
 }
 
-function ClutchRow({ entry }: { entry: ClutchEntry }) {
-  const icon = agentIcon(entry.agentId);
-  return (
-    <li className="duel-list-row">
-      {icon ? <img src={icon} alt="" className="duel-agent" /> : <span className="duel-agent" />}
+function ClutchRow({ entry, onOpenRound }: { entry: ClutchEntry; onOpenRound?: (matchId: string, roundIndex: number) => void }) {
+  const body = (
+    <>
+      <span className="duel-clutch-map">
+        <Art src={mapArt(entry.mapId, "listviewicon")} width={112} height={44} alt="" className="duel-clutch-map-art" />
+        <Art src={agentIcon(entry.agentId)} width={32} height={32} alt="" className="duel-clutch-agent" />
+      </span>
       <div className="stack duel-grow" style={{ gap: 2 }}>
-        <strong className="ellipsis">{entry.mapName ?? "Map inconnue"}</strong>
+        <strong className="ellipsis">
+          {entry.mapName ?? "Map inconnue"}, round {entry.round}
+        </strong>
         <span className="faint ellipsis" style={{ fontSize: 12 }}>
-          {fullDate(entry.startedAt)}, round {entry.round}
+          {fullDate(entry.startedAt)}, {entry.kills} {entry.kills > 1 ? "kills" : "kill"} dans le round
         </span>
       </div>
       <span className="duel-pill">1v{entry.enemies}</span>
       <span className={`duel-result ${entry.won ? "is-win" : "is-loss"}`}>{entry.won ? "Gagné" : "Perdu"}</span>
+    </>
+  );
+  return (
+    <li>
+      {onOpenRound ? (
+        <button
+          type="button"
+          className="duel-list-row duel-clutch-row"
+          onClick={() => onOpenRound(entry.matchId, entry.roundIndex)}
+          aria-label={`Ouvrir le round ${entry.round} sur ${entry.mapName ?? "une map inconnue"}, 1v${entry.enemies} ${entry.won ? "gagné" : "perdu"}`}
+        >
+          {body}
+        </button>
+      ) : (
+        <div className="duel-list-row duel-clutch-row">{body}</div>
+      )}
     </li>
   );
 }
@@ -337,11 +397,10 @@ function MatchupSection({ matchups }: { matchups: Matchup[] }) {
 }
 
 function MatchupRow({ matchup }: { matchup: Matchup }) {
-  const icon = agentIcon(matchup.agentId);
   const duels = matchup.kills + matchup.deaths;
   return (
     <div className="duel-matchup">
-      {icon ? <img src={icon} alt="" className="duel-agent" /> : <span className="duel-agent" />}
+      <Art src={agentIcon(matchup.agentId)} width={36} height={36} alt={matchup.agentName} className="duel-agent" />
       <div className="stack" style={{ gap: 2, minWidth: 0 }}>
         <strong className="ellipsis">{matchup.agentName}</strong>
         <span className="faint ellipsis" style={{ fontSize: 12 }}>
@@ -434,6 +493,22 @@ function RivalSection({ nemeses, victims }: { nemeses: Rival[]; victims: Rival[]
   );
 }
 
+function RivalFace({ rival }: { rival: Rival }) {
+  const agent = <Art src={agentIcon(rival.agentId)} width={40} height={40} alt="" className="duel-agent" />;
+  return (
+    <span className="duel-rival-face">
+      {rival.card ? (
+        <>
+          <Art src={cardArt(rival.card)} width={40} height={40} alt="" className="duel-rival-card" fallback={agent} />
+          <Art src={agentIcon(rival.agentId)} width={20} height={20} alt="" className="duel-rival-badge" />
+        </>
+      ) : (
+        agent
+      )}
+    </span>
+  );
+}
+
 function RivalList({
   title,
   rivals,
@@ -458,27 +533,24 @@ function RivalList({
         </p>
       ) : (
         <ul className="duel-list">
-          {rivals.map((rival) => {
-            const icon = agentIcon(rival.agentId);
-            return (
-              <li className="duel-list-row" key={rival.puuid}>
-                {icon ? <img src={icon} alt="" className="duel-agent" /> : <span className="duel-agent" />}
-                <div className="stack duel-grow" style={{ gap: 2 }}>
-                  <span className="ellipsis">
-                    <strong>{rival.name || "Inconnu"}</strong>
-                    {rival.tag && <span className="faint">#{rival.tag}</span>}
-                  </span>
-                  <span className="faint ellipsis" style={{ fontSize: 12 }}>
-                    {other(rival)}, {rival.matches} {rival.matches > 1 ? "matchs" : "match"}
-                  </span>
-                </div>
-                <span className={`duel-rival-count ${tone}`}>
-                  {main(rival)}
-                  <small> kills</small>
+          {rivals.map((rival) => (
+            <li className="duel-list-row" key={rival.puuid}>
+              <RivalFace rival={rival} />
+              <div className="stack duel-grow" style={{ gap: 2 }}>
+                <span className="ellipsis">
+                  <strong>{rival.name || "Inconnu"}</strong>
+                  {rival.tag && <span className="faint">#{rival.tag}</span>}
                 </span>
-              </li>
-            );
-          })}
+                <span className="faint ellipsis" style={{ fontSize: 12 }}>
+                  {other(rival)}, {rival.matches} {rival.matches > 1 ? "matchs" : "match"}
+                </span>
+              </div>
+              <span className={`duel-rival-count ${tone}`}>
+                {main(rival)}
+                <small> kills</small>
+              </span>
+            </li>
+          ))}
         </ul>
       )}
     </div>
