@@ -2,7 +2,8 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { useState, type FormEvent } from "react";
 import { Icon } from "../components/Icon";
 import { api, errorMessage, type Account, type Theme } from "../lib/api";
-import { HENRIK_DASHBOARD, REGIONS, tierIcon, tierLabel } from "../lib/assets";
+import { RankBadge } from "../components/RankBadge";
+import { HENRIK_DASHBOARD, REGIONS, tierLabel } from "../lib/assets";
 
 type Props = {
   accounts: Account[];
@@ -108,7 +109,7 @@ export function Settings({ accounts, activePuuid, theme, onTheme, onAccountsChan
         <div className="panel settings-list">
           {accounts.map((account) => (
             <div key={account.puuid}>
-              <img src={tierIcon(account.tier)} alt="" />
+              <RankBadge tier={account.tier} size={40} label={tierLabel(account.tierName)} />
               <span className="stack" style={{ gap: 0, flexGrow: 1 }}>
                 <strong>
                   {account.name} <span className="faint">#{account.tag}</span>

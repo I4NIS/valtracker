@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { DeathReview } from "../components/DeathReview";
 import { Icon } from "../components/Icon";
 import { api, errorMessage, type Account, type MatchDetail as Detail, type RoundLine } from "../lib/api";
-import { agentIcon, tierIcon, tierNameById } from "../lib/assets";
+import { RankBadge } from "../components/RankBadge";
+import { agentIcon } from "../lib/assets";
 import { duration, fmt, fullDate, pct, placeLabel, roleLabel, scoreTone, signed } from "../lib/format";
 
 type Tab = "summary" | "review";
@@ -61,7 +62,7 @@ export function MatchDetail({ account, matchId, onBack }: Props) {
           <span className="eyebrow">{queue}</span>
           <h1 className="match-title">{detail.mapName ?? "Map inconnue"}</h1>
           <span className="muted">
-            <strong className={detail.won ? "good" : "bad"}>
+            <strong className={detail.won ? "win" : "bad"}>
               {detail.won ? "Victoire" : "Défaite"} {detail.roundsWon}-{detail.roundsLost}
             </strong>
             , {fullDate(detail.startedAt)}, {duration(detail.lengthMs)}
@@ -145,7 +146,7 @@ export function MatchDetail({ account, matchId, onBack }: Props) {
                               {player.badge ?? roleLabel(player.role)}
                             </span>
                           </span>
-                          <img className="tier" src={tierIcon(player.tier)} alt={tierNameById(player.tier)} title={tierNameById(player.tier)} />
+                          <RankBadge tier={player.tier} size={26} />
                           <strong className={scoreTone(player.score)}>{player.score}</strong>
                           <span>
                             {player.kills} / {player.deaths} / {player.assists}

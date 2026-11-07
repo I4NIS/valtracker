@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { MatchList } from "../components/MatchList";
+import { RankBadge } from "../components/RankBadge";
 import { api, errorMessage, type Account, type Overview, type RecentMatch, type Season } from "../lib/api";
-import { seasonLabel, tierIcon, tierLabel } from "../lib/assets";
+import { seasonLabel, tierLabel } from "../lib/assets";
 import { fmt, greeting, pct, signed, timeAgo } from "../lib/format";
 
 type Props = {
@@ -73,7 +74,7 @@ export function Home({ account, refreshKey, onOpenMatch }: Props) {
 
       <div className="hero">
         <div className="rank">
-          <img src={tierIcon(account.tier)} alt={`Insigne ${tierLabel(account.tierName)}`} />
+          <RankBadge tier={account.tier} size={104} label={tierLabel(account.tierName)} />
           <div className="stack" style={{ gap: 10, flexGrow: 1 }}>
             <span className="rank-name">{tierLabel(account.tierName)}</span>
             {account.tier ? (
@@ -87,7 +88,7 @@ export function Home({ account, refreshKey, onOpenMatch }: Props) {
             {account.peakTierName && (
               <span className="row muted" style={{ gap: 6, fontSize: 13 }}>
                 Peak
-                <img src={tierIcon(account.peakTier)} alt="" style={{ width: 18, height: 18 }} />
+                <RankBadge tier={account.peakTier} size={24} label={tierLabel(account.peakTierName)} />
                 {tierLabel(account.peakTierName)}
               </span>
             )}
