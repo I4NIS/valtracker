@@ -83,6 +83,10 @@ impl Henrik {
         self.fetch(&["v1", "crosshair", "generate"], &[("id", code.to_string())]).await
     }
 
+    pub async fn website(&self, locale: &str, category: &str) -> AppResult<Value> {
+        self.get(&["v1", "website", locale], &[("category", category.to_string())]).await
+    }
+
     async fn get(&self, segments: &[&str], query: &[(&str, String)]) -> AppResult<Value> {
         let body = self.fetch(segments, query).await?;
         Ok(match serde_json::from_slice(&body).unwrap_or(Value::Null) {

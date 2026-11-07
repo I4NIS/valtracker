@@ -23,6 +23,7 @@ mod henrik;
 mod http;
 mod models;
 mod notify;
+mod patches;
 mod progression;
 mod ranked;
 mod recap;
@@ -136,6 +137,7 @@ pub fn run() {
             crosshair::delete_crosshair,
             crosshair::list_crosshairs,
             warmup::get_warmup,
+            patches::get_patch_stats,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

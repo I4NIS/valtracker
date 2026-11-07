@@ -66,6 +66,7 @@ export const queries = {
   mastery: (puuid: string) => ({ key: `mastery|${puuid}`, fetch: () => getAgentMastery(puuid) }),
   crosshairs: (puuid: string) => ({ key: `journal|crosshairs|${puuid}`, fetch: () => crosshairs.list(puuid) }),
   warmup: (puuid: string, season: Season) => ({ key: `warmup|${puuid}|${s(season)}`, fetch: () => getWarmup(puuid, season) }),
+  patches: (puuid: string, season: Season) => ({ key: `patches|${puuid}|${s(season)}`, fetch: () => api.getPatchStats(puuid, season) }),
 } satisfies Record<string, (...args: never[]) => Query<unknown>>;
 
 export function defaultSeason(puuid: string): Season | undefined {
@@ -129,5 +130,6 @@ function accountOnly(puuid: string, current: Season): Query<unknown>[] {
     queries.acts(puuid),
     queries.accolades(puuid),
     queries.mastery(puuid),
+    queries.patches(puuid, current),
   ];
 }

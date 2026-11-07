@@ -13,6 +13,7 @@ import { defaultSeason, queries } from "../lib/queries";
 import { Acts } from "./ProgressionActs";
 import { Comparison, Habits, InsightsSkeleton } from "./ProgressionInsights";
 import { ConductFacts, RiotTrend } from "./ProgressionFacts";
+import { Patches } from "./ProgressionPatches";
 
 const loadWarmup = () => import("./ProgressionWarmup");
 const Warmup = lazy(() => loadWarmup().then((module) => ({ default: module.Warmup })));
@@ -21,7 +22,7 @@ const RECENT = 20;
 const GAUGE_LENGTH = 283;
 const DAY_SHORT: Intl.DateTimeFormatOptions = { day: "numeric", month: "short" };
 
-type Tab = "overview" | "habits" | "compare" | "acts" | "warmup";
+type Tab = "overview" | "habits" | "compare" | "acts" | "warmup" | "patches";
 
 const TABS = (): { id: Tab; label: string }[] => [
   { id: "overview", label: t("Vue d'ensemble", "Overview") },
@@ -29,6 +30,7 @@ const TABS = (): { id: Tab; label: string }[] => [
   { id: "compare", label: t("Comparaison", "Comparison") },
   { id: "acts", label: t("Actes", "Acts") },
   { id: "warmup", label: t("Échauffement", "Warmup") },
+  { id: "patches", label: t("Par patch", "By patch") },
 ];
 
 type Props = {
@@ -97,6 +99,8 @@ export function Progression({ account }: Props) {
         error ? null : tab === "overview" ? <ProgressionSkeleton /> : <InsightsSkeleton />
       ) : games.length === 0 ? (
         <div className="empty">{t("Aucun match compétitif synchronisé sur cette période.", "No competitive matches synced for this period.")}</div>
+      ) : tab === "patches" ? (
+        <Patches puuid={account.puuid} season={season ?? null} />
       ) : tab === "habits" ? (
         <Habits games={games} />
       ) : tab === "compare" ? (

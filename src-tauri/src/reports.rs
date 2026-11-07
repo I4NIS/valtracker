@@ -25,6 +25,7 @@ pub enum Report {
     Favorites,
     Crosshairs,
     Warmup(Option<String>),
+    Patches(Option<String>),
 }
 
 fn json<T: Serialize>(value: AppResult<T>) -> AppResult<String> {
@@ -57,6 +58,7 @@ impl Report {
             Report::Favorites => json(favorites::entries(conn, puuid)),
             Report::Crosshairs => json(crosshair::report(conn, puuid)),
             Report::Warmup(season) => json(warmup::report(conn, puuid, season.as_deref())),
+            Report::Patches(season) => json(crate::patches::report(conn, puuid, season.as_deref())),
         }
     }
 
@@ -206,6 +208,7 @@ pub fn run(state: &AppState, puuid: &str, newer: &dyn Fn() -> bool) {
         Report::Recent(Filters::default(), 20, 0),
         Report::Flaws,
         Report::Progression(current.map(str::to_string)),
+        Report::Patches(current.map(str::to_string)),
         Report::FilterOptions,
         Report::Notes,
         Report::Tags,

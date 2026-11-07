@@ -232,6 +232,63 @@
   background: var(--text-3);
 }
 
+.patch-table {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.patch-row {
+  display: grid;
+  grid-template-columns: minmax(150px, 1.7fr) repeat(6, minmax(64px, 1fr));
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 10px;
+}
+
+.patch-row:not(.head):nth-child(even) {
+  background: var(--raised);
+}
+
+.patch-row.head {
+  padding-top: 0;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  color: var(--text-3);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.patch-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.patch-cell strong {
+  font-size: 15px;
+}
+
+.patch-cell small {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+@container (max-width: 640px) {
+  .patch-row {
+    grid-template-columns: minmax(120px, 1.4fr) repeat(4, minmax(56px, 1fr));
+    gap: 10px;
+  }
+
+  .patch-row > :nth-child(5),
+  .patch-row > :nth-child(6) {
+    display: none;
+  }
+}
+
 .riot-grades {
   display: flex;
   flex-wrap: wrap;

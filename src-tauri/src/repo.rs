@@ -261,6 +261,7 @@ pub struct PreparedMatch {
     season_short: Option<String>,
     rounds: i64,
     game_length_ms: Option<i64>,
+    game_version: Option<String>,
     raw: Vec<u8>,
     players: Vec<PlayerRow>,
 }
@@ -331,6 +332,7 @@ pub fn prepare_match(game: Value) -> AppResult<Option<PreparedMatch>> {
     let season_id = owned(&game, "/metadata/season/id");
     let season_short = owned(&game, "/metadata/season/short");
     let game_length_ms = game.pointer("/metadata/game_length_in_ms").and_then(Value::as_i64);
+    let game_version = owned(&game, "/metadata/game_version");
     Ok(Some(PreparedMatch {
         match_id,
         started_at,
@@ -341,6 +343,7 @@ pub fn prepare_match(game: Value) -> AppResult<Option<PreparedMatch>> {
         season_short,
         rounds,
         game_length_ms,
+        game_version,
         raw: storage::encode(game)?,
         players,
     }))
@@ -349,8 +352,8 @@ pub fn prepare_match(game: Value) -> AppResult<Option<PreparedMatch>> {
 pub fn insert_prepared(conn: &Connection, game: &PreparedMatch) -> AppResult<bool> {
     let inserted = conn.execute(
         "INSERT OR IGNORE INTO matches
-            (match_id, started_at, map_id, map_name, queue, season_id, season_short, rounds, game_length_ms, raw)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+            (match_id, started_at, map_id, map_name, queue, season_id, season_short, rounds, game_length_ms, raw, game_version)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
         params![
             game.match_id,
             game.started_at,
@@ -362,6 +365,7 @@ pub fn insert_prepared(conn: &Connection, game: &PreparedMatch) -> AppResult<boo
             game.rounds,
             game.game_length_ms,
             game.raw,
+            game.game_version,
         ],
     )?;
     if inserted == 0 {

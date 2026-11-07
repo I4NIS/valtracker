@@ -370,6 +370,24 @@ export type Conduct = {
   friendlyFireDealt: number;
 };
 
+export type PatchLine = {
+  version: string | null;
+  published: string | null;
+  matches: number;
+  wins: number;
+  winPct: number;
+  acs: number;
+  kd: number;
+  hsPct: number;
+  rrNet: number | null;
+  inferred: number;
+};
+
+export type PatchReport = {
+  patches: PatchLine[];
+  notes: number;
+};
+
 export type RecentFlaws = {
   matches: number;
   rounds: number;
@@ -423,6 +441,7 @@ export const api = {
   importDatabase: (path: string) => invoke<void>("import_database", { path }),
   getThresholds: () => invoke<ThresholdSettings>("get_thresholds"),
   setThresholds: (thresholds: Thresholds) => invoke<ThresholdSettings>("set_thresholds", { thresholds }),
+  getPatchStats: (puuid: string, season: string | null) => invoke<PatchReport>("get_patch_stats", { puuid, season }),
 };
 
 export function onSyncProgress(callback: (progress: SyncProgress) => void): Promise<UnlistenFn> {

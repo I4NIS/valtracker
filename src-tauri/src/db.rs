@@ -317,6 +317,7 @@ ALTER TABLE match_players ADD COLUMN afk_rounds REAL;
 ALTER TABLE match_players ADD COLUMN rounds_in_spawn REAL;
 ALTER TABLE match_players ADD COLUMN friendly_fire_in REAL;
 ALTER TABLE match_players ADD COLUMN friendly_fire_out REAL;
+ALTER TABLE matches ADD COLUMN game_version TEXT;
 "];
 
 const REBUILT_AT: i64 = 10;

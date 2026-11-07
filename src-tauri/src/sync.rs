@@ -69,6 +69,7 @@ async fn sync(app: &AppHandle, state: &AppState, puuid: &str) -> AppResult<SyncR
         let mut conn = state.conn()?;
         repo::upsert_mmr_history(&mut conn, puuid, &history)? > 0
     };
+    let _ = crate::patches::refresh(state, &api).await;
 
     let mut new_matches = sync_mode(app, &api, region, platform, puuid, COMPETITIVE, tr("Matchs compétitifs", "Competitive matches"), 0).await?;
     if new_matches > 0 && had_matches {

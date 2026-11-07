@@ -156,7 +156,7 @@ pub fn slim(mut game: Value) -> Value {
             "metadata",
             pick(
                 game.get_mut("metadata"),
-                &["match_id", "map", "started_at", "queue", "season", "game_length_in_ms", "region", "cluster", "platform", "mvp"],
+                &["match_id", "map", "started_at", "queue", "season", "game_length_in_ms", "region", "cluster", "platform", "mvp", "game_version"],
             ),
         ),
         ("players", each(game.get_mut("players"), player)),
@@ -305,7 +305,7 @@ mod tests {
             json!({
                 "metadata": pick(
                     &game["metadata"],
-                    &["match_id", "map", "started_at", "queue", "season", "game_length_in_ms", "region", "cluster", "platform", "mvp"],
+                    &["match_id", "map", "started_at", "queue", "season", "game_length_in_ms", "region", "cluster", "platform", "mvp", "game_version"],
                 ),
                 "players": each(&game["players"], |player| json!({
                     "puuid": player["puuid"],
@@ -401,6 +401,7 @@ mod tests {
                 "queue": { "id": "competitive" },
                 "premier": null,
                 "mvp": { "puuid": "p", "name": "P", "tag": "0000", "team": "Red" },
+                "game_version": "release-11.08-shipping-14-3954128",
             },
             "players": [{
                 "puuid": "p",
@@ -448,6 +449,7 @@ mod tests {
         assert_eq!(slim.pointer("/rounds/0/stats/0/was_afk"), Some(&json!(true)));
         assert_eq!(slim.pointer("/rounds/0/stats/0/received_penalty"), Some(&json!(false)));
         assert_eq!(slim.pointer("/metadata/mvp/puuid"), Some(&json!("p")));
+        assert_eq!(slim.pointer("/metadata/game_version"), Some(&json!("release-11.08-shipping-14-3954128")));
         assert_eq!(slim.pointer("/teams/0/mvp/name"), Some(&json!("P")));
         assert_eq!(slim.pointer("/rounds/0/ceremony_player"), Some(&json!({ "puuid": "p", "name": "P", "tag": "0000", "team": "Red" })));
         assert_eq!(slim.pointer("/rounds/0/ceremony_team"), Some(&json!("Red")));
