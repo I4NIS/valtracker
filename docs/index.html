@@ -312,6 +312,74 @@ h3 {
 
 .note strong { color: var(--text); font-weight: 600; }
 
+.note a, .fix a { color: var(--text); text-decoration-color: var(--accent); text-underline-offset: 3px; }
+
+.trust { margin-top: 16px; }
+
+.tile-img img.crop { object-position: 62% 38%; }
+
+.more {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  list-style: none;
+  margin: 24px 0 0;
+  padding: 0;
+}
+
+.more li {
+  padding: 8px 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--text-2);
+  font-size: 14px;
+}
+
+.fixes {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+  margin-top: 32px;
+}
+
+@media (min-width: 860px) {
+  .fixes { grid-template-columns: 1fr 1fr; }
+}
+
+.fix {
+  padding: 22px;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  background: var(--panel);
+}
+
+.fix p {
+  margin: 6px 0 0;
+  color: var(--text-2);
+  font-size: 15px;
+}
+
+.fix ol {
+  margin: 14px 0 0;
+  padding-left: 20px;
+  color: var(--text-2);
+  font-size: 15px;
+}
+
+.fix li + li { margin-top: 6px; }
+
+.fix strong { color: var(--text); font-weight: 600; }
+
+code {
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: var(--raised);
+  color: var(--text);
+  font-size: 0.9em;
+}
+
+.version { font-variant-numeric: tabular-nums; }
+
 .end {
   text-align: center;
 }
@@ -369,7 +437,7 @@ h3 {
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v12"/><path d="m6 10 6 6 6-6"/><path d="M5 20h14"/></svg>
         Télécharger pour Windows
       </a>
-      <p class="cta-note">Windows 10 et 11, gratuit</p>
+      <p class="cta-note"><span class="version" data-version>Version 1.0</span>, Windows 10 et 11, gratuit</p>
     </div>
     <div class="shot">
       <img src="screenshots/accueil.webp" width="1440" height="900" alt="Accueil de Valtracker : rang, win rate, statistiques de l'acte et derniers matchs">
@@ -401,7 +469,36 @@ h3 {
           <p>Un match, une période ou un acte en image, copiée en un clic.</p>
         </div>
       </article>
+      <article class="tile">
+        <div class="tile-img"><img class="crop" src="screenshots/match.webp" width="1440" height="900" loading="lazy" alt="Détail d'un match avec le score de chaque joueur"></div>
+        <div class="tile-body">
+          <h3>Chaque match en détail</h3>
+          <p>Score sur 100 des 10 joueurs, économie de chaque round et RR gagné ou perdu.</p>
+        </div>
+      </article>
+      <article class="tile">
+        <div class="tile-img"><img class="crop" src="screenshots/armes.webp" width="1440" height="900" loading="lazy" alt="Page Armes avec la répartition des impacts"></div>
+        <div class="tile-body">
+          <h3>Tes armes</h3>
+          <p>Kills, headshots et distance des duels pour chaque arme, et les armes qui te tuent.</p>
+        </div>
+      </article>
+      <article class="tile">
+        <div class="tile-img"><img class="crop" src="screenshots/progression.webp" width="1440" height="900" loading="lazy" alt="Courbe de RR et records de la période"></div>
+        <div class="tile-body">
+          <h3>Ta progression</h3>
+          <p>Courbe de RR, actes passés, stats par patch et records Riot.</p>
+        </div>
+      </article>
     </div>
+    <ul class="more">
+      <li>Duels et clutchs</li>
+      <li>Heatmaps des kills et des morts</li>
+      <li>Journal, favoris et viseurs</li>
+      <li>Échauffement en Deathmatch</li>
+      <li>Plusieurs comptes</li>
+      <li>Français et anglais</li>
+    </ul>
   </section>
 
   <section class="wrap" aria-labelledby="install">
@@ -422,8 +519,33 @@ h3 {
     </ol>
     <div class="notes">
       <p class="note"><strong>Rien ne tourne pendant tes parties.</strong> Valtracker ne lit jamais le jeu ni le client Valorant. Les données viennent de l'API HenrikDev, une fois les matchs terminés.</p>
-      <p class="note"><strong>Avertissement SmartScreen.</strong> L'application n'est pas encore signée. Clique sur « Informations complémentaires » puis « Exécuter quand même ».</p>
+      <p class="note"><strong>Mises à jour automatiques.</strong> Une nouvelle version est proposée au lancement et s'installe en un clic. Tes données restent sur ton PC.</p>
     </div>
+  </section>
+
+  <section class="wrap" aria-labelledby="windows">
+    <h2 id="windows">Si Windows bloque l'installation</h2>
+    <p class="section-lead">Valtracker n'a pas de certificat de signature payant. Windows ne connaît donc pas son éditeur et peut afficher un avertissement, ou bloquer le téléchargement par précaution.</p>
+    <div class="fixes">
+      <article class="fix">
+        <h3>« Windows a protégé votre ordinateur »</h3>
+        <p>C'est l'écran bleu de SmartScreen, au lancement de l'installateur.</p>
+        <ol>
+          <li>Clique sur <strong>Informations complémentaires</strong>.</li>
+          <li>Clique sur <strong>Exécuter quand même</strong>.</li>
+        </ol>
+      </article>
+      <article class="fix">
+        <h3>« Virus détecté » dans le navigateur</h3>
+        <p>Microsoft Defender supprime le fichier téléchargé. La détection se termine par <code>!ml</code> : c'est une estimation automatique, fréquente pour les applications récentes et non signées.</p>
+        <ol>
+          <li>Ouvre <strong>Sécurité Windows</strong>, puis <strong>Protection contre les virus et menaces</strong>.</li>
+          <li>Clique sur <strong>Historique de protection</strong> et ouvre l'élément Valtracker-setup.exe.</li>
+          <li>Choisis <strong>Actions</strong>, puis <strong>Restaurer</strong>. Si l'option n'apparaît pas, choisis <strong>Autoriser sur l'appareil</strong> et télécharge à nouveau le fichier.</li>
+        </ol>
+      </article>
+    </div>
+    <p class="note trust"><strong>Ce que tu peux vérifier.</strong> Le <a href="https://github.com/I4NIS/valtracker">code source</a> est public, sous licence MIT. Chaque version est compilée par GitHub Actions à partir de ce code, et les <a href="https://github.com/I4NIS/valtracker/actions/workflows/release.yml">journaux de compilation</a> sont publics. Les mises à jour automatiques sont signées : l'application refuse toute mise à jour qui ne vient pas de ce dépôt.</p>
   </section>
 
   <section class="wrap end" aria-label="Téléchargement">
@@ -442,7 +564,17 @@ h3 {
     <a href="https://github.com/I4NIS/valtracker">Code source sur GitHub</a>
     <a href="https://github.com/I4NIS/valtracker/releases">Toutes les versions</a>
   </nav>
-  <p>Valtracker n'est pas approuvé par Riot Games. Riot Games, Valorant et toutes les propriétés associées sont des marques commerciales ou des marques déposées de Riot Games, Inc.</p>
+  <p>Code sous licence MIT. Valtracker n'est pas approuvé par Riot Games. Riot Games, Valorant et toutes les propriétés associées sont des marques commerciales ou des marques déposées de Riot Games, Inc.</p>
 </footer>
+<script>
+fetch("https://api.github.com/repos/I4NIS/valtracker/releases/latest")
+  .then((response) => (response.ok ? response.json() : null))
+  .then((release) => {
+    const tag = release && typeof release.tag_name === "string" ? release.tag_name.replace(/^v/, "") : null;
+    if (!tag || !/^[0-9.]+$/.test(tag)) return;
+    document.querySelectorAll("[data-version]").forEach((node) => { node.textContent = "Version " + tag; });
+  })
+  .catch(() => {});
+</script>
 </body>
 </html>
