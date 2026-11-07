@@ -52,7 +52,6 @@ export function Warmup({ puuid, season }: { puuid: string; season: string | null
 
   const label = mode === "deathmatch" ? t("un DM", "a DM") : mode === "teamdeathmatch" ? t("un TDM", "a TDM") : t("un DM ou un TDM", "a DM or TDM");
   const none = mode === "deathmatch" ? t("sans DM", "no DM") : mode === "teamdeathmatch" ? t("sans TDM", "no TDM") : t("sans DM ni TDM", "no DM or TDM");
-  const hsAverage = sums.hsPct;
 
   return (
     <div className="warmup">
@@ -79,7 +78,6 @@ export function Warmup({ puuid, season }: { puuid: string; season: string | null
 
       <div className="compare-grid">
         <Figure label={t("Parties", "Games")} value={fmt(sums.matches)} />
-        <Figure label="HS" value={sums.hsPct !== null ? pct(sums.hsPct) : "-"} />
         <Figure label="K/D" value={fmt(sums.kd, 2)} />
         <Figure label={t("Kills par partie", "Kills per game")} value={fmt(sums.kills, 1)} />
         <Figure label={t("Dégâts par partie", "Damage per game")} value={sums.damage !== null ? fmt(sums.damage) : "-"} />
@@ -88,17 +86,17 @@ export function Warmup({ puuid, season }: { puuid: string; season: string | null
       <div className="warmup-charts">
         <section className="panel habit-panel">
           <div className="section-head">
-            <h2 className="section-title">{t("HS par jour", "HS per day")}</h2>
-            <span className="faint">{hsAverage !== null ? t(`Moyenne ${pct(hsAverage)}`, `Average ${pct(hsAverage)}`) : ""}</span>
-          </div>
-          <DayChart points={points} value={(point) => point.hsPct} average={hsAverage} format={(value) => pct(value)} />
-        </section>
-        <section className="panel habit-panel">
-          <div className="section-head">
             <h2 className="section-title">{t("K/D par jour", "K/D per day")}</h2>
             <span className="faint">{t(`Moyenne ${fmt(sums.kd, 2)}`, `Average ${fmt(sums.kd, 2)}`)}</span>
           </div>
           <DayChart points={points} value={(point) => point.kd} average={sums.kd} format={(value) => fmt(value, 2)} />
+        </section>
+        <section className="panel habit-panel">
+          <div className="section-head">
+            <h2 className="section-title">{t("Kills par partie, par jour", "Kills per game, per day")}</h2>
+            <span className="faint">{t(`Moyenne ${fmt(sums.kills, 1)}`, `Average ${fmt(sums.kills, 1)}`)}</span>
+          </div>
+          <DayChart points={points} value={(point) => point.kills} average={sums.kills} format={(value) => fmt(value, 1)} />
         </section>
       </div>
 
@@ -121,8 +119,8 @@ export function Warmup({ puuid, season }: { puuid: string; season: string | null
             {link.warmed.days > 0 && (
               <p className="warmup-sentence">
                 {t(
-                  `${link.warmed.days > 1 ? `Ces ${dayCount(link.warmed.days)}` : "Ce jour"} : ${link.warmupHsPct !== null ? pct(link.warmupHsPct) : "-"} de HS à l'échauffement, ${link.rankedHsPct !== null ? pct(link.rankedHsPct) : "-"} sur les matchs classés qui suivent.`,
-                  `${link.warmed.days > 1 ? `On these ${dayCount(link.warmed.days)}` : "On that day"}: ${link.warmupHsPct !== null ? pct(link.warmupHsPct) : "-"} HS while warming up, ${link.rankedHsPct !== null ? pct(link.rankedHsPct) : "-"} in the ranked matches that follow.`,
+                  `${link.warmed.days > 1 ? `Ces ${dayCount(link.warmed.days)}` : "Ce jour"} : K/D ${link.warmupKd !== null ? fmt(link.warmupKd, 2) : "-"} à l'échauffement, ${link.rankedKd !== null ? fmt(link.rankedKd, 2) : "-"} sur les matchs classés qui suivent.`,
+                  `${link.warmed.days > 1 ? `On these ${dayCount(link.warmed.days)}` : "On that day"}: K/D ${link.warmupKd !== null ? fmt(link.warmupKd, 2) : "-"} while warming up, ${link.rankedKd !== null ? fmt(link.rankedKd, 2) : "-"} in the ranked matches that follow.`,
                 )}
               </p>
             )}
@@ -131,9 +129,9 @@ export function Warmup({ puuid, season }: { puuid: string; season: string | null
                 <div className="warmup-day head" role="row">
                   <span role="columnheader">{t("Jour", "Day")}</span>
                   <span role="columnheader">{t("Échauffement", "Warmup")}</span>
-                  <span role="columnheader">{t("HS échauffement", "Warmup HS")}</span>
+                  <span role="columnheader">{t("K/D échauffement", "Warmup K/D")}</span>
                   <span role="columnheader">{t("Classé", "Ranked")}</span>
-                  <span role="columnheader">{t("HS classé", "Ranked HS")}</span>
+                  <span role="columnheader">{t("K/D classé", "Ranked K/D")}</span>
                 </div>
                 {link.days.slice(0, DAY_ROWS).map((day) => (
                   <div className="warmup-day" role="row" key={day.day}>
@@ -141,12 +139,12 @@ export function Warmup({ puuid, season }: { puuid: string; season: string | null
                     <span role="cell" className="muted">
                       {t(`${day.warmups} ${day.warmups > 1 ? "parties" : "partie"}`, `${day.warmups} ${day.warmups === 1 ? "game" : "games"}`)}
                     </span>
-                    <span role="cell">{day.warmupHsPct !== null ? pct(day.warmupHsPct) : "-"}</span>
+                    <span role="cell">{fmt(day.warmupKd, 2)}</span>
                     <span role="cell">
                       <span className={day.wins * 2 >= day.ranked ? "win" : "bad"}>{t(`${day.wins} V`, `${day.wins} W`)}</span>
                       <span className="faint"> {t(`sur ${day.ranked}`, `of ${day.ranked}`)}</span>
                     </span>
-                    <span role="cell">{day.rankedHsPct !== null ? pct(day.rankedHsPct) : "-"}</span>
+                    <span role="cell">{fmt(day.rankedKd, 2)}</span>
                   </div>
                 ))}
               </div>
