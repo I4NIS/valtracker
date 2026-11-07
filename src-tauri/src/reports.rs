@@ -5,7 +5,7 @@ use tauri::{AppHandle, Manager};
 use crate::error::{AppError, AppResult};
 use crate::state::AppState;
 use crate::stats::Filters;
-use crate::{agent_stats, db, duels, favorites, journal, map_stats, progression, stats, weapon_stats};
+use crate::{agent_stats, db, duels, favorites, journal, map_detail, map_stats, progression, stats, weapon_stats};
 
 #[derive(Debug, Clone)]
 pub enum Report {
@@ -16,6 +16,7 @@ pub enum Report {
     Progression(Option<String>),
     Agents(Option<String>),
     Maps(Option<String>),
+    MapHistory(String),
     Weapons(Option<String>),
     Duels(Option<String>),
     Notes,
@@ -45,6 +46,7 @@ impl Report {
             Report::Progression(season) => json(progression::progression(conn, puuid, season.as_deref())),
             Report::Agents(season) => json(agent_stats::agent_stats(conn, puuid, season.as_deref())),
             Report::Maps(season) => json(map_stats::map_stats(conn, puuid, season.as_deref())),
+            Report::MapHistory(map_id) => json(map_detail::map_history(conn, puuid, map_id)),
             Report::Weapons(season) => json(weapon_stats::report(conn, puuid, season.as_deref())),
             Report::Duels(season) => json(duels::duels(conn, puuid, season.as_deref())),
             Report::Notes => json(journal::entries(conn, puuid)),

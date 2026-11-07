@@ -1,6 +1,7 @@
 mod i18n;
 mod journal;
 mod map_stats;
+mod map_detail;
 mod weapon_stats;
 mod agent_stats;
 mod duels;
@@ -83,6 +84,7 @@ pub fn run() {
             commands::set_preference,
             agent_stats::get_agent_stats,
             map_stats::get_map_stats,
+            map_detail::get_map_history,
             weapon_stats::get_weapon_stats,
             weapon_stats::get_weapon_history,
             duels::get_duels,

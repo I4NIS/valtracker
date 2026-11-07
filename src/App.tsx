@@ -219,7 +219,7 @@ export default function App() {
         {single && page === "heatmaps" && <Heatmaps account={single} refreshKey={refreshKey} />}
         {single && page === "progress" && <Progression account={single} refreshKey={refreshKey} />}
         {single && page === "agents" && <Agents account={single} refreshKey={refreshKey} />}
-        {single && page === "maps" && <Maps account={single} refreshKey={refreshKey} />}
+        {single && page === "maps" && <Maps account={single} refreshKey={refreshKey} onOpenRound={showMatch} />}
         {single && page === "weapons" && <Weapons account={single} refreshKey={refreshKey} onOpenRound={showMatch} />}
         {single && page === "duels" && <Duels account={single} refreshKey={refreshKey} onOpenRound={showMatch} />}
         {single && page === "journal" && <Journal account={single} refreshKey={refreshKey} onOpenMatch={showMatch} />}
