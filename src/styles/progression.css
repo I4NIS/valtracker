@@ -1,0 +1,105 @@
+.rr-chart {
+  display: grid;
+  grid-template-columns: 90px minmax(0, 1fr);
+  height: 240px;
+  border-radius: 8px;
+  outline: none;
+}
+
+.rr-chart:focus-visible {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+.rr-axis {
+  position: relative;
+  min-width: 0;
+}
+
+.rr-tick {
+  position: absolute;
+  left: 0;
+  right: 12px;
+  transform: translateY(-50%);
+  overflow: hidden;
+  color: var(--text-3);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rr-plot {
+  position: relative;
+  min-width: 0;
+  cursor: crosshair;
+  touch-action: pan-y;
+}
+
+.rr-chart .rr-line {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.rr-chart .rr-guide {
+  stroke: var(--text-3);
+  stroke-width: 1;
+  opacity: 0.6;
+  vector-effect: non-scaling-stroke;
+}
+
+.rr-chart .rr-dot {
+  fill: var(--accent);
+  stroke: var(--panel);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.rr-tip {
+  position: absolute;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--raised);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
+  color: var(--text);
+  font-size: 13px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.rr-tip .rr-tip-date {
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.rr-tip strong {
+  font-weight: 600;
+}
+
+.rr-tip .rr-tip-change {
+  color: var(--text-2);
+  font-weight: 600;
+}
+
+.rr-tip .rr-tip-change.up {
+  color: var(--win);
+}
+
+.rr-tip .rr-tip-change.down {
+  color: var(--bad);
+}
+
+.rr-dates {
+  padding-left: 90px;
+  font-size: 12px;
+}
