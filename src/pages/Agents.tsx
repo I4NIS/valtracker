@@ -1,17 +1,21 @@
 import "../styles/agents.css";
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
-import { Art } from "../components/GameArt";
+import { Art, ThumbArt } from "../components/GameArt";
+import { MatchList, MatchListSkeleton } from "../components/MatchList";
 import { repeat, SkeletonBlock, SkeletonGroup, SkeletonLine } from "../components/Skeleton";
 import { Icon } from "../components/Icon";
 import { SeasonPicker } from "../components/SeasonPicker";
 import type { Account } from "../lib/api";
 import type { AgentStat } from "../lib/agents";
 import { agentIcon, seasonLabel } from "../lib/assets";
-import { fmt, pct, roleLabel, scoreTone } from "../lib/format";
+import { fmt, pct, roleLabel, scoreTone, signed } from "../lib/format";
 import { agentArt, agentColor, useAgentCatalog, type AgentInfo } from "../lib/gameAssets";
 import { t } from "../lib/i18n";
+import { useBackLabel } from "../lib/navigation";
 import { useQuery } from "../lib/query";
-import { defaultSeason, queries } from "../lib/queries";
+import { defaultSeason, NO_FILTERS, queries } from "../lib/queries";
+import { useViewport } from "../lib/viewport";
+import type { GameSummary } from "../lib/api";
 
 type Props = {
   account: Account;
@@ -29,6 +33,14 @@ const ROLE_FILTERS = [
 
 type RoleFilter = (typeof ROLE_FILTERS)[number]["id"];
 
+const LARGE_WIDTH = 1700;
+const MAX_RECENT = 10;
+const RECENT_ROW = 56;
+const MAP_ROW = 44;
+const RECENT_OFFSET = 550;
+const RECENT_MIN_HEIGHT = 1000;
+const TREND_GAMES = 20;
+
 const RING_RADIUS = 20;
 const RING_LENGTH = 2 * Math.PI * RING_RADIUS;
 
@@ -36,7 +48,7 @@ const matchCount = (count: number) => t(`${count} ${count > 1 ? "matchs" : "matc
 
 const winTone = (winPct: number) => (winPct >= 50 ? "win" : "bad");
 
-export function Agents({ account }: Props) {
+export function Agents({ account, onOpenMatch }: Props) {
   const [season, setSeason] = useState<string | null | undefined>(() => defaultSeason(account.puuid));
   const query = useQuery(season === undefined ? null : queries.agents(account.puuid, season));
   const data = query.data ?? null;
@@ -53,6 +65,9 @@ export function Agents({ account }: Props) {
   }, [data]);
   const current = (data ?? []).find((agent) => agent.agentId === selected) ?? null;
   const totalMatches = (data ?? []).reduce((sum, agent) => sum + agent.matches, 0);
+  const viewport = useViewport();
+  const large = viewport.width >= LARGE_WIDTH;
+  useBackLabel(current ? t(`Retour à ${current.name}`, `Back to ${current.name}`) : null);
 
   useEffect(() => {
     document.querySelector(".main")?.scrollTo({ top: 0 });
@@ -70,7 +85,13 @@ export function Agents({ account }: Props) {
             <span className="faint">{season ? seasonLabel(season) : t("Toutes les saisons", "All seasons")}</span>
           </div>
         </header>
-        <AgentDetail agent={current} info={catalog?.agents.get(current.agentId.toLowerCase()) ?? null} />
+        <AgentDetail
+          agent={current}
+          info={catalog?.agents.get(current.agentId.toLowerCase()) ?? null}
+          puuid={account.puuid}
+          season={season ?? null}
+          onOpenMatch={onOpenMatch}
+        />
       </div>
     );
   }
@@ -113,18 +134,20 @@ export function Agents({ account }: Props) {
       {error && !data && <p className="form-error">{error}</p>}
 
       {!data ? (
-        error ? null : <AgentsSkeleton />
+        error ? null : <AgentsSkeleton large={large} />
       ) : data.length === 0 ? (
         <div className="empty">{t("Aucun match compétitif synchronisé sur cette période.", "No competitive matches synced for this period.")}</div>
       ) : agents.length === 0 ? (
         <div className="empty">{t("Aucun agent de ce rôle joué sur cette période.", "No agent of this role played in this period.")}</div>
       ) : (
-        <div className="agent-grid" role="group" aria-label={t("Tes agents", "Your agents")}>
+        <div className={`agent-grid${large ? " large" : ""}`} role="group" aria-label={t("Tes agents", "Your agents")}>
           {agents.map((agent) => (
             <AgentCard
               key={agent.agentId}
               agent={agent}
               share={totalMatches ? (agent.matches * 100) / totalMatches : 0}
+              info={large ? (catalog?.agents.get(agent.agentId.toLowerCase()) ?? null) : null}
+              large={large}
               onSelect={() => setSelected(agent.agentId)}
             />
           ))}
@@ -134,11 +157,12 @@ export function Agents({ account }: Props) {
   );
 }
 
-function AgentsSkeleton() {
+function AgentsSkeleton({ large }: { large: boolean }) {
   return (
-    <SkeletonGroup className="agent-grid" label={t("Chargement de tes agents", "Loading your agents")}>
+    <SkeletonGroup className={`agent-grid${large ? " large" : ""}`} label={t("Chargement de tes agents", "Loading your agents")}>
       {repeat(8, (index) => (
         <div className="agent-card" key={index} aria-hidden="true">
+          {large && <SkeletonBlock className="agent-card-art" radius={12} />}
           <div className="row" style={{ gap: 12, alignItems: "center" }}>
             <SkeletonBlock width={52} height={52} radius={14} />
             <div className="stack agent-card-name">
@@ -185,13 +209,30 @@ function WinRing({ value }: { value: number }) {
   );
 }
 
-function AgentCard({ agent, share, onSelect }: { agent: AgentStat; share: number; onSelect: () => void }) {
+type CardProps = { agent: AgentStat; share: number; info: AgentInfo | null; large: boolean; onSelect: () => void };
+
+function AgentCard({ agent, share, info, large, onSelect }: CardProps) {
+  const tint = large ? agentColor(info, 0) : null;
+  const openings = agent.firstBloods + agent.firstDeaths;
   return (
-    <button type="button" className="agent-card" onClick={onSelect} aria-label={t(`Ouvrir ${agent.name}`, `Open ${agent.name}`)}>
-      <div className="row" style={{ gap: 12, alignItems: "center" }}>
-        <span className="agent-portrait">
-          <Art src={agentIcon(agent.agentId)} width={52} height={52} alt="" />
+    <button
+      type="button"
+      className="agent-card"
+      onClick={onSelect}
+      aria-label={t(`Ouvrir ${agent.name}`, `Open ${agent.name}`)}
+      style={tint ? ({ "--agent-tint": tint } as CSSProperties) : undefined}
+    >
+      {large && (
+        <span className="agent-card-art">
+          <ThumbArt src={agentArt(agent.agentId, "fullportrait")} width={320} height={320} alt="" />
         </span>
+      )}
+      <div className="row" style={{ gap: 12, alignItems: "center" }}>
+        {!large && (
+          <span className="agent-portrait">
+            <Art src={agentIcon(agent.agentId)} width={52} height={52} alt="" />
+          </span>
+        )}
         <div className="stack agent-card-name">
           <strong className="ellipsis">{agent.name}</strong>
           <span className="faint">{roleLabel(agent.role) || t("Rôle inconnu", "Unknown role")}</span>
@@ -225,12 +266,45 @@ function AgentCard({ agent, share, onSelect }: { agent: AgentStat; share: number
             <strong className="faint">-</strong>
           )}
         </div>
+        {large && (
+          <>
+            <div>
+              <span className="label">ADR</span>
+              <strong>{fmt(agent.adr)}</strong>
+            </div>
+            <div>
+              <span className="label">{t("Ouvertures", "Openings")}</span>
+              <strong className={openings ? (agent.firstBloods >= agent.firstDeaths ? "" : "bad") : "faint"}>
+                {openings ? pct((agent.firstBloods * 100) / openings, 0) : "-"}
+              </strong>
+            </div>
+            <div>
+              <span className="label">Rounds</span>
+              <strong>{fmt(agent.rounds)}</strong>
+            </div>
+            <div className="agent-card-best">
+              <span className="label">{t("Meilleure map", "Best map")}</span>
+              <strong className={agent.bestMap ? "ellipsis" : "faint"}>{agent.bestMap?.name ?? "-"}</strong>
+            </div>
+          </>
+        )}
       </div>
     </button>
   );
 }
 
-function AgentDetail({ agent, info }: { agent: AgentStat; info: AgentInfo | null }) {
+type DetailProps = { agent: AgentStat; info: AgentInfo | null; puuid: string; season: string | null; onOpenMatch?: (matchId: string) => void };
+
+function AgentDetail({ agent, info, puuid, season, onOpenMatch }: DetailProps) {
+  const viewport = useViewport();
+  const rows = Math.min(MAX_RECENT, Math.floor((viewport.height - RECENT_OFFSET - agent.maps.length * MAP_ROW) / RECENT_ROW));
+  const showRecent = viewport.height >= RECENT_MIN_HEIGHT && rows >= 3;
+  const progression = useQuery(queries.progression(puuid, season)).data ?? null;
+  const recent = useQuery(showRecent ? queries.recent(puuid, MAX_RECENT, 0, { ...NO_FILTERS, season, agentId: agent.agentId }) : null);
+  const games = useMemo(
+    () => (progression?.games ?? []).filter((game) => game.agentId?.toLowerCase() === agent.agentId.toLowerCase()).slice(-TREND_GAMES),
+    [progression, agent.agentId],
+  );
   const openings = agent.firstBloods + agent.firstDeaths;
   const openingWin = openings ? (agent.firstBloods * 100) / openings : 0;
   const lobbyDelta = agent.lobbyAcs ? ((agent.acs - agent.lobbyAcs) / agent.lobbyAcs) * 100 : null;
@@ -303,6 +377,8 @@ function AgentDetail({ agent, info }: { agent: AgentStat; info: AgentInfo | null
             sub={t("note de performance par match", "performance rating per match")}
           />
         </div>
+
+        {games.length >= 2 && <AgentTrend agent={agent} games={games} />}
       </div>
 
       <div className="agent-detail-side">
@@ -383,8 +459,58 @@ function AgentDetail({ agent, info }: { agent: AgentStat; info: AgentInfo | null
             ))}
           </div>
         </div>
+
+        {showRecent && (
+          <div className="stack" style={{ gap: 12 }}>
+            <div className="row between wrap" style={{ alignItems: "baseline" }}>
+              <h3 className="agent-sub-title">{t("Derniers matchs", "Latest matches")}</h3>
+              <span className="faint" style={{ fontSize: 13 }}>
+                {t(`avec ${agent.name}`, `as ${agent.name}`)}
+              </span>
+            </div>
+            {recent.data ? (
+              <MatchList matches={recent.data.slice(0, rows)} onOpen={(matchId) => onOpenMatch?.(matchId)} />
+            ) : (
+              <MatchListSkeleton rows={Math.min(rows, agent.matches)} />
+            )}
+          </div>
+        )}
       </div>
     </section>
+  );
+}
+
+function AgentTrend({ agent, games }: { agent: AgentStat; games: GameSummary[] }) {
+  const reference = agent.lobbyAcs ?? agent.acs;
+  const max = Math.max(1, reference, ...games.map((game) => game.acs)) * 1.1;
+  const net = games.reduce((sum, game) => sum + (game.rrChange ?? 0), 0);
+  const ranked = games.filter((game) => typeof game.rrChange === "number").length;
+  return (
+    <div className="stack agent-trend" style={{ gap: 10 }}>
+      <div className="row between wrap" style={{ alignItems: "baseline", gap: 8 }}>
+        <h3 className="agent-sub-title">{t("ACS par match", "ACS per match")}</h3>
+        <span className="faint" style={{ fontSize: 13 }}>
+          {ranked > 0 && <strong className={net >= 0 ? "win" : "bad"}>{signed(net)} RR </strong>}
+          {t(`sur tes ${games.length} derniers matchs`, `over your last ${games.length} matches`)}
+        </span>
+      </div>
+      <div className="bars-chart agent-bars">
+        {games.map((game) => (
+          <span
+            key={game.matchId}
+            className={game.acs >= reference ? "up" : "down"}
+            style={{ height: `${Math.max(4, (game.acs / max) * 100)}%` }}
+            title={`${game.mapName ?? ""}, ${fmt(game.acs)}`}
+          />
+        ))}
+        <i style={{ bottom: `${(reference / max) * 100}%` }} />
+      </div>
+      <span className="faint" style={{ fontSize: 12 }}>
+        {agent.lobbyAcs !== null
+          ? t(`Bleu au-dessus des autres ${agent.name} de tes lobbys (${fmt(agent.lobbyAcs)})`, `Blue above other ${agent.name} players in your lobbies (${fmt(agent.lobbyAcs)})`)
+          : t(`Bleu au-dessus de ta moyenne (${fmt(agent.acs)})`, `Blue above your average (${fmt(agent.acs)})`)}
+      </span>
+    </div>
   );
 }
 
