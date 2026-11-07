@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { CommandPalette, useCommandPaletteShortcut } from "./components/CommandPalette";
 import { PickAccount } from "./components/PickAccount";
-import { Shell, type Page, type SyncView, type TourTarget } from "./components/Shell";
+import { Shell, type Page, type TourTarget } from "./components/Shell";
 import { TitleBar } from "./components/TitleBar";
 import { Tour } from "./components/Tour";
 import { UpdateBanner } from "./components/UpdateBanner";
@@ -10,6 +10,7 @@ import { asLang, setLang, type Lang } from "./lib/i18n";
 import { api, errorMessage, onSyncProgress, type Account, type Bootstrap, type Theme } from "./lib/api";
 import { ALL_ACCOUNTS, prefetchAccount } from "./lib/queries";
 import { invalidate } from "./lib/query";
+import { updateSync } from "./lib/sync";
 import { Agents } from "./pages/Agents";
 import { Duels } from "./pages/Duels";
 import { Heatmaps } from "./pages/Heatmaps";
@@ -23,9 +24,23 @@ import { Onboarding } from "./pages/Onboarding";
 import { Settings } from "./pages/Settings";
 import { Weapons } from "./pages/Weapons";
 
-const IDLE: SyncView = { running: false, stage: "", newMatches: 0, error: null, lastSyncAt: null };
-
 const SINGLE_ACCOUNT_PAGES: Page[] = ["progress", "agents", "maps", "weapons", "duels", "heatmaps", "journal"];
+
+function shallowEqual<T extends object>(a: T, b: T): boolean {
+  const keys = Object.keys(b) as (keyof T)[];
+  return keys.length === Object.keys(a).length && keys.every((key) => a[key] === b[key]);
+}
+
+function keepSame(current: Bootstrap | null, next: Bootstrap): Bootstrap {
+  if (!current) return next;
+  const accounts = next.accounts.map((item) => {
+    const old = current.accounts.find((entry) => entry.puuid === item.puuid);
+    return old && shallowEqual(old, item) ? old : item;
+  });
+  const sameList = accounts.length === current.accounts.length && accounts.every((item, index) => item === current.accounts[index]);
+  const merged = { ...next, accounts: sameList ? current.accounts : accounts };
+  return shallowEqual(current, merged) ? current : merged;
+}
 
 export default function App() {
   const [boot, setBoot] = useState<Bootstrap | null>(null);
@@ -37,7 +52,6 @@ export default function App() {
   const [openMatchOwner, setOpenMatchOwner] = useState<string | null>(null);
   const [openRound, setOpenRound] = useState<number | undefined>(undefined);
   const [openDeath, setOpenDeath] = useState(false);
-  const [sync, setSync] = useState<SyncView>(IDLE);
   const [refreshKey, setRefreshKey] = useState(0);
   const [tourOpen, setTourOpen] = useState(false);
   const [tourTarget, setTourTarget] = useState<TourTarget | null>(null);
@@ -51,7 +65,7 @@ export default function App() {
     const nextLang = asLang(data.language);
     setLang(nextLang);
     setLanguage(nextLang);
-    setBoot(data);
+    setBoot((current) => keepSame(current, data));
     setTheme(data.theme);
     return data;
   }, []);
@@ -82,20 +96,13 @@ export default function App() {
   };
 
   useEffect(() => {
-    let stop: (() => void) | undefined;
-    onSyncProgress((progress) => {
-      setSync((current) => ({
-        ...current,
-        running: progress.running,
-        stage: progress.stage,
-        newMatches: progress.newMatches,
-        error: progress.error,
-      }));
+    const stop = onSyncProgress((progress) => {
+      updateSync({ running: progress.running, stage: progress.stage, newMatches: progress.newMatches, error: progress.error });
       if (!progress.running) load().catch(() => undefined);
-    }).then((unlisten) => {
-      stop = unlisten;
     });
-    return () => stop?.();
+    return () => {
+      stop.then((unlisten) => unlisten());
+    };
   }, [load]);
 
   useEffect(() => {
@@ -120,7 +127,7 @@ export default function App() {
   const needsSetup = boot !== null && (!boot.hasApiKey || boot.accounts.length === 0);
 
   useEffect(() => {
-    setSync((current) => ({ ...current, lastSyncAt: account?.lastSyncAt ?? null }));
+    updateSync({ lastSyncAt: account?.lastSyncAt ?? null });
   }, [account?.lastSyncAt]);
 
   const runSync = useCallback(async () => {
@@ -204,7 +211,6 @@ export default function App() {
         combinedCount={combined?.length ?? 0}
         theme={theme}
         onToggleTheme={() => changeTheme(theme === "dark" ? "light" : "dark")}
-        sync={sync}
         onSync={runSync}
         tourTarget={tourOpen ? tourTarget : null}
         onSearch={() => setPaletteOpen(true)}
@@ -249,7 +255,6 @@ export default function App() {
         onClose={() => setPaletteOpen(false)}
         account={account}
         theme={theme}
-        syncing={sync.running}
         onNavigate={navigate}
         onOpenMatch={showMatch}
         onToggleTheme={() => changeTheme(theme === "dark" ? "light" : "dark")}

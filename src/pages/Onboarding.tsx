@@ -36,14 +36,13 @@ export function Onboarding({ hasApiKey, onDone }: Props) {
 
   useEffect(() => {
     if (step !== "sync" || !account) return;
-    let stop: (() => void) | undefined;
-    onSyncProgress((event) => {
+    const stop = onSyncProgress((event) => {
       if (event.puuid === account.puuid) setProgress(event);
-    }).then((unlisten) => {
-      stop = unlisten;
     });
     api.syncAccount(account.puuid).catch(() => undefined);
-    return () => stop?.();
+    return () => {
+      stop.then((unlisten) => unlisten());
+    };
   }, [step, account]);
 
   const go = (next: Step) => {

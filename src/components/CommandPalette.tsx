@@ -5,6 +5,7 @@ import { api, type Account, type RecentMatch, type Theme } from "../lib/api";
 import { agentIcon } from "../lib/assets";
 import { formatDate, timeAgo } from "../lib/format";
 import { t } from "../lib/i18n";
+import { useSyncRunning } from "../lib/sync";
 import { Icon, type IconName } from "./Icon";
 import type { Page } from "./Shell";
 
@@ -18,7 +19,6 @@ type Props = {
   onSync: () => void;
   onReplayTour: () => void;
   theme?: Theme;
-  syncing?: boolean;
 };
 
 type Item =
@@ -113,8 +113,8 @@ export function CommandPalette({
   onSync,
   onReplayTour,
   theme,
-  syncing = false,
 }: Props) {
+  const syncing = useSyncRunning();
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
   const [recent, setRecent] = useState<RecentMatch[]>([]);

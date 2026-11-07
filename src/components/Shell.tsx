@@ -3,6 +3,7 @@ import { useState, type ReactNode } from "react";
 import type { Account, Theme } from "../lib/api";
 import { timeAgo } from "../lib/format";
 import { t } from "../lib/i18n";
+import { useSync, useSyncRunning, type SyncView } from "../lib/sync";
 import { ExportDialog } from "./ExportRecap";
 import { Icon, type IconName } from "./Icon";
 import { RankBadge } from "./RankBadge";
@@ -22,13 +23,7 @@ export type Page =
 
 export type TourTarget = Page | "sync";
 
-export type SyncView = {
-  running: boolean;
-  stage: string;
-  newMatches: number;
-  error: string | null;
-  lastSyncAt: string | null;
-};
+export type { SyncView };
 
 const NAV = (): { title: string; items: { page: Page; label: string; icon: IconName }[] }[] => [
   {
@@ -62,7 +57,6 @@ type Props = {
   combinedCount?: number;
   theme: Theme;
   onToggleTheme: () => void;
-  sync: SyncView;
   onSync: () => void;
   tourTarget: TourTarget | null;
   onSearch?: () => void;
@@ -85,7 +79,6 @@ export function Shell({
   combinedCount = 0,
   theme,
   onToggleTheme,
-  sync,
   onSync,
   tourTarget,
   onSearch,
@@ -165,10 +158,7 @@ export function Shell({
                 <kbd>Ctrl K</kbd>
               </button>
             )}
-            <span className={`sync-status${sync.error && !sync.running ? " error" : ""}`} role="status">
-              <span className={`dot${sync.running ? " running" : ""}`} />
-              {syncText(sync)}
-            </span>
+            <SyncStatus />
             <button
               type="button"
               className="icon-btn"
@@ -180,16 +170,7 @@ export function Shell({
             >
               <Icon name="image" size={16} strokeWidth={2} />
             </button>
-            <button
-              type="button"
-              className={`icon-btn${target("sync")}`}
-              onClick={onSync}
-              disabled={sync.running || !account}
-              aria-label={t("Synchroniser maintenant", "Sync now")}
-              title={t("Synchroniser maintenant", "Sync now")}
-            >
-              <Icon name="sync" size={16} strokeWidth={2} className={sync.running ? "spin" : undefined} />
-            </button>
+            <SyncButton className={`icon-btn${target("sync")}`} onSync={onSync} disabled={!account} />
             <button
               type="button"
               className="icon-btn"
@@ -205,5 +186,31 @@ export function Shell({
       </div>
       {exporting && account && <ExportDialog account={account} onClose={() => setExporting(false)} />}
     </div>
+  );
+}
+
+function SyncStatus() {
+  const sync = useSync();
+  return (
+    <span className={`sync-status${sync.error && !sync.running ? " error" : ""}`} role="status">
+      <span className={`dot${sync.running ? " running" : ""}`} />
+      {syncText(sync)}
+    </span>
+  );
+}
+
+function SyncButton({ className, onSync, disabled }: { className: string; onSync: () => void; disabled: boolean }) {
+  const running = useSyncRunning();
+  return (
+    <button
+      type="button"
+      className={className}
+      onClick={onSync}
+      disabled={running || disabled}
+      aria-label={t("Synchroniser maintenant", "Sync now")}
+      title={t("Synchroniser maintenant", "Sync now")}
+    >
+      <Icon name="sync" size={16} strokeWidth={2} className={running ? "spin" : undefined} />
+    </button>
   );
 }
