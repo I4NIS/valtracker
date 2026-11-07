@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use crate::assets::MapData;
 
 const TRADE_WINDOW_MS: i64 = 3000;
-const ISOLATION_METERS: f64 = 15.0;
+pub const ISOLATION_METERS: f64 = 15.0;
 const FULL_BUY: i64 = 3900;
 const SAME_SPOT: usize = 3;
 const UNITS_PER_METER: f64 = 100.0;
@@ -138,15 +138,15 @@ pub struct MatchDetail {
     pub flaws: Vec<Flaw>,
 }
 
-fn text<'a>(value: &'a Value, pointer: &str) -> Option<&'a str> {
+pub fn text<'a>(value: &'a Value, pointer: &str) -> Option<&'a str> {
     value.pointer(pointer).and_then(Value::as_str)
 }
 
-fn int(value: &Value, pointer: &str) -> i64 {
+pub fn int(value: &Value, pointer: &str) -> i64 {
     value.pointer(pointer).and_then(Value::as_i64).unwrap_or(0)
 }
 
-fn point(value: &Value, pointer: &str) -> Option<(f64, f64)> {
+pub fn point(value: &Value, pointer: &str) -> Option<(f64, f64)> {
     let location = value.pointer(pointer)?;
     Some((location["x"].as_f64()?, location["y"].as_f64()?))
 }
@@ -182,12 +182,21 @@ fn role_weights(role: Option<&str>) -> (f64, f64, f64, f64) {
     }
 }
 
-fn attack_side(round: usize, attack_first: bool) -> bool {
+pub fn attack_side(round: usize, attack_first: bool) -> bool {
     match round {
         0..12 => attack_first,
         12..24 => !attack_first,
         _ => ((round - 24) % 2 == 0) == attack_first,
     }
+}
+
+pub fn attacks_first(game: &Value, team: &str) -> bool {
+    let Some(first) = game.pointer("/rounds/0") else {
+        return true;
+    };
+    let winner_is_mine = text(first, "/winning_team") == Some(team);
+    let role_attacker = text(first, "/winning_team_role") == Some("Attacker");
+    winner_is_mine == role_attacker
 }
 
 struct Projector<'a>(Option<&'a MapData>);
@@ -292,12 +301,7 @@ pub fn analyze(game: &Value, puuid: &str, map: Option<&MapData>, roles: &HashMap
 
     assign_badges(&mut lines, players, teams_json, draw);
 
-    let attack_first = {
-        let first = &rounds[0];
-        let winner_is_mine = text(first, "/winning_team") == Some(my_team.as_str());
-        let role_attacker = text(first, "/winning_team_role") == Some("Attacker");
-        winner_is_mine == role_attacker
-    };
+    let attack_first = attacks_first(game, &my_team);
 
     let my_deaths: Vec<&Value> = {
         let mut list: Vec<&Value> = kills.iter().copied().filter(|kill| text(kill, "/victim/puuid") == Some(puuid)).collect();

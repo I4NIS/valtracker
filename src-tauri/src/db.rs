@@ -99,6 +99,18 @@ CREATE TABLE agents (
     role TEXT,
     icon TEXT
 );
+", "
+CREATE TABLE match_summaries (
+    match_id TEXT NOT NULL REFERENCES matches(match_id) ON DELETE CASCADE,
+    puuid TEXT NOT NULL,
+    score INTEGER NOT NULL,
+    place INTEGER NOT NULL,
+    deaths INTEGER NOT NULL,
+    traded INTEGER NOT NULL,
+    first_deaths INTEGER NOT NULL,
+    isolated INTEGER NOT NULL,
+    PRIMARY KEY (match_id, puuid)
+);
 "];
 
 pub fn open(path: &Path) -> AppResult<Connection> {
