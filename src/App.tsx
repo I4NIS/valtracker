@@ -3,7 +3,9 @@ import { Shell, type Page, type SyncView, type TourTarget } from "./components/S
 import { TitleBar } from "./components/TitleBar";
 import { Tour } from "./components/Tour";
 import { api, errorMessage, onSyncProgress, type Account, type Bootstrap, type Theme } from "./lib/api";
+import { Heatmaps } from "./pages/Heatmaps";
 import { Home } from "./pages/Home";
+import { Progression } from "./pages/Progression";
 import { MatchDetail } from "./pages/MatchDetail";
 import { Matches } from "./pages/Matches";
 import { Onboarding } from "./pages/Onboarding";
@@ -11,12 +13,10 @@ import { Settings } from "./pages/Settings";
 import { Soon } from "./pages/Soon";
 
 const SOON: Partial<Record<Page, { title: string; text: string }>> = {
-  progress: { title: "Progression", text: "Ta courbe de RR, ta forme, ta projection et la détection du tilt." },
   agents: { title: "Agents", text: "Tes statistiques agent par agent." },
   maps: { title: "Maps", text: "Tes statistiques map par map, en attaque et en défense." },
   weapons: { title: "Armes", text: "Tes kills, ta précision et tes headshots par arme." },
   duels: { title: "Duels", text: "Opening duels, clutchs, matchups contre chaque agent." },
-  heatmaps: { title: "Heatmaps", text: "Tes morts, tes kills et la position de tes tueurs, map par map." },
   journal: { title: "Journal", text: "Tes notes et tags sur tes matchs." },
 };
 
@@ -159,6 +159,8 @@ export default function App() {
       >
         {page === "home" && account && <Home account={account} refreshKey={refreshKey} onOpenMatch={showMatch} />}
         {page === "matches" && account && !openMatch && <Matches account={account} refreshKey={refreshKey} onOpen={showMatch} />}
+        {page === "heatmaps" && account && <Heatmaps account={account} refreshKey={refreshKey} />}
+        {page === "progress" && account && <Progression account={account} refreshKey={refreshKey} />}
         {page === "matches" && account && openMatch && (
           <MatchDetail account={account} matchId={openMatch} onBack={() => setOpenMatch(null)} />
         )}
