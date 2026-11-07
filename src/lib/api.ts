@@ -89,6 +89,108 @@ export type SyncReport = {
   finishedAt: string;
 };
 
+export type Position = { x: number; y: number };
+
+export type Marker = { x: number; y: number; ally: boolean };
+
+export type PlayerLine = {
+  puuid: string;
+  name: string;
+  tag: string;
+  agentId: string | null;
+  agentName: string | null;
+  role: string | null;
+  tier: number | null;
+  kills: number;
+  deaths: number;
+  assists: number;
+  acs: number;
+  adr: number;
+  hsPct: number;
+  firstBloods: number;
+  score: number;
+  place: number;
+  badge: string | null;
+  isMe: boolean;
+};
+
+export type TeamBlock = {
+  mine: boolean;
+  won: boolean;
+  roundsWon: number;
+  roundsLost: number;
+  avgAcs: number;
+  players: PlayerLine[];
+};
+
+export type RoundLine = {
+  number: number;
+  won: boolean;
+  attack: boolean;
+  planted: boolean;
+  myLoadout: number;
+  teamLoadout: number;
+  enemyLoadout: number;
+  myKills: number;
+  died: boolean;
+};
+
+export type Death = {
+  round: number;
+  timeS: number;
+  attack: boolean;
+  roundWon: boolean;
+  killerName: string;
+  killerAgent: string | null;
+  killerAgentId: string | null;
+  weapon: string | null;
+  distanceM: number | null;
+  nearestAllyM: number | null;
+  traded: boolean;
+  firstDeath: boolean;
+  loadout: number;
+  zone: string | null;
+  position: Position | null;
+  killerPosition: Position | null;
+  others: Marker[];
+  flaws: string[];
+  positives: string[];
+};
+
+export type Flaw = { value: string; title: string; detail: string };
+
+export type MatchDetail = {
+  matchId: string;
+  mapId: string | null;
+  mapName: string | null;
+  minimap: string | null;
+  startedAt: string | null;
+  lengthMs: number | null;
+  queue: string | null;
+  season: string | null;
+  won: boolean;
+  roundsWon: number;
+  roundsLost: number;
+  agentId: string | null;
+  agentName: string | null;
+  score: number;
+  place: number;
+  kills: number;
+  deaths: number;
+  assists: number;
+  acs: number;
+  adr: number;
+  teamLevel: string;
+  teamAcs: number;
+  enemyAcs: number;
+  rrChange: number | null;
+  rrAfter: number | null;
+  teams: TeamBlock[];
+  rounds: RoundLine[];
+  deathReviews: Death[];
+  flaws: Flaw[];
+};
+
 export const api = {
   bootstrap: () => invoke<Bootstrap>("bootstrap"),
   saveApiKey: (key: string) => invoke<void>("save_api_key", { key }),
@@ -99,7 +201,9 @@ export const api = {
   listAccounts: () => invoke<Account[]>("list_accounts"),
   syncAccount: (puuid: string) => invoke<SyncReport>("sync_account", { puuid }),
   getOverview: (puuid: string, season: string | null) => invoke<Overview>("get_overview", { puuid, season }),
-  getRecentMatches: (puuid: string, limit = 10) => invoke<RecentMatch[]>("get_recent_matches", { puuid, limit }),
+  getRecentMatches: (puuid: string, limit = 10, offset = 0) =>
+    invoke<RecentMatch[]>("get_recent_matches", { puuid, limit, offset }),
+  getMatch: (puuid: string, matchId: string) => invoke<MatchDetail>("get_match", { puuid, matchId }),
   getSeasons: (puuid: string) => invoke<Season[]>("get_seasons", { puuid }),
   setPreference: (key: "theme" | "language" | "tutorial_done", value: string) =>
     invoke<void>("set_preference", { key, value }),

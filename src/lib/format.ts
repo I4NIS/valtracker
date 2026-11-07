@@ -34,6 +34,37 @@ export function greeting(now = new Date()): string {
   return hour >= 18 || hour < 5 ? "Bonsoir" : "Bonjour";
 }
 
+export function scoreTone(score: number): "gold" | "good" | "bad" | "muted" {
+  if (score >= 80) return "gold";
+  if (score >= 50) return "good";
+  if (score < 40) return "bad";
+  return "muted";
+}
+
+export function duration(ms: number | null | undefined): string {
+  if (!ms) return "";
+  return `${Math.round(ms / 60000)} min`;
+}
+
+export function fullDate(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const date = new Date(iso);
+  const day = date.toLocaleDateString("fr-FR", { day: "numeric", month: "long" });
+  const time = date.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+  return `${day} à ${time}`;
+}
+
+const ROLES: Record<string, string> = {
+  Duelist: "Duelliste",
+  Initiator: "Initiateur",
+  Controller: "Contrôleur",
+  Sentinel: "Sentinelle",
+};
+
+export function roleLabel(role: string | null | undefined): string {
+  return role ? (ROLES[role] ?? role) : "";
+}
+
 export function placeLabel(place: number): string {
   return place === 1 ? "1er" : `${place}e`;
 }
