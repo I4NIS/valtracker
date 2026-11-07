@@ -14,6 +14,7 @@ mod career;
 mod commands;
 mod db;
 mod error;
+mod extras;
 mod favorites;
 mod game;
 mod heatmap;
@@ -25,6 +26,7 @@ mod progression;
 mod ranked;
 mod recap;
 mod reports;
+mod rotation;
 mod scan;
 mod repo;
 mod state;
@@ -126,6 +128,7 @@ pub fn run() {
             ranked::get_acts,
             career::get_accolades,
             career::get_agent_mastery,
+            rotation::get_map_rotation,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

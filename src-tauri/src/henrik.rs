@@ -71,6 +71,10 @@ impl Henrik {
         self.get(&["v4", "match", region, match_id], &[]).await
     }
 
+    pub async fn queue_status(&self, region: &str) -> AppResult<Value> {
+        self.get(&["v1", "queue-status", region], &[]).await
+    }
+
     async fn get(&self, segments: &[&str], query: &[(&str, String)]) -> AppResult<Value> {
         let body = self.fetch(segments, query).await?;
         Ok(match serde_json::from_slice(&body).unwrap_or(Value::Null) {

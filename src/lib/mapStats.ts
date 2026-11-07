@@ -110,3 +110,24 @@ export type MapHistory = {
 export function getMapHistory(puuid: string, mapId: string): Promise<MapHistory> {
   return invoke<MapHistory>("get_map_history", { puuid, mapId });
 }
+
+export type RotationMap = {
+  id: string;
+  name: string;
+};
+
+export type MapRotation = {
+  region: string;
+  fetchedAt: number;
+  maps: RotationMap[];
+};
+
+export function getMapRotation(region: string): Promise<MapRotation | null> {
+  return invoke<MapRotation | null>("get_map_rotation", { region });
+}
+
+export function inRotation(rotation: MapRotation, map: { mapId: string; name: string }): boolean {
+  const id = map.mapId.toLowerCase();
+  const name = map.name.toLowerCase();
+  return rotation.maps.some((entry) => (entry.id !== "" && entry.id.toLowerCase() === id) || entry.name.toLowerCase() === name);
+}

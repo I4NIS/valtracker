@@ -9,7 +9,7 @@ import type { Account } from "../lib/api";
 import { agentIcon, seasonLabel } from "../lib/assets";
 import { fmt, pct, signed } from "../lib/format";
 import { mapArt } from "../lib/gameAssets";
-import type { MapStat } from "../lib/mapStats";
+import { inRotation, type MapStat } from "../lib/mapStats";
 import { rotatePoint, rotationStyle } from "../lib/minimap";
 import { t } from "../lib/i18n";
 import { useBackLabel } from "../lib/navigation";
@@ -50,15 +50,26 @@ export function Maps({ account, onOpenRound }: Props) {
   const opened = maps?.find((map) => map.mapId === openId) ?? null;
   useBackLabel(opened ? t(`Retour à ${opened.name}`, `Back to ${opened.name}`) : null);
   const large = useViewport().width >= LARGE_WIDTH;
+  const rotationQuery = useQuery(queries.rotation(account.region));
+  const rotation = rotationQuery.data ?? null;
+  const [onlyRotation, setOnlyRotation] = useState(false);
+
+  const outside = useMemo(() => {
+    const list = maps ?? [];
+    if (!rotation || !list.some((map) => inRotation(rotation, map))) return new Set<string>();
+    return new Set(list.filter((map) => !inRotation(rotation, map)).map((map) => map.mapId));
+  }, [maps, rotation]);
+  const filtering = onlyRotation && outside.size > 0;
+  const shown = useMemo(() => (maps ?? []).filter((map) => !filtering || !outside.has(map.mapId)), [maps, filtering, outside]);
 
   const ranking = useMemo(() => {
-    const eligible = (maps ?? [])
+    const eligible = shown
       .filter((map) => map.matches >= MIN_RANKED)
       .sort((a, b) => b.winPct - a.winPct || b.matches - a.matches || a.name.localeCompare(b.name));
     const best = eligible.slice(0, Math.min(RANK_SIZE, Math.ceil(eligible.length / 2)));
     const worst = eligible.slice(best.length).slice(-RANK_SIZE).reverse();
     return { best, worst, count: eligible.length };
-  }, [maps]);
+  }, [shown]);
 
   const choose = (id: string) => {
     setOpenId(id);
@@ -85,12 +96,19 @@ export function Maps({ account, onOpenRound }: Props) {
     <div className="content">
       <header className="page-head">
         <h1 className="title">Maps</h1>
-        <SeasonPicker puuid={account.puuid} value={season} onChange={setSeason} />
+        <div className="page-head-tools">
+          {outside.size > 0 && (
+            <button type="button" className={`chip${onlyRotation ? " active" : ""}`} aria-pressed={onlyRotation} onClick={() => setOnlyRotation(!onlyRotation)}>
+              {t("Maps en rotation", "Maps in rotation")}
+            </button>
+          )}
+          <SeasonPicker puuid={account.puuid} value={season} onChange={setSeason} />
+        </div>
       </header>
 
       {error && !maps && <p className="form-error">{error}</p>}
 
-      {!maps ? (
+      {!maps || (rotationQuery.pending && !rotationQuery.error) ? (
         error ? null : (
           <SkeletonGroup className={`mapstat-grid${large ? " large" : ""}`} label={t("Chargement de tes maps", "Loading your maps")}>
             {repeat(8, (index) => (
@@ -103,11 +121,11 @@ export function Maps({ account, onOpenRound }: Props) {
       ) : (
         <>
           <div className={`mapstat-grid${large ? " large" : ""}`} role="group" aria-label={t("Maps jouées", "Maps played")}>
-            {maps.map((map) => (
+            {shown.map((map) => (
               <button
                 key={map.mapId}
                 type="button"
-                className="mapstat-card"
+                className={`mapstat-card${outside.has(map.mapId) ? " out" : ""}`}
                 aria-label={t(`Ouvrir ${map.name}`, `Open ${map.name}`)}
                 onPointerEnter={() => warm(map.mapId)}
                 onFocus={() => warm(map.mapId)}
@@ -117,6 +135,7 @@ export function Maps({ account, onOpenRound }: Props) {
                 {map.rrMatches > 0 && (
                   <span className={`mapstat-card-rr ${rrTone(map.rrNet)}`}>{signed(map.rrNet)} RR</span>
                 )}
+                {outside.has(map.mapId) && <span className="mapstat-card-out">{t("Hors rotation", "Out of rotation")}</span>}
                 <span className="mapstat-card-body">
                   <strong className="mapstat-card-name">{map.name}</strong>
                   <span className="mapstat-card-meta">
@@ -147,6 +166,7 @@ export function Maps({ account, onOpenRound }: Props) {
               </button>
             ))}
           </div>
+          {shown.length === 0 && <div className="empty">{t("Aucune map en rotation jouée sur cette période.", "No map in rotation played in this period.")}</div>}
 
           <section className="stack" style={{ gap: 14 }}>
             <div className="section-head">

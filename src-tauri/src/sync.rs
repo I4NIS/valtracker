@@ -33,6 +33,7 @@ pub async fn run(app: &AppHandle, puuid: &str) -> AppResult<SyncReport> {
     crate::reports::ready(app);
     if result.is_ok() {
         crate::career::spawn_refresh(app, puuid);
+        crate::extras::schedule(app, puuid);
     }
     result
 }
