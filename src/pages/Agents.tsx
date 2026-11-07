@@ -7,6 +7,7 @@ import type { AgentStat } from "../lib/agents";
 import { agentIcon, seasonLabel } from "../lib/assets";
 import { fmt, pct, roleLabel, scoreTone } from "../lib/format";
 import { agentArt, agentColor, useAgentCatalog, type AgentInfo } from "../lib/gameAssets";
+import { t } from "../lib/i18n";
 import { useQuery } from "../lib/query";
 import { defaultSeason, queries } from "../lib/queries";
 
@@ -16,17 +17,19 @@ type Props = {
 };
 
 const ROLE_FILTERS = [
-  { id: null, label: "Tous" },
-  { id: "Duelist", label: "Duelliste" },
-  { id: "Initiator", label: "Initiateur" },
-  { id: "Controller", label: "Contrôleur" },
-  { id: "Sentinel", label: "Sentinelle" },
+  { id: null, fr: "Tous", en: "All" },
+  { id: "Duelist", fr: "Duelliste", en: "Duelist" },
+  { id: "Initiator", fr: "Initiateur", en: "Initiator" },
+  { id: "Controller", fr: "Contrôleur", en: "Controller" },
+  { id: "Sentinel", fr: "Sentinelle", en: "Sentinel" },
 ] as const;
 
 type RoleFilter = (typeof ROLE_FILTERS)[number]["id"];
 
 const RING_RADIUS = 20;
 const RING_LENGTH = 2 * Math.PI * RING_RADIUS;
+
+const matchCount = (count: number) => t(`${count} ${count > 1 ? "matchs" : "match"}`, `${count} ${count === 1 ? "match" : "matches"}`);
 
 const winTone = (winPct: number) => (winPct >= 50 ? "win" : "bad");
 
@@ -56,24 +59,24 @@ export function Agents({ account }: Props) {
   return (
     <div className="content">
       <div className="stack">
-        <span className="eyebrow">{season ? seasonLabel(season) : "Toutes les saisons"}</span>
+        <span className="eyebrow">{season ? seasonLabel(season) : t("Toutes les saisons", "All seasons")}</span>
         <h1 className="title">Agents</h1>
       </div>
 
       <div className="stack" style={{ gap: 14 }}>
         <SeasonPicker puuid={account.puuid} value={season} onChange={setSeason} />
-        <div className="segmented agents-roles" role="group" aria-label="Rôle">
+        <div className="segmented agents-roles" role="group" aria-label={t("Rôle", "Role")}>
           {ROLE_FILTERS.map((filter) => {
             const count = filter.id === null ? (data?.length ?? 0) : (counts.get(filter.id) ?? 0);
             return (
               <button
-                key={filter.label}
+                key={filter.fr}
                 type="button"
                 className={role === filter.id ? "active" : ""}
                 onClick={() => setRole(filter.id)}
                 aria-pressed={role === filter.id}
               >
-                {filter.label}
+                {t(filter.fr, filter.en)}
                 {data && <span className="agents-role-count">{count}</span>}
               </button>
             );
@@ -84,18 +87,21 @@ export function Agents({ account }: Props) {
       {error && !data && <p className="form-error">{error}</p>}
 
       {!data ? (
-        <div className="empty">Chargement de tes agents...</div>
+        <div className="empty">{t("Chargement de tes agents...", "Loading your agents...")}</div>
       ) : data.length === 0 ? (
-        <div className="empty">Aucun match compétitif synchronisé sur cette période.</div>
+        <div className="empty">{t("Aucun match compétitif synchronisé sur cette période.", "No competitive matches synced for this period.")}</div>
       ) : agents.length === 0 ? (
-        <div className="empty">Aucun agent de ce rôle joué sur cette période.</div>
+        <div className="empty">{t("Aucun agent de ce rôle joué sur cette période.", "No agent of this role played in this period.")}</div>
       ) : (
         <>
           <section className="stack" style={{ gap: 16 }}>
             <div className="row between wrap">
-              <h2 className="section-title">Tes agents</h2>
+              <h2 className="section-title">{t("Tes agents", "Your agents")}</h2>
               <span className="faint" style={{ fontSize: 13 }}>
-                {data.length} agents sur {totalMatches} matchs
+                {t(
+                  `${data.length} agents sur ${totalMatches} matchs`,
+                  `${data.length} ${data.length === 1 ? "agent" : "agents"} across ${totalMatches} ${totalMatches === 1 ? "match" : "matches"}`,
+                )}
               </span>
             </div>
             <div className="agent-grid">
@@ -121,7 +127,7 @@ export function Agents({ account }: Props) {
 function WinRing({ value }: { value: number }) {
   const tone = winTone(value);
   return (
-    <svg className="agent-ring" width="52" height="52" viewBox="0 0 52 52" role="img" aria-label={`${fmt(value)} % de victoires`}>
+    <svg className="agent-ring" width="52" height="52" viewBox="0 0 52 52" role="img" aria-label={t(`${fmt(value)} % de victoires`, `${fmt(value)}% win rate`)}>
       <circle cx="26" cy="26" r={RING_RADIUS} fill="none" stroke="var(--field)" strokeWidth="5" />
       <circle
         cx="26"
@@ -150,9 +156,9 @@ function AgentCard({ agent, share, active, onSelect }: { agent: AgentStat; share
         </span>
         <div className="stack agent-card-name">
           <strong className="ellipsis">{agent.name}</strong>
-          <span className="faint">{roleLabel(agent.role) || "Rôle inconnu"}</span>
-          <span className="muted agent-card-matches ellipsis" title={`${fmt(share)} % de tes matchs`}>
-            {agent.matches} {agent.matches > 1 ? "matchs" : "match"}
+          <span className="faint">{roleLabel(agent.role) || t("Rôle inconnu", "Unknown role")}</span>
+          <span className="muted agent-card-matches ellipsis" title={t(`${fmt(share)} % de tes matchs`, `${fmt(share)}% of your matches`)}>
+            {matchCount(agent.matches)}
           </span>
         </div>
         <WinRing value={agent.winPct} />
@@ -194,22 +200,22 @@ function AgentDetail({ agent, info, ref }: { agent: AgentStat; info: AgentInfo |
   const abilities = (info?.abilities ?? []).filter((ability) => ability.icon && ability.slot !== "Passive");
 
   return (
-    <section ref={ref} className="panel agent-detail" aria-label={`Détail ${agent.name}`}>
+    <section ref={ref} className="panel agent-detail" aria-label={t(`Détail ${agent.name}`, `${agent.name} details`)}>
       <div className="agent-hero" style={tint ? ({ "--agent-tint": tint } as CSSProperties) : undefined}>
         <Art key={`bg-${agent.agentId}`} src={agentArt(agent.agentId, "background")} width={350} height={512} alt="" className="agent-hero-word" eager />
         <Art key={`fp-${agent.agentId}`} src={agentArt(agent.agentId, "fullportrait")} width={440} height={400} alt={agent.name} className="agent-hero-portrait" eager />
         <div className="agent-hero-text">
           <span className="agent-hero-role">
             {info?.roleIcon && <Art src={info.roleIcon} width={16} height={16} alt="" className="agent-hero-role-icon" />}
-            {roleLabel(agent.role) || "Rôle inconnu"}
+            {roleLabel(agent.role) || t("Rôle inconnu", "Unknown role")}
           </span>
           <h2 className="agent-detail-name">{agent.name}</h2>
           <span className="agent-hero-meta">
-            {agent.matches} {agent.matches > 1 ? "matchs" : "match"}, <span className="agent-hero-win">{agent.wins} V</span>{" "}
-            <span className="agent-hero-loss">{agent.losses} D</span>, {agent.rounds} rounds
+            {matchCount(agent.matches)}, <span className="agent-hero-win">{agent.wins} {t("V", "W")}</span>{" "}
+            <span className="agent-hero-loss">{agent.losses} {t("D", "L")}</span>, {agent.rounds} {t("rounds", agent.rounds === 1 ? "round" : "rounds")}
           </span>
           {abilities.length > 0 && (
-            <ul className="agent-abilities" aria-label="Capacités">
+            <ul className="agent-abilities" aria-label={t("Capacités", "Abilities")}>
               {abilities.map((ability) => (
                 <li key={ability.slot} className="agent-ability" title={ability.label}>
                   <span className="agent-ability-icon">
@@ -224,15 +230,23 @@ function AgentDetail({ agent, info, ref }: { agent: AgentStat; info: AgentInfo |
       </div>
 
       <div className="agent-big-stats">
-        <BigStat label="Victoires" value={pct(agent.winPct, 0)} tone={winTone(agent.winPct)} sub={`${agent.wins} sur ${agent.matches}`} />
+        <BigStat
+          label={t("Victoires", "Win rate")}
+          value={pct(agent.winPct, 0)}
+          tone={winTone(agent.winPct)}
+          sub={t(`${agent.wins} sur ${agent.matches}`, `${agent.wins} of ${agent.matches}`)}
+        />
         <BigStat
           label="ACS"
           value={fmt(agent.acs)}
           tone={lobbyDelta === null ? "" : lobbyDelta >= 0 ? "good" : "bad"}
           sub={
             agent.lobbyAcs !== null
-              ? `${fmt(agent.lobbyAcs)} pour les autres ${agent.name} de tes lobbys (${agent.lobbySamples})`
-              : `aucun autre ${agent.name} dans tes lobbys`
+              ? t(
+                  `${fmt(agent.lobbyAcs)} pour les autres ${agent.name} de tes lobbys (${agent.lobbySamples})`,
+                  `${fmt(agent.lobbyAcs)} for other ${agent.name} players in your lobbies (${agent.lobbySamples})`,
+                )
+              : t(`aucun autre ${agent.name} dans tes lobbys`, `no other ${agent.name} in your lobbies`)
           }
         />
         <BigStat
@@ -241,36 +255,38 @@ function AgentDetail({ agent, info, ref }: { agent: AgentStat; info: AgentInfo |
           tone={agent.kd >= 1 ? "" : "bad"}
           sub={`${agent.kills} / ${agent.deaths} / ${agent.assists}`}
         />
-        <BigStat label="ADR" value={fmt(agent.adr)} sub="dégâts par round" />
-        <BigStat label="Headshot" value={pct(agent.hsPct)} sub="des balles touchées" />
+        <BigStat label="ADR" value={fmt(agent.adr)} sub={t("dégâts par round", "damage per round")} />
+        <BigStat label="Headshot" value={pct(agent.hsPct)} sub={t("des balles touchées", "of shots that hit")} />
         <BigStat
-          label="Score moyen"
+          label={t("Score moyen", "Avg score")}
           value={agent.avgScore !== null ? `${fmt(agent.avgScore)}/100` : "-"}
           tone={agent.avgScore !== null ? scoreTone(agent.avgScore) : "faint"}
-          sub="note de performance par match"
+          sub={t("note de performance par match", "performance rating per match")}
         />
       </div>
 
       <div className="agent-openings">
         <div className="row between wrap" style={{ alignItems: "baseline" }}>
-          <h3 className="agent-sub-title">Ouvertures</h3>
+          <h3 className="agent-sub-title">{t("Ouvertures", "Openings")}</h3>
           <span className="faint" style={{ fontSize: 13 }}>
-            {openings ? `${pct(openingWin, 0)} des duels d'ouverture remportés` : "Aucun duel d'ouverture"}
+            {openings
+              ? t(`${pct(openingWin, 0)} des duels d'ouverture remportés`, `${pct(openingWin, 0)} of opening duels won`)
+              : t("Aucun duel d'ouverture", "No opening duels")}
           </span>
         </div>
         <div className="agent-opening-grid">
           <div className="stack" style={{ gap: 2 }}>
-            <span className="label">Premier kill du round</span>
+            <span className="label">{t("Premier kill du round", "First blood")}</span>
             <span className="agent-opening-value win">{fmt(agent.firstBloodsPerRound, 2)}</span>
             <span className="faint agent-opening-sub">
-              par round, {agent.firstBloods} sur {agent.rounds} rounds
+              {t(`par round, ${agent.firstBloods} sur ${agent.rounds} rounds`, `per round, ${agent.firstBloods} in ${agent.rounds} rounds`)}
             </span>
           </div>
           <div className="stack" style={{ gap: 2 }}>
-            <span className="label">Première mort du round</span>
+            <span className="label">{t("Première mort du round", "First death")}</span>
             <span className="agent-opening-value bad">{fmt(agent.firstDeathsPerRound, 2)}</span>
             <span className="faint agent-opening-sub">
-              par round, {agent.firstDeaths} sur {agent.rounds} rounds
+              {t(`par round, ${agent.firstDeaths} sur ${agent.rounds} rounds`, `per round, ${agent.firstDeaths} in ${agent.rounds} rounds`)}
             </span>
           </div>
         </div>
@@ -284,19 +300,22 @@ function AgentDetail({ agent, info, ref }: { agent: AgentStat; info: AgentInfo |
 
       <div className="stack" style={{ gap: 12 }}>
         <div className="row between wrap" style={{ alignItems: "baseline" }}>
-          <h3 className="agent-sub-title">Par carte</h3>
+          <h3 className="agent-sub-title">{t("Par carte", "By map")}</h3>
           <span className="faint" style={{ fontSize: 13 }}>
             {agent.bestMap
-              ? `Meilleure carte : ${agent.bestMap.name}, ${pct(agent.bestMap.winPct, 0)} sur ${agent.bestMap.matches} matchs`
-              : "Pas assez de matchs pour une meilleure carte"}
+              ? t(
+                  `Meilleure carte : ${agent.bestMap.name}, ${pct(agent.bestMap.winPct, 0)} sur ${agent.bestMap.matches} matchs`,
+                  `Best map: ${agent.bestMap.name}, ${pct(agent.bestMap.winPct, 0)} over ${agent.bestMap.matches} ${agent.bestMap.matches === 1 ? "match" : "matches"}`,
+                )
+              : t("Pas assez de matchs pour une meilleure carte", "Not enough matches for a best map")}
           </span>
         </div>
         <div className="agent-maps">
           <div className="agent-map-row head">
             <span />
-            <span>Carte</span>
-            <span>Matchs</span>
-            <span>Victoires</span>
+            <span>{t("Carte", "Map")}</span>
+            <span>{t("Matchs", "Matches")}</span>
+            <span>{t("Victoires", "Win rate")}</span>
             <span>ACS</span>
           </div>
           {agent.maps.map((map) => (
@@ -309,7 +328,7 @@ function AgentDetail({ agent, info, ref }: { agent: AgentStat; info: AgentInfo |
                 {map.matches}
                 <span className="faint">
                   {" "}
-                  ({map.wins} V, {map.matches - map.wins} D)
+                  {t(`(${map.wins} V, ${map.matches - map.wins} D)`, `(${map.wins} W, ${map.matches - map.wins} L)`)}
                 </span>
               </span>
               <div className="agent-map-win">

@@ -6,6 +6,7 @@ import type { Account } from "../lib/api";
 import { agentIcon, seasonLabel } from "../lib/assets";
 import { fmt, fullDate, pct } from "../lib/format";
 import { findAbility, mapArt, useAgentCatalog, weaponArt, type Catalog } from "../lib/gameAssets";
+import { lang, t } from "../lib/i18n";
 import { useQuery } from "../lib/query";
 import { defaultSeason, queries } from "../lib/queries";
 import {
@@ -33,7 +34,8 @@ const STACK_LIMIT = 3;
 const HISTORY_PAGE = 10;
 
 const meters = (value: number | null) => (value === null ? "-" : `${fmt(value, 1)} m`);
-const plural = (count: number, one: string, many: string) => `${fmt(count)} ${count > 1 ? many : one}`;
+const plural = (count: number, one: string, many: string) => `${fmt(count)} ${(lang() === "en" ? count !== 1 : count > 1) ? many : one}`;
+const displayName = (name: string) => (name === ABILITIES ? t("Capacités", "Abilities") : name);
 
 type Armed = { id: string | null; name: string; parts: AbilityPart[] };
 
@@ -42,7 +44,7 @@ function partLabel(part: AbilityPart, catalog: Catalog | null): string {
   if (ability) return ability.label;
   if (part.name) return part.name;
   const agent = part.agentId ? catalog?.agents.get(part.agentId) : undefined;
-  return agent ? `Capacité de ${agent.name}` : "Capacité inconnue";
+  return agent ? t(`Capacité de ${agent.name}`, `${agent.name} ability`) : t("Capacité inconnue", "Unknown ability");
 }
 
 function agentName(part: AbilityPart, catalog: Catalog | null): string | null {
@@ -76,7 +78,7 @@ function WeaponThumb({ item, catalog, width, height, eager }: { item: Armed; cat
   }
   return (
     <span className="weapon-thumb" style={{ width, height }}>
-      <Art src={weaponArt(item.id)} width={width} height={height} alt={item.name} mono eager={eager} />
+      <Art src={weaponArt(item.id)} width={width} height={height} alt={displayName(item.name)} mono eager={eager} />
     </span>
   );
 }
@@ -119,8 +121,8 @@ export function Weapons({ account, onOpenRound }: Props) {
   return (
     <div className="content">
       <div className="stack">
-        <span className="eyebrow">{season ? seasonLabel(season) : "Toutes les saisons"}</span>
-        <h1 className="title">Armes</h1>
+        <span className="eyebrow">{season ? seasonLabel(season) : t("Toutes les saisons", "All seasons")}</span>
+        <h1 className="title">{t("Armes", "Weapons")}</h1>
       </div>
 
       <SeasonPicker puuid={account.puuid} value={season} onChange={setSeason} />
@@ -128,26 +130,26 @@ export function Weapons({ account, onOpenRound }: Props) {
       {error && !data && <p className="form-error">{error}</p>}
 
       {!data ? (
-        !error && <div className="empty">Chargement de tes armes...</div>
+        !error && <div className="empty">{t("Chargement de tes armes...", "Loading your weapons...")}</div>
       ) : empty ? (
         <div className="empty">
           {data.matches === 0
-            ? "Aucun match compétitif synchronisé sur cette période."
-            : "Aucun kill enregistré sur cette période."}
+            ? t("Aucun match compétitif synchronisé sur cette période.", "No competitive matches synced for this period.")
+            : t("Aucun kill enregistré sur cette période.", "No kills recorded in this period.")}
         </div>
       ) : (
         <>
           <section className="weapons-summary">
             {favorite && (
               <button type="button" className="weapons-favorite" onClick={() => setSelected(favorite.name)}>
-                <span className="label">Arme principale</span>
+                <span className="label">{t("Arme principale", "Main weapon")}</span>
                 <span className="weapons-favorite-art">
                   <Art src={weaponArt(favorite.id)} width={360} height={112} alt={favorite.name} mono eager />
                 </span>
                 <span className="stack" style={{ gap: 2 }}>
                   <strong className="weapons-favorite-name">{favorite.name}</strong>
                   <span className="faint">
-                    {plural(favorite.kills, "kill", "kills")}, {pct(favorite.killShare)} de tes kills
+                    {plural(favorite.kills, "kill", "kills")}, {t(`${pct(favorite.killShare)} de tes kills`, `${pct(favorite.killShare)} of your kills`)}
                   </span>
                 </span>
               </button>
@@ -155,18 +157,20 @@ export function Weapons({ account, onOpenRound }: Props) {
             <div className="stack weapons-totals" style={{ gap: 18 }}>
               <div className="stack" style={{ gap: 8 }}>
                 <span className="big-number">{fmt(data.kills)}</span>
-                <span className="muted">kills sur {plural(data.matches, "match", "matchs")}</span>
+                <span className="muted">
+                  {t(`kills sur ${plural(data.matches, "match", "matchs")}`, `kills over ${plural(data.matches, "match", "matches")}`)}
+                </span>
               </div>
               <div className="weapons-facts">
                 <div className="stack" style={{ gap: 2 }}>
-                  <span className="label">Distance moyenne</span>
+                  <span className="label">{t("Distance moyenne", "Avg distance")}</span>
                   <span className="weapons-fact">{meters(overall)}</span>
-                  <span className="faint weapons-fact-sub">entre toi et ta cible</span>
+                  <span className="faint weapons-fact-sub">{t("entre toi et ta cible", "between you and your target")}</span>
                 </div>
                 <div className="stack" style={{ gap: 2 }}>
-                  <span className="label">Morts subies</span>
+                  <span className="label">{t("Morts subies", "Deaths")}</span>
                   <span className="weapons-fact">{fmt(data.deaths)}</span>
-                  <span className="faint weapons-fact-sub">par un adversaire</span>
+                  <span className="faint weapons-fact-sub">{t("par un adversaire", "to an enemy")}</span>
                 </div>
               </div>
             </div>
@@ -175,14 +179,14 @@ export function Weapons({ account, onOpenRound }: Props) {
 
           {data.weapons.length > 0 && (
             <section className="stack" style={{ gap: 16 }}>
-              <h2 className="section-title">Ton arsenal</h2>
+              <h2 className="section-title">{t("Ton arsenal", "Your arsenal")}</h2>
               <div className="weapons-wrap">
                 <div className="weapons-layout">
                   <div className="weapons-table" role="list">
                     <div className="weapon-row head" aria-hidden="true">
-                      <span>Arme</span>
+                      <span>{t("Arme", "Weapon")}</span>
                       <span>Kills</span>
-                      <span className="weapon-col-share">Part</span>
+                      <span className="weapon-col-share">{t("Part", "Share")}</span>
                       <span className="weapon-col-hs">HS</span>
                       <span className="weapon-col-dist">Distance</span>
                       <span>K/round</span>
@@ -203,7 +207,7 @@ export function Weapons({ account, onOpenRound }: Props) {
                             <span className="weapon-ident">
                               <WeaponThumb item={item} catalog={catalog} width={84} height={28} />
                               <span className="weapon-name">
-                                <strong>{item.name}</strong>
+                                <strong>{displayName(item.name)}</strong>
                                 <span className="faint">{weaponCategory(item.name)}</span>
                               </span>
                             </span>
@@ -228,15 +232,17 @@ export function Weapons({ account, onOpenRound }: Props) {
                     })}
                   </div>
                   {weapon && (
-                    <aside className="weapons-side panel" aria-label={`Détail ${weapon.name}`}>
+                    <aside className="weapons-side panel" aria-label={t(`Détail ${weapon.name}`, `${displayName(weapon.name)} details`)}>
                       <WeaponDetail weapon={weapon} catalog={catalog} />
                     </aside>
                   )}
                 </div>
               </div>
               <span className="faint weapons-note">
-                HS estimé à partir des tirs touchés pendant les rounds où l'arme était ton arme principale. K/round : kills
-                par round où tu la portais.
+                {t(
+                  "HS estimé à partir des tirs touchés pendant les rounds où l'arme était ton arme principale. K/round : kills par round où tu la portais.",
+                  "HS estimated from shots hit in rounds where this was your main weapon. K/round: kills per round you held it.",
+                )}
               </span>
             </section>
           )}
@@ -256,7 +262,7 @@ export function Weapons({ account, onOpenRound }: Props) {
           {killers.length > 0 && (
             <section className="stack" style={{ gap: 16 }}>
               <div className="row between wrap" style={{ alignItems: "baseline" }}>
-                <h2 className="section-title">Ce qui te tue</h2>
+                <h2 className="section-title">{t("Ce qui te tue", "What kills you")}</h2>
                 <RangeLegend />
               </div>
               <div className="killers-table" role="list">
@@ -280,13 +286,15 @@ export function Weapons({ account, onOpenRound }: Props) {
               </div>
               {data.killers.length > KILLER_LIMIT && (
                 <span className="faint weapons-note">
-                  {plural(data.killers.length - KILLER_LIMIT, "autre arme", "autres armes")} représentent{" "}
-                  {pct(data.killers.slice(KILLER_LIMIT).reduce((sum, item) => sum + item.deathShare, 0))} de tes morts.
+                  {t(
+                    `${plural(data.killers.length - KILLER_LIMIT, "autre arme", "autres armes")} représentent ${pct(data.killers.slice(KILLER_LIMIT).reduce((sum, item) => sum + item.deathShare, 0))} de tes morts.`,
+                    `${plural(data.killers.length - KILLER_LIMIT, "other weapon", "other weapons")} account for ${pct(data.killers.slice(KILLER_LIMIT).reduce((sum, item) => sum + item.deathShare, 0))} of your deaths.`,
+                  )}
                 </span>
               )}
               {abilityKillers.length > 0 && (
                 <div className="stack" style={{ gap: 10 }}>
-                  <h3 className="weapon-detail-sub">Capacités qui t'ont tué</h3>
+                  <h3 className="weapon-detail-sub">{t("Capacités qui t'ont tué", "Abilities that killed you")}</h3>
                   <PartList parts={abilityKillers} catalog={catalog} unit="mort" />
                 </div>
               )}
@@ -300,16 +308,16 @@ export function Weapons({ account, onOpenRound }: Props) {
 
 function BodySplit({ report }: { report: WeaponReport }) {
   const parts = [
-    { id: "head", label: "Tête", value: report.hsPct, count: report.headshots },
-    { id: "torso", label: "Corps", value: report.bodyPct, count: report.bodyshots },
-    { id: "legs", label: "Jambes", value: report.legPct, count: report.legshots },
+    { id: "head", label: t("Tête", "Head"), value: report.hsPct, count: report.headshots },
+    { id: "torso", label: t("Corps", "Body"), value: report.bodyPct, count: report.bodyshots },
+    { id: "legs", label: t("Jambes", "Legs"), value: report.legPct, count: report.legshots },
   ];
   const top = Math.max(1, ...parts.map((part) => part.value));
   const tone = (value: number) => `color-mix(in srgb, var(--accent) ${Math.round(18 + (value / top) * 82)}%, var(--field))`;
   const total = report.headshots + report.bodyshots + report.legshots;
 
   return (
-    <div className="body-split" aria-label="Répartition des tirs touchés">
+    <div className="body-split" aria-label={t("Répartition des tirs touchés", "Hit shots breakdown")}>
       {parts.map((part) => (
         <div className={`body-line body-${part.id}`} key={part.id}>
           <span className="body-slot" aria-hidden="true">
@@ -325,7 +333,7 @@ function BodySplit({ report }: { report: WeaponReport }) {
           <span className="stack" style={{ gap: 0 }}>
             <span className="body-value">{total > 0 ? pct(part.value) : "-"}</span>
             <span className="faint body-label">
-              {part.label}, {plural(part.count, "tir", "tirs")}
+              {part.label}, {t(plural(part.count, "tir", "tirs"), plural(part.count, "hit", "hits"))}
             </span>
           </span>
         </div>
@@ -377,7 +385,12 @@ function PartList({ parts, catalog, unit }: { parts: AbilityPart[]; catalog: Cat
             </span>
             <span className="weapon-part-count">
               {fmt(part.count)}
-              <small> {part.count > 1 ? `${unit}s` : unit}</small>
+              <small>
+                {" "}
+                {unit === "kill"
+                  ? t(part.count > 1 ? "kills" : "kill", part.count === 1 ? "kill" : "kills")
+                  : t(part.count > 1 ? "morts" : "mort", part.count === 1 ? "death" : "deaths")}
+              </small>
             </span>
           </li>
         );
@@ -390,9 +403,9 @@ function WeaponDetail({ weapon, catalog }: { weapon: WeaponLine; catalog: Catalo
   const measured = rangeTotal(weapon.killRanges);
   const figures = [
     { label: "Kills", value: fmt(weapon.kills) },
-    { label: "Rounds portée", value: fmt(weapon.roundsHeld) },
+    { label: t("Rounds portée", "Rounds held"), value: fmt(weapon.roundsHeld) },
     { label: "K/round", value: weapon.killsPerRoundHeld === null ? "-" : fmt(weapon.killsPerRoundHeld, 2) },
-    { label: "HS estimé", value: weapon.hsPct === null ? "-" : pct(weapon.hsPct, 0) },
+    { label: t("HS estimé", "Est. HS"), value: weapon.hsPct === null ? "-" : pct(weapon.hsPct, 0) },
   ];
   const ability = weapon.name === ABILITIES;
 
@@ -408,7 +421,7 @@ function WeaponDetail({ weapon, catalog }: { weapon: WeaponLine; catalog: Catalo
         </span>
         <div className="stack" style={{ gap: 4 }}>
           <span className="eyebrow">{weaponCategory(weapon.name)}</span>
-          <h3 className="weapon-detail-title">{weapon.name}</h3>
+          <h3 className="weapon-detail-title">{displayName(weapon.name)}</h3>
         </div>
       </div>
 
@@ -423,37 +436,37 @@ function WeaponDetail({ weapon, catalog }: { weapon: WeaponLine; catalog: Catalo
 
       {ability && weapon.parts.length > 0 && (
         <div className="stack" style={{ gap: 10 }}>
-          <span className="weapon-detail-sub">Tes kills par capacité</span>
+          <span className="weapon-detail-sub">{t("Tes kills par capacité", "Your kills by ability")}</span>
           <PartList parts={weapon.parts} catalog={catalog} unit="kill" />
         </div>
       )}
 
       <div className="stack" style={{ gap: 14 }}>
         <div className="row between wrap" style={{ alignItems: "baseline" }}>
-          <span className="weapon-detail-sub">Distance de tes kills</span>
+          <span className="weapon-detail-sub">{t("Distance de tes kills", "Your kill distance")}</span>
           <span className="faint" style={{ fontSize: 13 }}>
-            moyenne {meters(weapon.avgKillDistance)}
+            {t(`moyenne ${meters(weapon.avgKillDistance)}`, `avg ${meters(weapon.avgKillDistance)}`)}
           </span>
         </div>
         {measured > 0 ? (
           <RangeBars ranges={weapon.killRanges} tone="good" />
         ) : (
-          <span className="faint">Aucune position enregistrée pour ces kills.</span>
+          <span className="faint">{t("Aucune position enregistrée pour ces kills.", "No positions recorded for these kills.")}</span>
         )}
       </div>
 
       <div className="stack" style={{ gap: 14 }}>
         <div className="row between wrap" style={{ alignItems: "baseline" }}>
-          <span className="weapon-detail-sub">Face à cette arme</span>
+          <span className="weapon-detail-sub">{t("Face à cette arme", "Against this weapon")}</span>
           <span className="faint" style={{ fontSize: 13 }}>
-            {plural(weapon.deaths, "mort", "morts")}
-            {weapon.avgDeathDistance !== null && `, moyenne ${meters(weapon.avgDeathDistance)}`}
+            {t(plural(weapon.deaths, "mort", "morts"), plural(weapon.deaths, "death", "deaths"))}
+            {weapon.avgDeathDistance !== null && t(`, moyenne ${meters(weapon.avgDeathDistance)}`, `, avg ${meters(weapon.avgDeathDistance)}`)}
           </span>
         </div>
         {rangeTotal(weapon.deathRanges) > 0 ? (
           <RangeBars ranges={weapon.deathRanges} tone="bad" />
         ) : (
-          <span className="faint">Aucune mort subie avec cette arme.</span>
+          <span className="faint">{t("Aucune mort subie avec cette arme.", "No deaths to this weapon.")}</span>
         )}
       </div>
     </div>
@@ -492,7 +505,7 @@ function KillerRow({
       <span className="weapon-ident">
         <WeaponThumb item={killer} catalog={catalog} width={84} height={28} />
         <span className="weapon-name">
-          <strong>{killer.name}</strong>
+          <strong>{displayName(killer.name)}</strong>
           <span className="faint">{weaponCategory(killer.name)}</span>
         </span>
       </span>
@@ -561,8 +574,8 @@ function WeaponHistory({
   return (
     <section className="stack" style={{ gap: 16 }}>
       <div className="row between wrap" style={{ alignItems: "center", gap: 12 }}>
-        <h2 className="section-title">Historique : {weapon.name}</h2>
-        <div className="segmented" role="tablist" aria-label="Kills ou morts">
+        <h2 className="section-title">{t(`Historique : ${weapon.name}`, `History: ${displayName(weapon.name)}`)}</h2>
+        <div className="segmented" role="tablist" aria-label={t("Kills ou morts", "Kills or deaths")}>
           {[false, true].map((value) => (
             <button
               key={String(value)}
@@ -575,25 +588,27 @@ function WeaponHistory({
                 setShown(HISTORY_PAGE);
               }}
             >
-              {value ? `Tes morts ${fmt(weapon.deaths)}` : `Tes kills ${fmt(weapon.kills)}`}
+              {value ? t(`Tes morts ${fmt(weapon.deaths)}`, `Your deaths ${fmt(weapon.deaths)}`) : t(`Tes kills ${fmt(weapon.kills)}`, `Your kills ${fmt(weapon.kills)}`)}
             </button>
           ))}
         </div>
       </div>
       {total === 0 ? (
-        <span className="faint">{deaths ? "Aucune mort subie avec cette arme." : "Aucun kill avec cette arme."}</span>
+        <span className="faint">
+          {deaths ? t("Aucune mort subie avec cette arme.", "No deaths to this weapon.") : t("Aucun kill avec cette arme.", "No kills with this weapon.")}
+        </span>
       ) : list === null ? (
-        <span className="faint">Recherche dans tes matchs...</span>
+        <span className="faint">{t("Recherche dans tes matchs...", "Searching your matches...")}</span>
       ) : (
         <>
-          <ul className="weapon-history" aria-label={deaths ? "Tes morts face à cette arme" : "Tes kills avec cette arme"}>
+          <ul className="weapon-history" aria-label={deaths ? t("Tes morts face à cette arme", "Your deaths to this weapon") : t("Tes kills avec cette arme", "Your kills with this weapon")}>
             {list.slice(0, shown).map((entry) => (
               <HistoryRow key={`${entry.matchId}-${entry.roundIndex}-${entry.timeMs}`} entry={entry} deaths={deaths} onOpenRound={onOpenRound} />
             ))}
           </ul>
           {list.length > shown && (
             <button type="button" className="btn btn-secondary" style={{ alignSelf: "center" }} onClick={() => setShown(shown + HISTORY_PAGE * 2)}>
-              Afficher plus
+              {t("Afficher plus", "Show more")}
             </button>
           )}
         </>
@@ -612,7 +627,7 @@ function HistoryRow({
   onOpenRound?: (matchId: string, roundIndex: number) => void;
 }) {
   const round = entry.roundIndex + 1;
-  const map = entry.mapName ?? "Map inconnue";
+  const map = entry.mapName ?? t("Map inconnue", "Unknown map");
   const body = (
     <>
       <span className="weapon-history-map">
@@ -623,18 +638,18 @@ function HistoryRow({
         <Art src={agentIcon(entry.opponentAgentId)} width={28} height={28} alt="" className="weapon-history-face" />
         <span className="stack" style={{ gap: 2, minWidth: 0 }}>
           <strong className="ellipsis">
-            {deaths ? "Tué par " : ""}
+            {deaths ? t("Tué par ", "Killed by ") : ""}
             {entry.opponent}
           </strong>
           <span className="faint ellipsis" style={{ fontSize: 12 }}>
-            {map}, round {round} à {clock(entry.timeMs)}, {fullDate(entry.startedAt)}
+            {t(`${map}, round ${round} à ${clock(entry.timeMs)}, ${fullDate(entry.startedAt)}`, `${map}, round ${round} at ${clock(entry.timeMs)}, ${fullDate(entry.startedAt)}`)}
           </span>
         </span>
       </span>
       <span className="weapon-history-dist">{meters(entry.distance)}</span>
       {entry.roundWon !== null && (
         <span className={`weapon-history-result ${entry.roundWon ? "is-win" : "is-loss"}`}>
-          {entry.roundWon ? "Round gagné" : "Round perdu"}
+          {entry.roundWon ? t("Round gagné", "Round won") : t("Round perdu", "Round lost")}
         </span>
       )}
     </>
@@ -646,7 +661,7 @@ function HistoryRow({
           type="button"
           className="weapon-history-row"
           onClick={() => onOpenRound(entry.matchId, entry.roundIndex)}
-          aria-label={`Ouvrir le round ${round} sur ${map}`}
+          aria-label={t(`Ouvrir le round ${round} sur ${map}`, `Open round ${round} on ${map}`)}
         >
           {body}
         </button>

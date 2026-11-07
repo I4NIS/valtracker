@@ -8,6 +8,7 @@ import { fmt, pct, signed } from "../lib/format";
 import { mapArt } from "../lib/gameAssets";
 import type { MapStat } from "../lib/mapStats";
 import { rotatePoint, rotationStyle } from "../lib/minimap";
+import { t } from "../lib/i18n";
 import { useQuery } from "../lib/query";
 import { defaultSeason, queries } from "../lib/queries";
 
@@ -19,15 +20,15 @@ type Props = {
   refreshKey: number;
 };
 
-const matchCount = (count: number) => `${count} ${count > 1 ? "matchs" : "match"}`;
-const roundCount = (count: number) => `${count} ${count > 1 ? "rounds" : "round"}`;
+const matchCount = (count: number) => t(`${count} ${count > 1 ? "matchs" : "match"}`, `${count} ${count === 1 ? "match" : "matches"}`);
+const roundCount = (count: number) => t(`${count} ${count > 1 ? "rounds" : "round"}`, `${count} ${count === 1 ? "round" : "rounds"}`);
 const rate = (won: number, played: number) => (played > 0 ? (won * 100) / played : 0);
 const tone = (value: number) => (value >= 50 ? "win" : "bad");
 const rrTone = (value: number) => (value > 0 ? "win" : value < 0 ? "bad" : "muted");
 
 function record(map: MapStat) {
-  const parts = [`${map.wins} V`, `${map.losses} D`];
-  if (map.draws > 0) parts.push(`${map.draws} N`);
+  const parts = [t(`${map.wins} V`, `${map.wins} W`), t(`${map.losses} D`, `${map.losses} L`)];
+  if (map.draws > 0) parts.push(t(`${map.draws} N`, `${map.draws} D`));
   return parts.join(", ");
 }
 
@@ -60,7 +61,7 @@ export function Maps({ account }: Props) {
   return (
     <div className="content">
       <div className="stack">
-        <span className="eyebrow">{season ? seasonLabel(season) : "Toutes les saisons"}</span>
+        <span className="eyebrow">{season ? seasonLabel(season) : t("Toutes les saisons", "All seasons")}</span>
         <h1 className="title">Maps</h1>
       </div>
 
@@ -69,12 +70,12 @@ export function Maps({ account }: Props) {
       {error && !maps && <p className="form-error">{error}</p>}
 
       {!maps ? (
-        <div className="empty">Chargement de tes maps...</div>
+        <div className="empty">{t("Chargement de tes maps...", "Loading your maps...")}</div>
       ) : maps.length === 0 ? (
-        <div className="empty">Aucun match compétitif synchronisé sur cette période.</div>
+        <div className="empty">{t("Aucun match compétitif synchronisé sur cette période.", "No competitive matches synced for this period.")}</div>
       ) : (
         <>
-          <div className="mapstat-grid" role="group" aria-label="Maps jouées">
+          <div className="mapstat-grid" role="group" aria-label={t("Maps jouées", "Maps played")}>
             {maps.map((map) => (
               <button
                 key={map.mapId}
@@ -102,15 +103,25 @@ export function Maps({ account }: Props) {
 
           <section className="stack" style={{ gap: 20 }}>
             <div className="stack" style={{ gap: 4 }}>
-              <h2 className="section-title">Tes meilleures et pires maps</h2>
-              <span className="hint">Classement par taux de victoire, maps jouées au moins {MIN_RANKED} fois.</span>
+              <h2 className="section-title">{t("Tes meilleures et pires maps", "Your best and worst maps")}</h2>
+              <span className="hint">
+                {t(
+                  `Classement par taux de victoire, maps jouées au moins ${MIN_RANKED} fois.`,
+                  `Ranked by win rate, maps played at least ${MIN_RANKED} times.`,
+                )}
+              </span>
             </div>
             {ranking.count < 2 ? (
-              <div className="empty">Pas assez de maps jouées au moins {MIN_RANKED} fois sur cette période.</div>
+              <div className="empty">
+                {t(
+                  `Pas assez de maps jouées au moins ${MIN_RANKED} fois sur cette période.`,
+                  `Not enough maps played at least ${MIN_RANKED} times in this period.`,
+                )}
+              </div>
             ) : (
               <div className="mapstat-ranking">
-                <RankList title="Meilleures" maps={ranking.best} onSelect={choose} />
-                <RankList title="Pires" maps={ranking.worst} onSelect={choose} />
+                <RankList title={t("Meilleures", "Best")} maps={ranking.best} onSelect={choose} />
+                <RankList title={t("Pires", "Worst")} maps={ranking.worst} onSelect={choose} />
               </div>
             )}
           </section>
@@ -130,7 +141,7 @@ function MapDetail({ map, sectionRef }: { map: MapStat; sectionRef: RefObject<HT
   const icon = agentIcon(map.agentId);
 
   return (
-    <section className="mapstat-detail" ref={sectionRef} aria-label={`Statistiques sur ${map.name}`}>
+    <section className="mapstat-detail" ref={sectionRef} aria-label={t(`Statistiques sur ${map.name}`, `Stats on ${map.name}`)}>
       <header className="mapstat-hero">
         <Art key={map.mapId} src={map.splash ?? mapArt(map.mapId, "splash")} width={1280} height={720} alt="" className="mapstat-hero-art" eager />
         <div className="mapstat-hero-text">
@@ -139,12 +150,12 @@ function MapDetail({ map, sectionRef }: { map: MapStat; sectionRef: RefObject<HT
         </div>
         <div className="mapstat-hero-pct">
           <span className={`mapstat-hero-value ${tone(map.winPct)}`}>{pct(map.winPct, 0)}</span>
-          <span className="mapstat-hero-label">de victoires</span>
+          <span className="mapstat-hero-label">{t("de victoires", "win rate")}</span>
         </div>
       </header>
 
       <div className="mapstat-numbers">
-        <Figure label="RR net" value={map.rrMatches > 0 ? signed(map.rrNet) : "0"} className={rrTone(map.rrNet)} />
+        <Figure label={t("RR net", "Net RR")} value={map.rrMatches > 0 ? signed(map.rrNet) : "0"} className={rrTone(map.rrNet)} />
         <Figure label="ACS" value={fmt(map.acs)} />
         <Figure label="K/D" value={fmt(map.kd, 2)} />
         <Figure label="ADR" value={fmt(map.adr)} />
@@ -153,28 +164,33 @@ function MapDetail({ map, sectionRef }: { map: MapStat; sectionRef: RefObject<HT
 
       {map.analyzed < map.matches && (
         <span className="hint">
-          Détail des rounds calculé sur {map.analyzed} des {map.matches} matchs, les autres n'ont pas de données de rounds.
+          {t(
+            `Détail des rounds calculé sur ${map.analyzed} des ${map.matches} matchs, les autres n'ont pas de données de rounds.`,
+            `Round breakdown based on ${map.analyzed} of ${map.matches} matches, the others have no round data.`,
+          )}
         </span>
       )}
 
       <div className="mapstat-panels">
         <div className="panel stack mapstat-panel">
-          <h3 className="mapstat-panel-title">Attaque et défense</h3>
-          <SideBar label="Attaque" won={map.attackWon} played={map.attackPlayed} value={attack} />
-          <SideBar label="Défense" won={map.defenseWon} played={map.defensePlayed} value={defense} />
+          <h3 className="mapstat-panel-title">{t("Attaque et défense", "Attack and defense")}</h3>
+          <SideBar label={t("Attaque", "Attack")} won={map.attackWon} played={map.attackPlayed} value={attack} />
+          <SideBar label={t("Défense", "Defense")} won={map.defenseWon} played={map.defensePlayed} value={defense} />
         </div>
 
         <div className="panel stack mapstat-panel">
-          <h3 className="mapstat-panel-title">Plants par site</h3>
+          <h3 className="mapstat-panel-title">{t("Plants par site", "Plants by site")}</h3>
           <span className="hint">
-            {map.plants} {map.plants > 1 ? "plants" : "plant"} en attaque sur {roundCount(map.attackPlayed)}, soit{" "}
-            {pct(rate(map.plants, map.attackPlayed), 0)} des rounds.
+            {t(
+              `${map.plants} ${map.plants > 1 ? "plants" : "plant"} en attaque sur ${roundCount(map.attackPlayed)}, soit ${pct(rate(map.plants, map.attackPlayed), 0)} des rounds.`,
+              `${map.plants} ${map.plants === 1 ? "plant" : "plants"} on attack over ${roundCount(map.attackPlayed)}, ${pct(rate(map.plants, map.attackPlayed), 0)} of rounds.`,
+            )}
           </span>
           {map.plantSites.length === 0 ? (
-            <span className="faint">Aucun plant enregistré sur cette map.</span>
+            <span className="faint">{t("Aucun plant enregistré sur cette map.", "No plants recorded on this map.")}</span>
           ) : (
             <div className="mapstat-plants">
-              <div className="mapstat-sites" role="img" aria-label="Répartition des plants par site">
+              <div className="mapstat-sites" role="img" aria-label={t("Répartition des plants par site", "Plants split by site")}>
                 {map.plantSites.map((site) => (
                   <div className="mapstat-site" key={site.site}>
                     <span className="mapstat-site-count">{site.plants}</span>
@@ -192,7 +208,7 @@ function MapDetail({ map, sectionRef }: { map: MapStat; sectionRef: RefObject<HT
         </div>
 
         <div className="panel stack mapstat-panel">
-          <h3 className="mapstat-panel-title">Rounds pistol</h3>
+          <h3 className="mapstat-panel-title">{t("Rounds pistol", "Pistol rounds")}</h3>
           <span className={`mapstat-panel-value ${map.pistolPlayed ? tone(pistol) : "muted"}`}>
             {map.pistolWon}
             <span className="faint"> / {map.pistolPlayed}</span>
@@ -201,7 +217,7 @@ function MapDetail({ map, sectionRef }: { map: MapStat; sectionRef: RefObject<HT
             <span className={map.pistolPlayed ? tone(pistol) : ""} style={{ width: `${pistol}%` }} />
           </span>
           <span className="hint">
-            {pct(pistol, 0)} de rounds 1 et 13 gagnés.
+            {t(`${pct(pistol, 0)} de rounds 1 et 13 gagnés.`, `${pct(pistol, 0)} of rounds 1 and 13 won.`)}
           </span>
         </div>
 
@@ -215,27 +231,27 @@ function MapDetail({ map, sectionRef }: { map: MapStat; sectionRef: RefObject<HT
             <span className={map.retakesPlayed ? tone(retakes) : ""} style={{ width: `${retakes}%` }} />
           </span>
           <span className="hint">
-            {pct(retakes, 0)} des rounds en défense gagnés après un plant adverse.
+            {t(`${pct(retakes, 0)} des rounds en défense gagnés après un plant adverse.`, `${pct(retakes, 0)} of defense rounds won after an enemy plant.`)}
           </span>
         </div>
 
         <div className="panel mapstat-panel mapstat-agent">
-          <h3 className="mapstat-panel-title">Agent le plus joué</h3>
+          <h3 className="mapstat-panel-title">{t("Agent le plus joué", "Most played agent")}</h3>
           {map.agentId ? (
             <div className="row" style={{ gap: 16 }}>
               <Art src={icon} width={64} height={64} alt={map.agentName ?? ""} className="mapstat-agent-icon" />
               <div className="stack" style={{ gap: 2, minWidth: 0 }}>
-                <strong className="mapstat-agent-name">{map.agentName ?? "Agent inconnu"}</strong>
+                <strong className="mapstat-agent-name">{map.agentName ?? t("Agent inconnu", "Unknown agent")}</strong>
                 <span className="muted">
-                  {matchCount(map.agentMatches)} sur {map.matches},{" "}
+                  {t(`${matchCount(map.agentMatches)} sur ${map.matches},`, `${matchCount(map.agentMatches)} of ${map.matches},`)}{" "}
                   <span className={tone(rate(map.agentWins, map.agentMatches))}>
-                    {pct(rate(map.agentWins, map.agentMatches), 0)} de victoires
+                    {t(`${pct(rate(map.agentWins, map.agentMatches), 0)} de victoires`, `${pct(rate(map.agentWins, map.agentMatches), 0)} win rate`)}
                   </span>
                 </span>
               </div>
             </div>
           ) : (
-            <span className="faint">Aucun agent enregistré.</span>
+            <span className="faint">{t("Aucun agent enregistré.", "No agent recorded.")}</span>
           )}
         </div>
       </div>
@@ -249,7 +265,7 @@ function PlantMap({ map }: { map: MapStat }) {
     <figure className="mapstat-plantmap">
       <div className="mapstat-minimap">
         <span className="mapstat-minimap-turn" style={rotationStyle(map.rotation)}>
-          <Art src={map.minimap ?? undefined} width={240} height={240} alt={`Minimap de ${map.name}`} className="mapstat-minimap-art" />
+          <Art src={map.minimap ?? undefined} width={240} height={240} alt={t(`Minimap de ${map.name}`, `${map.name} minimap`)} className="mapstat-minimap-art" />
         </span>
         {map.plantSpots.map((spot, index) => {
           const point = rotatePoint(spot, map.rotation);
@@ -265,11 +281,11 @@ function PlantMap({ map }: { map: MapStat }) {
       <figcaption className="mapstat-plant-legend">
         <span>
           <i className="mapstat-plant-dot win" />
-          {won} gagnés
+          {t(`${won} gagnés`, `${won} won`)}
         </span>
         <span>
           <i className="mapstat-plant-dot bad" />
-          {map.plantSpots.length - won} perdus
+          {t(`${map.plantSpots.length - won} perdus`, `${map.plantSpots.length - won} lost`)}
         </span>
       </figcaption>
     </figure>

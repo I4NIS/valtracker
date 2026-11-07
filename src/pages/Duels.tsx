@@ -7,6 +7,7 @@ import { agentIcon, seasonLabel } from "../lib/assets";
 import type { ClutchEntry, ClutchSize, DistanceBucket, DuelReport, Matchup, OpeningSide, Rival } from "../lib/duels";
 import { fmt, fullDate, pct, roleLabel } from "../lib/format";
 import { cardArt, mapArt } from "../lib/gameAssets";
+import { t } from "../lib/i18n";
 import { useQuery } from "../lib/query";
 import { defaultSeason, queries } from "../lib/queries";
 
@@ -21,6 +22,8 @@ type Sort = "matches" | "rate";
 const MATCHUP_PREVIEW = 12;
 const CLUTCH_PAGE = 10;
 
+const en = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
+
 export function Duels({ account, onOpenRound }: Props) {
   const [season, setSeason] = useState<string | null | undefined>(() => defaultSeason(account.puuid));
   const query = useQuery(season === undefined ? null : queries.duels(account.puuid, season));
@@ -30,11 +33,14 @@ export function Duels({ account, onOpenRound }: Props) {
   return (
     <div className="content">
       <div className="stack">
-        <span className="eyebrow">{season ? seasonLabel(season) : "Toutes les saisons"}</span>
+        <span className="eyebrow">{season ? seasonLabel(season) : t("Toutes les saisons", "All seasons")}</span>
         <h1 className="title">Duels</h1>
         {data && data.matches > 0 && (
           <p className="muted" style={{ margin: 0 }}>
-            {fmt(data.kills)} kills et {fmt(data.deaths)} morts face aux ennemis sur {fmt(data.matches)} matchs et {fmt(data.rounds)} rounds.
+            {t(
+              `${fmt(data.kills)} kills et ${fmt(data.deaths)} morts face aux ennemis sur ${fmt(data.matches)} matchs et ${fmt(data.rounds)} rounds.`,
+              `${fmt(data.kills)} ${data.kills === 1 ? "kill" : "kills"} and ${fmt(data.deaths)} ${data.deaths === 1 ? "death" : "deaths"} against enemies over ${fmt(data.matches)} ${data.matches === 1 ? "match" : "matches"} and ${fmt(data.rounds)} ${data.rounds === 1 ? "round" : "rounds"}.`,
+            )}
           </p>
         )}
       </div>
@@ -44,9 +50,9 @@ export function Duels({ account, onOpenRound }: Props) {
       {error && !data && <p className="form-error">{error}</p>}
 
       {!data ? (
-        <div className="empty">{error ? "Impossible de charger tes duels." : "Chargement de tes duels..."}</div>
+        <div className="empty">{error ? t("Impossible de charger tes duels.", "Couldn't load your duels.") : t("Chargement de tes duels...", "Loading your duels...")}</div>
       ) : data.matches === 0 ? (
-        <div className="empty">Aucun match compétitif synchronisé sur cette période.</div>
+        <div className="empty">{t("Aucun match compétitif synchronisé sur cette période.", "No competitive matches synced for this period.")}</div>
       ) : (
         <>
           <OpeningSection data={data} />
@@ -120,37 +126,44 @@ function OpeningSection({ data }: { data: DuelReport }) {
   return (
     <section className="stack" style={{ gap: 24 }}>
       <SectionHead
-        title="Duels d'ouverture"
-        note={all.rounds > 0 ? `Impliqué dans le premier kill de ${pct((involved * 100) / all.rounds, 0)} des rounds` : undefined}
+        title={t("Duels d'ouverture", "Opening duels")}
+        note={
+          all.rounds > 0
+            ? t(
+                `Impliqué dans le premier kill de ${pct((involved * 100) / all.rounds, 0)} des rounds`,
+                `Involved in the first kill of ${pct((involved * 100) / all.rounds, 0)} of rounds`,
+              )
+            : undefined
+        }
       />
       {involved === 0 ? (
-        <div className="empty">Aucun premier kill ni première mort sur cette période.</div>
+        <div className="empty">{t("Aucun premier kill ni première mort sur cette période.", "No first kills or first deaths in this period.")}</div>
       ) : (
         <>
           <div className="duel-opening-hero">
             <div className="row" style={{ gap: 18 }}>
-              <Ring value={all.successRate} size={104} label={`${pct(all.successRate, 0)} de duels d'ouverture gagnés`} />
+              <Ring value={all.successRate} size={104} label={t(`${pct(all.successRate, 0)} de duels d'ouverture gagnés`, `${pct(all.successRate, 0)} of opening duels won`)} />
               <div className="stack" style={{ gap: 4 }}>
-                <strong style={{ fontSize: 17 }}>Duels d'ouverture gagnés</strong>
+                <strong style={{ fontSize: 17 }}>{t("Duels d'ouverture gagnés", "Opening duels won")}</strong>
                 <span className="hint">
-                  {all.firstKills} gagnés sur {involved} duels d'ouverture.
+                  {t(`${all.firstKills} gagnés sur ${involved} duels d'ouverture.`, `${all.firstKills} won out of ${en(involved, "opening duel", "opening duels")}.`)}
                 </span>
               </div>
             </div>
             <div className="duel-figure">
               <span className="label">First kills</span>
               <span className="big-number good">{fmt(all.firstKills)}</span>
-              <span className="hint">Round gagné ensuite dans {pct(all.winRateAfterKill, 0)} des cas</span>
+              <span className="hint">{t(`Round gagné ensuite dans ${pct(all.winRateAfterKill, 0)} des cas`, `Round won afterwards ${pct(all.winRateAfterKill, 0)} of the time`)}</span>
             </div>
             <div className="duel-figure">
               <span className="label">First deaths</span>
               <span className="big-number bad">{fmt(all.firstDeaths)}</span>
-              <span className="hint">Round gagné ensuite dans {pct(all.winRateAfterDeath, 0)} des cas</span>
+              <span className="hint">{t(`Round gagné ensuite dans ${pct(all.winRateAfterDeath, 0)} des cas`, `Round won afterwards ${pct(all.winRateAfterDeath, 0)} of the time`)}</span>
             </div>
           </div>
           <div className="duel-sides">
-            <OpeningCard title="En attaque" side={data.opening.attack} />
-            <OpeningCard title="En défense" side={data.opening.defense} />
+            <OpeningCard title={t("En attaque", "On attack")} side={data.opening.attack} />
+            <OpeningCard title={t("En défense", "On defense")} side={data.opening.defense} />
           </div>
         </>
       )}
@@ -164,13 +177,13 @@ function OpeningCard({ title, side }: { title: string; side: OpeningSide }) {
     <div className="panel stack" style={{ gap: 16 }}>
       <div className="row between" style={{ alignItems: "baseline" }}>
         <strong style={{ fontSize: 17 }}>{title}</strong>
-        <span className="duel-side-rate">{involved > 0 ? pct(side.successRate, 0) : "Aucun"}</span>
+        <span className="duel-side-rate">{involved > 0 ? pct(side.successRate, 0) : t("Aucun", "None")}</span>
       </div>
       <div className="stack" style={{ gap: 8 }}>
         <Split
           kills={side.firstKills}
           deaths={side.firstDeaths}
-          label={`${side.firstKills} first kills et ${side.firstDeaths} first deaths`}
+          label={t(`${side.firstKills} first kills et ${side.firstDeaths} first deaths`, `${side.firstKills} first kills and ${side.firstDeaths} first deaths`)}
         />
         <div className="row between" style={{ fontSize: 13 }}>
           <span className="good">
@@ -183,22 +196,18 @@ function OpeningCard({ title, side }: { title: string; side: OpeningSide }) {
       </div>
       <div className="duel-facts">
         <div>
-          <span className="label">Round gagné après first kill</span>
-          <strong>{side.firstKills > 0 ? pct(side.winRateAfterKill, 0) : "Pas de données"}</strong>
-          <span className="faint">
-            {side.wonAfterKill} sur {side.firstKills}
-          </span>
+          <span className="label">{t("Round gagné après first kill", "Round won after first kill")}</span>
+          <strong>{side.firstKills > 0 ? pct(side.winRateAfterKill, 0) : t("Pas de données", "No data")}</strong>
+          <span className="faint">{t(`${side.wonAfterKill} sur ${side.firstKills}`, `${side.wonAfterKill} of ${side.firstKills}`)}</span>
         </div>
         <div>
-          <span className="label">Round gagné après first death</span>
-          <strong>{side.firstDeaths > 0 ? pct(side.winRateAfterDeath, 0) : "Pas de données"}</strong>
-          <span className="faint">
-            {side.wonAfterDeath} sur {side.firstDeaths}
-          </span>
+          <span className="label">{t("Round gagné après first death", "Round won after first death")}</span>
+          <strong>{side.firstDeaths > 0 ? pct(side.winRateAfterDeath, 0) : t("Pas de données", "No data")}</strong>
+          <span className="faint">{t(`${side.wonAfterDeath} sur ${side.firstDeaths}`, `${side.wonAfterDeath} of ${side.firstDeaths}`)}</span>
         </div>
       </div>
       <span className="faint" style={{ fontSize: 12 }}>
-        {side.rounds} rounds joués de ce côté
+        {t(`${side.rounds} rounds joués de ce côté`, `${en(side.rounds, "round", "rounds")} played on this side`)}
       </span>
     </div>
   );
@@ -223,14 +232,23 @@ function ClutchSection({ data, onOpenRound }: { data: DuelReport; onOpenRound?: 
   return (
     <section className="stack" style={{ gap: 24 }}>
       <SectionHead
-        title="Clutchs"
-        note={clutches.attempts > 0 ? `${clutches.won} gagnés sur ${clutches.attempts} situations, ${pct(clutches.winRate, 0)}` : undefined}
+        title={t("Clutchs", "Clutches")}
+        note={
+          clutches.attempts > 0
+            ? t(
+                `${clutches.won} gagnés sur ${clutches.attempts} situations, ${pct(clutches.winRate, 0)}`,
+                `${clutches.won} won out of ${en(clutches.attempts, "situation", "situations")}, ${pct(clutches.winRate, 0)}`,
+              )
+            : undefined
+        }
       />
       {clutches.attempts === 0 ? (
-        <div className="empty">Tu n'as jamais été le dernier en vie de ton équipe sur cette période.</div>
+        <div className="empty">
+          {t("Tu n'as jamais été le dernier en vie de ton équipe sur cette période.", "You were never the last one alive on your team in this period.")}
+        </div>
       ) : (
         <>
-          <div className="duel-clutch-grid" role="group" aria-label="Filtrer par situation">
+          <div className="duel-clutch-grid" role="group" aria-label={t("Filtrer par situation", "Filter by situation")}>
             {clutches.bySize.map((size) => (
               <ClutchTile key={size.enemies} size={size} active={filter === size.enemies} onToggle={() => choose(size.enemies)} />
             ))}
@@ -238,15 +256,15 @@ function ClutchSection({ data, onOpenRound }: { data: DuelReport; onOpenRound?: 
           {clutches.recent.length > 0 && (
             <div className="stack" style={{ gap: 10 }}>
               <div className="row between wrap" style={{ alignItems: "baseline" }}>
-                <h3 className="duel-subtitle">{filter === null ? "Toutes les situations" : `Situations en 1v${filter}`}</h3>
+                <h3 className="duel-subtitle">{filter === null ? t("Toutes les situations", "All situations") : t(`Situations en 1v${filter}`, `1v${filter} situations`)}</h3>
                 <span className="faint" style={{ fontSize: 13 }}>
-                  {list.length} {list.length > 1 ? "situations" : "situation"}
-                  {capped ? `, les ${clutches.recent.length} plus récentes` : ""}
+                  {t(`${list.length} ${list.length > 1 ? "situations" : "situation"}`, en(list.length, "situation", "situations"))}
+                  {capped ? t(`, les ${clutches.recent.length} plus récentes`, `, the ${clutches.recent.length} most recent`) : ""}
                   {filter !== null && (
                     <>
                       {", "}
                       <button type="button" className="duel-link" onClick={() => setFilter(null)}>
-                        tout afficher
+                        {t("tout afficher", "show all")}
                       </button>
                     </>
                   )}
@@ -254,7 +272,7 @@ function ClutchSection({ data, onOpenRound }: { data: DuelReport; onOpenRound?: 
               </div>
               {list.length === 0 ? (
                 <p className="hint" style={{ margin: 0 }}>
-                  Aucune situation en 1v{filter} sur cette période.
+                  {t(`Aucune situation en 1v${filter} sur cette période.`, `No 1v${filter} situations in this period.`)}
                 </p>
               ) : (
                 <ul className="duel-list">
@@ -265,7 +283,7 @@ function ClutchSection({ data, onOpenRound }: { data: DuelReport; onOpenRound?: 
               )}
               {list.length > visible && (
                 <button type="button" className="btn btn-secondary duel-more" onClick={() => setVisible((count) => count + CLUTCH_PAGE)}>
-                  Afficher plus
+                  {t("Afficher plus", "Show more")}
                 </button>
               )}
             </div>
@@ -292,14 +310,18 @@ function ClutchTile({ size, active, onToggle }: { size: ClutchSize; active: bool
         size={76}
         tone="win"
         empty={empty}
-        label={empty ? `Aucune situation en 1v${size.enemies}` : `1v${size.enemies} : ${size.won} gagnés sur ${size.attempts}, ${pct(size.winRate, 0)}`}
+        label={
+          empty
+            ? t(`Aucune situation en 1v${size.enemies}`, `No 1v${size.enemies} situations`)
+            : t(`1v${size.enemies} : ${size.won} gagnés sur ${size.attempts}, ${pct(size.winRate, 0)}`, `1v${size.enemies}: ${size.won} won out of ${size.attempts}, ${pct(size.winRate, 0)}`)
+        }
       />
       <span className="duel-clutch-count">
         <strong>{size.won}</strong>
         <span className="faint"> / {size.attempts}</span>
       </span>
       <span className="faint" style={{ fontSize: 12 }}>
-        {empty ? "aucune situation" : size.won > 1 ? "gagnés" : "gagné"}
+        {empty ? t("aucune situation", "no situations") : t(size.won > 1 ? "gagnés" : "gagné", "won")}
       </span>
     </button>
   );
@@ -314,14 +336,17 @@ function ClutchRow({ entry, onOpenRound }: { entry: ClutchEntry; onOpenRound?: (
       </span>
       <div className="stack duel-grow" style={{ gap: 2 }}>
         <strong className="ellipsis">
-          {entry.mapName ?? "Map inconnue"}, round {entry.round}
+          {entry.mapName ?? t("Map inconnue", "Unknown map")}, round {entry.round}
         </strong>
         <span className="faint ellipsis" style={{ fontSize: 12 }}>
-          {fullDate(entry.startedAt)}, {entry.kills} {entry.kills > 1 ? "kills" : "kill"} dans le round
+          {t(
+            `${fullDate(entry.startedAt)}, ${entry.kills} ${entry.kills > 1 ? "kills" : "kill"} dans le round`,
+            `${fullDate(entry.startedAt)}, ${en(entry.kills, "kill", "kills")} in the round`,
+          )}
         </span>
       </div>
       <span className="duel-pill">1v{entry.enemies}</span>
-      <span className={`duel-result ${entry.won ? "is-win" : "is-loss"}`}>{entry.won ? "Gagné" : "Perdu"}</span>
+      <span className={`duel-result ${entry.won ? "is-win" : "is-loss"}`}>{entry.won ? t("Gagné", "Won") : t("Perdu", "Lost")}</span>
     </>
   );
   return (
@@ -331,7 +356,10 @@ function ClutchRow({ entry, onOpenRound }: { entry: ClutchEntry; onOpenRound?: (
           type="button"
           className="duel-list-row duel-clutch-row"
           onClick={() => onOpenRound(entry.matchId, entry.roundIndex)}
-          aria-label={`Ouvrir le round ${entry.round} sur ${entry.mapName ?? "une map inconnue"}, 1v${entry.enemies} ${entry.won ? "gagné" : "perdu"}`}
+          aria-label={t(
+            `Ouvrir le round ${entry.round} sur ${entry.mapName ?? "une map inconnue"}, 1v${entry.enemies} ${entry.won ? "gagné" : "perdu"}`,
+            `Open round ${entry.round} on ${entry.mapName ?? "an unknown map"}, 1v${entry.enemies} ${entry.won ? "won" : "lost"}`,
+          )}
         >
           {body}
         </button>
@@ -359,35 +387,35 @@ function MatchupSection({ matchups }: { matchups: Matchup[] }) {
   return (
     <section className="stack" style={{ gap: 20 }}>
       <div className="row between wrap" style={{ alignItems: "center" }}>
-        <h2 className="section-title">Face à chaque agent</h2>
+        <h2 className="section-title">{t("Face à chaque agent", "Against each agent")}</h2>
         {matchups.length > 1 && (
-          <div className="segmented" role="group" aria-label="Trier par">
+          <div className="segmented" role="group" aria-label={t("Trier par", "Sort by")}>
             <button type="button" className={sort === "matches" ? "active" : ""} onClick={() => setSort("matches")}>
-              Rencontres
+              {t("Rencontres", "Encounters")}
             </button>
             <button type="button" className={sort === "rate" ? "active" : ""} onClick={() => setSort("rate")}>
-              Duels gagnés
+              {t("Duels gagnés", "Duels won")}
             </button>
           </div>
         )}
       </div>
       {matchups.length === 0 ? (
-        <div className="empty">Aucun agent ennemi rencontré sur cette période.</div>
+        <div className="empty">{t("Aucun agent ennemi rencontré sur cette période.", "No enemy agents faced in this period.")}</div>
       ) : (
         <div className="duel-table">
           <div className="duel-matchup head" aria-hidden="true">
             <span />
             <span>Agent</span>
-            <span className="duel-num">Matchs</span>
-            <span className="duel-num duel-kd">Kills / morts</span>
-            <span>Duels gagnés</span>
+            <span className="duel-num">{t("Matchs", "Matches")}</span>
+            <span className="duel-num duel-kd">{t("Kills / morts", "Kills / deaths")}</span>
+            <span>{t("Duels gagnés", "Duels won")}</span>
           </div>
           {shown.map((matchup) => (
             <MatchupRow key={matchup.agentId} matchup={matchup} />
           ))}
           {sorted.length > MATCHUP_PREVIEW && (
             <button type="button" className="btn btn-secondary duel-more" onClick={() => setExpanded((value) => !value)}>
-              {expanded ? "Afficher moins" : `Afficher les ${sorted.length} agents`}
+              {expanded ? t("Afficher moins", "Show less") : t(`Afficher les ${sorted.length} agents`, `Show all ${sorted.length} agents`)}
             </button>
           )}
         </div>
@@ -417,9 +445,12 @@ function MatchupRow({ matchup }: { matchup: Matchup }) {
         <Split
           kills={matchup.kills}
           deaths={matchup.deaths}
-          label={`Contre ${matchup.agentName} : ${matchup.kills} kills, ${matchup.deaths} morts`}
+          label={t(
+            `Contre ${matchup.agentName} : ${matchup.kills} kills, ${matchup.deaths} morts`,
+            `Against ${matchup.agentName}: ${en(matchup.kills, "kill", "kills")}, ${en(matchup.deaths, "death", "deaths")}`,
+          )}
         />
-        <strong className={duels === 0 ? "faint" : matchup.winRate >= 50 ? "good" : "bad"}>{duels === 0 ? "0 duel" : pct(matchup.winRate, 0)}</strong>
+        <strong className={duels === 0 ? "faint" : matchup.winRate >= 50 ? "good" : "bad"}>{duels === 0 ? t("0 duel", "0 duels") : pct(matchup.winRate, 0)}</strong>
       </div>
     </div>
   );
@@ -430,9 +461,14 @@ function DistanceSection({ buckets }: { buckets: DistanceBucket[] }) {
   const max = Math.max(1, ...buckets.map((bucket) => bucket.kills + bucket.deaths));
   return (
     <section className="stack" style={{ gap: 20 }}>
-      <SectionHead title="Distance des duels" note={total > 0 ? `${fmt(total)} duels avec positions connues` : undefined} />
+      <SectionHead
+        title={t("Distance des duels", "Duel distance")}
+        note={total > 0 ? t(`${fmt(total)} duels avec positions connues`, `${fmt(total)} ${total === 1 ? "duel" : "duels"} with known positions`) : undefined}
+      />
       {total === 0 ? (
-        <div className="empty">Pas assez de positions enregistrées pour mesurer la distance de tes duels.</div>
+        <div className="empty">
+          {t("Pas assez de positions enregistrées pour mesurer la distance de tes duels.", "Not enough positions recorded to measure your duel distance.")}
+        </div>
       ) : (
         <div className="duel-distances">
           {buckets.map((bucket) => {
@@ -442,17 +478,17 @@ function DistanceSection({ buckets }: { buckets: DistanceBucket[] }) {
                 <div className="stack" style={{ gap: 2 }}>
                   <strong style={{ fontSize: 15 }}>{bucket.label}</strong>
                   <span className="faint" style={{ fontSize: 12 }}>
-                    {pct((count * 100) / total, 0)} de tes duels
+                    {t(`${pct((count * 100) / total, 0)} de tes duels`, `${pct((count * 100) / total, 0)} of your duels`)}
                   </span>
                 </div>
                 <div className="stack" style={{ gap: 6, minWidth: 0 }}>
                   <div style={{ width: `${Math.max((count / max) * 100, 8)}%` }}>
-                    <Split kills={bucket.kills} deaths={bucket.deaths} label={`${bucket.label} : ${bucket.kills} gagnés, ${bucket.deaths} perdus`} />
+                    <Split kills={bucket.kills} deaths={bucket.deaths} label={t(`${bucket.label} : ${bucket.kills} gagnés, ${bucket.deaths} perdus`, `${bucket.label}: ${bucket.kills} won, ${bucket.deaths} lost`)} />
                   </div>
                   <span style={{ fontSize: 13 }}>
-                    <span className="good">{bucket.kills} gagnés</span>
+                    <span className="good">{t(`${bucket.kills} gagnés`, `${bucket.kills} won`)}</span>
                     <span className="faint">, </span>
-                    <span className="bad">{bucket.deaths} perdus</span>
+                    <span className="bad">{t(`${bucket.deaths} perdus`, `${bucket.deaths} lost`)}</span>
                   </span>
                 </div>
                 <span className={`duel-distance-rate ${count === 0 ? "faint" : bucket.winRate >= 50 ? "good" : "bad"}`}>
@@ -470,23 +506,23 @@ function DistanceSection({ buckets }: { buckets: DistanceBucket[] }) {
 function RivalSection({ nemeses, victims }: { nemeses: Rival[]; victims: Rival[] }) {
   return (
     <section className="stack" style={{ gap: 20 }}>
-      <SectionHead title="Rivaux" note="Joueurs ennemis, au moins 3 kills" />
+      <SectionHead title={t("Rivaux", "Rivals")} note={t("Joueurs ennemis, au moins 3 kills", "Enemy players, at least 3 kills")} />
       <div className="duel-rivals">
         <RivalList
-          title="Ils te tuent le plus"
+          title={t("Ils te tuent le plus", "They kill you the most")}
           rivals={nemeses}
           tone="bad"
           main={(rival) => rival.killedMe}
-          other={(rival) => `tu l'as tué ${rival.killedByMe} fois`}
-          empty="Aucun joueur ne t'a tué au moins 3 fois sur cette période."
+          other={(rival) => t(`tu l'as tué ${rival.killedByMe} fois`, `you killed them ${en(rival.killedByMe, "time", "times")}`)}
+          empty={t("Aucun joueur ne t'a tué au moins 3 fois sur cette période.", "No player killed you at least 3 times in this period.")}
         />
         <RivalList
-          title="Tes victimes favorites"
+          title={t("Tes victimes favorites", "Your favorite victims")}
           rivals={victims}
           tone="good"
           main={(rival) => rival.killedByMe}
-          other={(rival) => `il t'a tué ${rival.killedMe} fois`}
-          empty="Tu n'as tué aucun joueur au moins 3 fois sur cette période."
+          other={(rival) => t(`il t'a tué ${rival.killedMe} fois`, `they killed you ${en(rival.killedMe, "time", "times")}`)}
+          empty={t("Tu n'as tué aucun joueur au moins 3 fois sur cette période.", "You didn't kill any player at least 3 times in this period.")}
         />
       </div>
     </section>
@@ -538,16 +574,16 @@ function RivalList({
               <RivalFace rival={rival} />
               <div className="stack duel-grow" style={{ gap: 2 }}>
                 <span className="ellipsis">
-                  <strong>{rival.name || "Inconnu"}</strong>
+                  <strong>{rival.name || t("Inconnu", "Unknown")}</strong>
                   {rival.tag && <span className="faint">#{rival.tag}</span>}
                 </span>
                 <span className="faint ellipsis" style={{ fontSize: 12 }}>
-                  {other(rival)}, {rival.matches} {rival.matches > 1 ? "matchs" : "match"}
+                  {other(rival)}, {t(`${rival.matches} ${rival.matches > 1 ? "matchs" : "match"}`, en(rival.matches, "match", "matches"))}
                 </span>
               </div>
               <span className={`duel-rival-count ${tone}`}>
                 {main(rival)}
-                <small> kills</small>
+                <small> {t("kills", main(rival) === 1 ? "kill" : "kills")}</small>
               </span>
             </li>
           ))}

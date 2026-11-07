@@ -5,6 +5,7 @@ import { SeasonPicker } from "../components/SeasonPicker";
 import type { Account, GameSummary, RrPoint } from "../lib/api";
 import { seasonLabel, tierNameById } from "../lib/assets";
 import { fmt, fullDate, pct, signed, tradeWindowText } from "../lib/format";
+import { locale, t } from "../lib/i18n";
 import { useQuery } from "../lib/query";
 import { defaultSeason, queries } from "../lib/queries";
 
@@ -31,32 +32,33 @@ export function Progression({ account }: Props) {
   const projection = useMemo(() => project(data?.rr ?? [], games), [data, games]);
   const tilt = useMemo(() => tiltOf(games), [games]);
   const records = useMemo(() => recordsOf(games, data?.rr ?? []), [games, data]);
+  const ranked = (data?.rr ?? []).filter((point) => (point.tier ?? 0) >= 3).length;
 
   return (
     <div className="content">
       <div className="stack">
-        <span className="eyebrow">{season ? seasonLabel(season) : "Toutes les saisons"}</span>
+        <span className="eyebrow">{season ? seasonLabel(season) : t("Toutes les saisons", "All seasons")}</span>
         <h1 className="title">Progression</h1>
       </div>
 
       <div className="row between wrap" style={{ gap: 12 }}>
         <SeasonPicker puuid={account.puuid} value={season} onChange={setSeason} />
         {season !== undefined && (
-          <ExportRecapButton kind="act" account={account} season={season} label={season ? "Exporter le récap de l'acte" : "Exporter le récap de l'acte en cours"} />
+          <ExportRecapButton kind="act" account={account} season={season} label={season ? t("Exporter le récap de l'acte", "Export Act recap") : t("Exporter le récap de l'acte en cours", "Export current Act recap")} />
         )}
       </div>
 
       {error && <p className="form-error">{error}</p>}
 
       {!data ? (
-        <div className="empty">Chargement de ta progression...</div>
+        <div className="empty">{t("Chargement de ta progression...", "Loading your progression...")}</div>
       ) : games.length === 0 ? (
-        <div className="empty">Aucun match compétitif synchronisé sur cette période.</div>
+        <div className="empty">{t("Aucun match compétitif synchronisé sur cette période.", "No competitive matches synced for this period.")}</div>
       ) : (
         <>
           <div className="stat-grid" style={{ alignItems: "start" }}>
             <div className="row" style={{ gap: 18 }}>
-              <svg width="140" height="84" viewBox="0 0 220 130" role="img" aria-label={`Forme ${form} sur 100`}>
+              <svg width="140" height="84" viewBox="0 0 220 130" role="img" aria-label={t(`Forme ${form} sur 100`, `Form ${form} out of 100`)}>
                 <path d="M20 118a90 90 0 0 1 180 0" fill="none" stroke="var(--field)" strokeWidth="14" strokeLinecap="round" />
                 <path
                   d="M20 118a90 90 0 0 1 180 0"
@@ -71,8 +73,10 @@ export function Progression({ account }: Props) {
                 </text>
               </svg>
               <div className="stack" style={{ gap: 4 }}>
-                <strong style={{ fontSize: 17 }}>Forme</strong>
-                <span className="hint">Moyenne de tes {recent.length} derniers scores sur 100.</span>
+                <strong style={{ fontSize: 17 }}>{t("Forme", "Form")}</strong>
+                <span className="hint">
+                  {t(`Moyenne de tes ${recent.length} derniers scores sur 100.`, `Average of your last ${recent.length === 1 ? "score" : `${recent.length} scores`} out of 100.`)}
+                </span>
               </div>
             </div>
 
@@ -84,13 +88,14 @@ export function Progression({ account }: Props) {
                 <>
                   <span className={`head-value ${projection.perGame >= 0 ? "good" : "bad"}`}>{signed(projection.perGame, 1)} RR</span>
                   <span className="hint">
-                    par game à ce rythme. +{fmt(projection.avgWin, 1)} par victoire, -{fmt(projection.avgLoss, 1)} par défaite,{" "}
-                    {pct(projection.winRate * 100)} de victoires. Il faut {pct(projection.breakeven * 100, 0)} de victoires pour ne pas
-                    perdre de RR.
+                    {t(
+                      `par game à ce rythme. +${fmt(projection.avgWin, 1)} par victoire, -${fmt(projection.avgLoss, 1)} par défaite, ${pct(projection.winRate * 100)} de victoires. Il faut ${pct(projection.breakeven * 100, 0)} de victoires pour ne pas perdre de RR.`,
+                      `per game at this pace. +${fmt(projection.avgWin, 1)} per win, -${fmt(projection.avgLoss, 1)} per loss, ${pct(projection.winRate * 100)} win rate. You need a ${pct(projection.breakeven * 100, 0)} win rate to not lose RR.`,
+                    )}
                   </span>
                 </>
               ) : (
-                <span className="hint">Pas assez de matchs classés pour une projection.</span>
+                <span className="hint">{t("Pas assez de matchs classés pour une projection.", "Not enough ranked matches for a projection.")}</span>
               )}
             </div>
 
@@ -99,14 +104,20 @@ export function Progression({ account }: Props) {
                 Tilt
               </span>
               <span className={`head-value ${tilt.late && tilt.late.delta < -5 ? "bad" : ""}`}>
-                {tilt.late ? `${signed(tilt.late.delta, 0)} % d'ACS` : "Pas de données"}
+                {tilt.late ? t(`${signed(tilt.late.delta, 0)} % d'ACS`, `${signed(tilt.late.delta, 0)}% ACS`) : t("Pas de données", "No data")}
               </span>
               <span className="hint">
                 {tilt.late
-                  ? `après minuit : ${fmt(tilt.late.acs)} sur ${tilt.late.count} matchs, contre ${fmt(tilt.late.other)} avant. `
-                  : "Aucun match joué après minuit sur cette période. "}
+                  ? t(
+                      `après minuit : ${fmt(tilt.late.acs)} sur ${tilt.late.count} matchs, contre ${fmt(tilt.late.other)} avant. `,
+                      `after midnight: ${fmt(tilt.late.acs)} over ${tilt.late.count} ${tilt.late.count === 1 ? "match" : "matches"}, vs ${fmt(tilt.late.other)} before. `,
+                    )
+                  : t("Aucun match joué après minuit sur cette période. ", "No matches played after midnight in this period. ")}
                 {tilt.afterLosses
-                  ? `Après 2 défaites d'affilée : ${fmt(tilt.afterLosses.acs)} d'ACS contre ${fmt(tilt.afterLosses.other)}.`
+                  ? t(
+                      `Après 2 défaites d'affilée : ${fmt(tilt.afterLosses.acs)} d'ACS contre ${fmt(tilt.afterLosses.other)}.`,
+                      `After 2 losses in a row: ${fmt(tilt.afterLosses.acs)} ACS vs ${fmt(tilt.afterLosses.other)}.`,
+                    )
                   : ""}
               </span>
             </div>
@@ -116,7 +127,7 @@ export function Progression({ account }: Props) {
             <div className="row between wrap">
               <h2 className="section-title">RR</h2>
               <span className="faint" style={{ fontSize: 13 }}>
-                {data.rr.filter((point) => (point.tier ?? 0) >= 3).length} matchs classés
+                {t(`${ranked} matchs classés`, `${ranked} ranked ${ranked === 1 ? "match" : "matches"}`)}
               </span>
             </div>
             <RrChart points={data.rr} />
@@ -124,25 +135,28 @@ export function Progression({ account }: Props) {
 
           <div className="stat-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 40 }}>
             <BarChart
-              title="ACS par match"
+              title={t("ACS par match", "ACS per match")}
               average={fmt(average(recent.map((game) => game.acs)))}
               values={recent.map((game) => game.acs)}
               reference={data.lobbyAcs}
-              note={`Bleu au-dessus de la moyenne de tes lobbys (${fmt(data.lobbyAcs)})`}
+              note={t(`Bleu au-dessus de la moyenne de tes lobbys (${fmt(data.lobbyAcs)})`, `Blue above your lobby average (${fmt(data.lobbyAcs)})`)}
             />
             <BarChart
               title="Headshot"
               average={pct(average(recent.map((game) => game.hsPct)))}
               values={recent.map((game) => game.hsPct)}
               reference={data.lobbyHsPct}
-              note={`Orange sous la moyenne de tes lobbys (${pct(data.lobbyHsPct)})`}
+              note={t(`Orange sous la moyenne de tes lobbys (${pct(data.lobbyHsPct)})`, `Orange below your lobby average (${pct(data.lobbyHsPct)})`)}
             />
             <BarChart
-              title="Morts tradées"
+              title={t("Morts tradées", "Traded deaths")}
               average={pct(tradedPct(recent), 0)}
               values={recent.map((game) => (game.deaths ? (game.traded * 100) / game.deaths : 0))}
               reference={tradedPct(recent)}
-              note={`Part de tes morts vengées ${tradeWindowText(tradeWindow)}, comparée à ta moyenne`}
+              note={t(
+                `Part de tes morts vengées ${tradeWindowText(tradeWindow)}, comparée à ta moyenne`,
+                `Share of your deaths traded ${tradeWindowText(tradeWindow)}, compared to your average`,
+              )}
             />
           </div>
 
@@ -219,10 +233,14 @@ function recordsOf(games: GameSummary[], rr: RrPoint[]) {
   });
   const peak = [...rr].filter((point) => (point.tier ?? 0) >= 3).sort((a, b) => value(b) - value(a))[0];
   return [
-    byKills && { label: "Meilleure game", value: `${byKills.kills} kills`, sub: `${byKills.mapName ?? ""}, ${fullDate(byKills.startedAt)}` },
-    byAcs && { label: "Meilleur ACS", value: fmt(byAcs.acs), sub: `${byAcs.mapName ?? ""}, ${fullDate(byAcs.startedAt)}` },
-    { label: "Série de victoires", value: `${best} d'affilée`, sub: "la plus longue sur la période" },
-    peak && { label: "RR le plus haut", value: `${tierNameById(peak.tier)}, ${peak.rr ?? 0} RR`, sub: fullDate(peak.date) },
+    byKills && {
+      label: t("Meilleure game", "Best game"),
+      value: t(`${byKills.kills} kills`, `${byKills.kills} ${byKills.kills === 1 ? "kill" : "kills"}`),
+      sub: `${byKills.mapName ?? ""}, ${fullDate(byKills.startedAt)}`,
+    },
+    byAcs && { label: t("Meilleur ACS", "Best ACS"), value: fmt(byAcs.acs), sub: `${byAcs.mapName ?? ""}, ${fullDate(byAcs.startedAt)}` },
+    { label: t("Série de victoires", "Win streak"), value: t(`${best} d'affilée`, `${best} in a row`), sub: t("la plus longue sur la période", "longest in this period") },
+    peak && { label: t("RR le plus haut", "Peak RR"), value: `${tierNameById(peak.tier)}, ${peak.rr ?? 0} RR`, sub: fullDate(peak.date) },
   ].filter(Boolean) as { label: string; value: string; sub: string }[];
 }
 
@@ -305,7 +323,7 @@ function RrChart({ points }: { points: RrPoint[] }) {
     if (tipRef.current) setTipWidth(tipRef.current.offsetWidth);
   }, [index]);
 
-  if (!scale || !ready) return <span className="hint">Pas encore assez de matchs classés.</span>;
+  if (!scale || !ready) return <span className="hint">{t("Pas encore assez de matchs classés.", "Not enough ranked matches yet.")}</span>;
 
   const pick = (clientX: number) => {
     const rect = plotRef.current?.getBoundingClientRect();
@@ -338,14 +356,14 @@ function RrChart({ points }: { points: RrPoint[] }) {
   const change = point?.change ?? null;
   const first = new Date(valid[0].date);
   const last = new Date(valid[valid.length - 1].date);
-  const short = (date: Date) => date.toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
+  const short = (date: Date) => date.toLocaleDateString(locale(), { day: "numeric", month: "short" });
 
   return (
     <div className="stack" style={{ gap: 8 }}>
       <div
         className="rr-chart"
         tabIndex={0}
-        aria-label="Courbe de RR, flèches gauche et droite pour parcourir les matchs"
+        aria-label={t("Courbe de RR, flèches gauche et droite pour parcourir les matchs", "RR graph, left and right arrows to browse matches")}
         onKeyDown={onKeyDown}
         onBlur={() => setActive(null)}
       >
@@ -364,7 +382,7 @@ function RrChart({ points }: { points: RrPoint[] }) {
           onPointerLeave={() => setActive(null)}
         >
           {width > 0 && (
-            <svg viewBox={`0 0 ${width} ${CHART_HEIGHT}`} preserveAspectRatio="none" role="img" aria-label="Courbe de RR">
+            <svg viewBox={`0 0 ${width} ${CHART_HEIGHT}`} preserveAspectRatio="none" role="img" aria-label={t("Courbe de RR", "RR graph")}>
               {scale.ticks.map((tier) => (
                 <line key={tier} x1="0" x2={width} y1={scale.y(tier * 100)} y2={scale.y(tier * 100)} className="grid" />
               ))}

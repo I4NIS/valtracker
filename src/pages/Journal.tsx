@@ -5,6 +5,7 @@ import type { Account } from "../lib/api";
 import { agentIcon } from "../lib/assets";
 import { favoriteLabel, type FavoriteEntry, type FavoriteKind } from "../lib/favorites";
 import { fmt, fullDate, pct } from "../lib/format";
+import { t } from "../lib/i18n";
 import { firstLine, sameTag, type NoteEntry, type TagStat } from "../lib/journal";
 import { useQuery } from "../lib/query";
 import { queries } from "../lib/queries";
@@ -19,10 +20,12 @@ type View = "notes" | "favorites";
 
 const SMALL_SAMPLE = 3;
 
-const KIND_FILTERS: { id: FavoriteKind; label: string }[] = [
-  { id: "match", label: "Matchs" },
+const matchCount = (count: number) => t(`${count} ${count > 1 ? "matchs" : "match"}`, `${count} ${count === 1 ? "match" : "matches"}`);
+
+const kindFilters = (): { id: FavoriteKind; label: string }[] => [
+  { id: "match", label: t("Matchs", "Matches") },
   { id: "round", label: "Rounds" },
-  { id: "death", label: "Morts" },
+  { id: "death", label: t("Morts", "Deaths") },
 ];
 
 export function Journal({ account, onOpenMatch }: Props) {
@@ -31,16 +34,16 @@ export function Journal({ account, onOpenMatch }: Props) {
   return (
     <div className="content">
       <div className="stack">
-        <span className="eyebrow">Tes notes personnelles</span>
+        <span className="eyebrow">{t("Tes notes personnelles", "Your personal notes")}</span>
         <h1 className="title">Journal</h1>
         <p className="muted">
           {view === "notes"
-            ? "Tes notes et tags sur tes matchs, et tes résultats avec et sans chaque tag."
-            : "Les matchs, rounds et morts que tu as mis en favori."}
+            ? t("Tes notes et tags sur tes matchs, et tes résultats avec et sans chaque tag.", "Your notes and tags on your matches, and your results with and without each tag.")
+            : t("Les matchs, rounds et morts que tu as mis en favori.", "The matches, rounds and deaths you marked as favorites.")}
         </p>
       </div>
 
-      <div className="segmented" role="tablist" aria-label="Sections du journal" style={{ alignSelf: "flex-start" }}>
+      <div className="segmented" role="tablist" aria-label={t("Sections du journal", "Journal sections")} style={{ alignSelf: "flex-start" }}>
         <button type="button" role="tab" aria-selected={view === "notes"} className={view === "notes" ? "active" : undefined} onClick={() => setView("notes")}>
           Notes
         </button>
@@ -51,7 +54,7 @@ export function Journal({ account, onOpenMatch }: Props) {
           className={view === "favorites" ? "active" : undefined}
           onClick={() => setView("favorites")}
         >
-          Favoris
+          {t("Favoris", "Favorites")}
         </button>
       </div>
 
@@ -76,12 +79,17 @@ function FavoritesView({ account, onOpenMatch }: Pick<Props, "account" | "onOpen
   };
 
   if (query.error) return <p className="form-error">{query.error}</p>;
-  if (list === null) return <div className="empty">Chargement des favoris...</div>;
+  if (list === null) return <div className="empty">{t("Chargement des favoris...", "Loading favorites...")}</div>;
   if (list.length === 0) {
     return (
       <div className="empty journal-empty">
-        <strong>Aucun favori pour l'instant</strong>
-        <span>L'étoile du détail d'un match ajoute aux favoris le match entier, un round ou une de tes morts.</span>
+        <strong>{t("Aucun favori pour l'instant", "No favorites yet")}</strong>
+        <span>
+          {t(
+            "L'étoile du détail d'un match ajoute aux favoris le match entier, un round ou une de tes morts.",
+            "The star in a match's details adds the whole match, a round or one of your deaths to your favorites.",
+          )}
+        </span>
       </div>
     );
   }
@@ -89,11 +97,11 @@ function FavoritesView({ account, onOpenMatch }: Pick<Props, "account" | "onOpen
   return (
     <section className="stack" style={{ gap: 16 }}>
       <div className="row between wrap">
-        <div className="chips" role="group" aria-label="Filtrer les favoris">
+        <div className="chips" role="group" aria-label={t("Filtrer les favoris", "Filter favorites")}>
           <button type="button" className={`chip${kind === null ? " active" : ""}`} aria-pressed={kind === null} onClick={() => setKind(null)}>
-            Tous
+            {t("Tous", "All")}
           </button>
-          {KIND_FILTERS.map((item) => {
+          {kindFilters().map((item) => {
             const count = list.filter((entry) => entry.kind === item.id).length;
             if (count === 0) return null;
             return (
@@ -110,7 +118,7 @@ function FavoritesView({ account, onOpenMatch }: Pick<Props, "account" | "onOpen
           })}
         </div>
         <span className="faint" style={{ fontSize: 13 }}>
-          {visible.length} {visible.length > 1 ? "favoris" : "favori"}
+          {t(`${visible.length} ${visible.length > 1 ? "favoris" : "favori"}`, `${visible.length} ${visible.length === 1 ? "favorite" : "favorites"}`)}
         </span>
       </div>
       <div className="journal-list">
@@ -120,9 +128,9 @@ function FavoritesView({ account, onOpenMatch }: Pick<Props, "account" | "onOpen
               {agentIcon(entry.agentId) ? <img src={agentIcon(entry.agentId)} alt={entry.agentName ?? ""} /> : <span className="journal-row-icon" />}
               <span className="stack journal-row-main">
                 <span className="row wrap" style={{ gap: 4, columnGap: 10 }}>
-                  <strong>{entry.mapName ?? "Map inconnue"}</strong>
+                  <strong>{entry.mapName ?? t("Map inconnue", "Unknown map")}</strong>
                   <strong className={entry.won ? "win" : "bad"}>
-                    {entry.won ? "Victoire" : "Défaite"} {entry.roundsWon}-{entry.roundsLost}
+                    {entry.won ? t("Victoire", "Victory") : t("Défaite", "Defeat")} {entry.roundsWon}-{entry.roundsLost}
                   </strong>
                   <span className="faint" style={{ fontSize: 13 }}>
                     {fullDate(entry.startedAt)}
@@ -141,7 +149,7 @@ function FavoritesView({ account, onOpenMatch }: Pick<Props, "account" | "onOpen
             <FavoriteButton puuid={account.puuid} matchId={entry.matchId} kind={entry.kind} roundIndex={entry.roundIndex} />
           </div>
         ))}
-        {visible.length === 0 && <div className="empty">Aucun favori de ce type.</div>}
+        {visible.length === 0 && <div className="empty">{t("Aucun favori de ce type.", "No favorites of this type.")}</div>}
       </div>
     </section>
   );
@@ -171,13 +179,15 @@ function NotesView({ account, onOpenMatch }: Pick<Props, "account" | "onOpenMatc
       {error && <p className="form-error">{error}</p>}
 
       {notes === null ? (
-        <div className="empty">Chargement du journal...</div>
+        <div className="empty">{t("Chargement du journal...", "Loading the journal...")}</div>
       ) : notes.length === 0 ? (
         <div className="empty journal-empty">
-          <strong>Aucune note pour l'instant</strong>
+          <strong>{t("Aucune note pour l'instant", "No notes yet")}</strong>
           <span>
-            Ouvre un match depuis la page Matchs, puis l'onglet Note pour écrire ce que tu en retiens et ajouter des tags comme
-            Fatigué, En duo ou Nouvelle sensi. Tes statistiques par tag apparaîtront ici.
+            {t(
+              "Ouvre un match depuis la page Matchs, puis l'onglet Note pour écrire ce que tu en retiens et ajouter des tags comme Fatigué, En duo ou Nouvelle sensi. Tes statistiques par tag apparaîtront ici.",
+              "Open a match from the Matches page, then the Note tab to write down your takeaways and add tags like Tired, Duo or New sens. Your stats per tag will show up here.",
+            )}
           </span>
         </div>
       ) : (
@@ -185,15 +195,15 @@ function NotesView({ account, onOpenMatch }: Pick<Props, "account" | "onOpenMatc
           {tags.length > 0 && (
             <section className="stack" style={{ gap: 16 }}>
               <div className="row between wrap">
-                <h2 className="section-title">Tes tags</h2>
+                <h2 className="section-title">{t("Tes tags", "Your tags")}</h2>
                 <span className="journal-legend">
                   <span>
                     <i className="with" />
-                    Avec le tag
+                    {t("Avec le tag", "With the tag")}
                   </span>
                   <span>
                     <i className="without" />
-                    Sans le tag
+                    {t("Sans le tag", "Without the tag")}
                   </span>
                 </span>
               </div>
@@ -213,15 +223,15 @@ function NotesView({ account, onOpenMatch }: Pick<Props, "account" | "onOpenMatc
 
           <section className="stack" style={{ gap: 16 }}>
             <div className="row between wrap">
-              <h2 className="section-title">Matchs notés</h2>
+              <h2 className="section-title">{t("Matchs notés", "Noted matches")}</h2>
               <span className="faint" style={{ fontSize: 13 }}>
-                {visible.length} {visible.length > 1 ? "matchs" : "match"}
+                {matchCount(visible.length)}
               </span>
             </div>
             {tags.length > 0 && (
-              <div className="chips" role="group" aria-label="Filtrer par tag">
+              <div className="chips" role="group" aria-label={t("Filtrer par tag", "Filter by tag")}>
                 <button type="button" className={`chip${filter === null ? " active" : ""}`} aria-pressed={filter === null} onClick={() => setFilter(null)}>
-                  Tous
+                  {t("Tous", "All")}
                 </button>
                 {tags.map((stat) => {
                   const active = !!filter && sameTag(filter, stat.tag);
@@ -243,7 +253,7 @@ function NotesView({ account, onOpenMatch }: Pick<Props, "account" | "onOpenMatc
               {visible.map((entry) => (
                 <NoteRow key={entry.matchId} entry={entry} onOpen={() => onOpenMatch(entry.matchId)} />
               ))}
-              {visible.length === 0 && <div className="empty">Aucun match noté avec ce tag.</div>}
+              {visible.length === 0 && <div className="empty">{t("Aucun match noté avec ce tag.", "No noted matches with this tag.")}</div>}
             </div>
           </section>
         </>
@@ -260,14 +270,14 @@ function TagCard({ stat, maxAcs, active, onSelect }: { stat: TagStat; maxAcs: nu
         <div className="stack" style={{ gap: 2, minWidth: 0 }}>
           <strong className="journal-tag-name ellipsis">{stat.tag}</strong>
           <span className="faint" style={{ fontSize: 12 }}>
-            {stat.matches} {stat.matches > 1 ? "matchs" : "match"}
-            {stat.avgScore !== null ? `, score moyen ${fmt(stat.avgScore)}` : ""}
+            {matchCount(stat.matches)}
+            {stat.avgScore !== null ? t(`, score moyen ${fmt(stat.avgScore)}`, `, avg score ${fmt(stat.avgScore)}`) : ""}
           </span>
         </div>
-        {stat.matches < SMALL_SAMPLE && <span className="journal-sample">Peu de matchs</span>}
+        {stat.matches < SMALL_SAMPLE && <span className="journal-sample">{t("Peu de matchs", "Few matches")}</span>}
       </div>
       <Compare
-        label="Victoires"
+        label={t("Victoires", "Win rate")}
         withValue={stat.winRate}
         withoutValue={hasBaseline ? stat.withoutWinRate : null}
         max={100}
@@ -311,7 +321,7 @@ function Compare({
         <span className="journal-bar">
           {withoutValue !== null && <span className="without" style={{ width: width(withoutValue) }} />}
         </span>
-        <span className="muted">{withoutValue !== null ? format(withoutValue) : "Aucun"}</span>
+        <span className="muted">{withoutValue !== null ? format(withoutValue) : t("Aucun", "None")}</span>
       </div>
     </div>
   );
@@ -324,15 +334,15 @@ function NoteRow({ entry, onOpen }: { entry: NoteEntry; onOpen: () => void }) {
       {agentIcon(entry.agentId) ? <img src={agentIcon(entry.agentId)} alt={entry.agentName ?? ""} /> : <span className="journal-row-icon" />}
       <span className="stack journal-row-main">
         <span className="row wrap" style={{ gap: 4, columnGap: 10 }}>
-          <strong>{entry.mapName ?? "Map inconnue"}</strong>
+          <strong>{entry.mapName ?? t("Map inconnue", "Unknown map")}</strong>
           <strong className={entry.won ? "win" : "bad"}>
-            {entry.won ? "Victoire" : "Défaite"} {entry.roundsWon}-{entry.roundsLost}
+            {entry.won ? t("Victoire", "Victory") : t("Défaite", "Defeat")} {entry.roundsWon}-{entry.roundsLost}
           </strong>
           <span className="faint" style={{ fontSize: 13 }}>
             {fullDate(entry.startedAt)}
           </span>
         </span>
-        {line ? <span className="journal-row-note ellipsis">{line}</span> : <span className="faint journal-row-note">Pas de texte</span>}
+        {line ? <span className="journal-row-note ellipsis">{line}</span> : <span className="faint journal-row-note">{t("Pas de texte", "No text")}</span>}
         {entry.tags.length > 0 && (
           <span className="journal-row-tags">
             {entry.tags.map((tag) => (

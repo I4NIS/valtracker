@@ -5,6 +5,7 @@ import type { Account, HeatPoint, Heatmap } from "../lib/api";
 import { agentIcon, seasonLabel } from "../lib/assets";
 import { pct } from "../lib/format";
 import { rotatePoint, rotationStyle } from "../lib/minimap";
+import { t } from "../lib/i18n";
 import { useQuery } from "../lib/query";
 import { defaultSeason, queries } from "../lib/queries";
 
@@ -12,34 +13,34 @@ type Layer = HeatPoint["kind"];
 type Side = "all" | "attack" | "defense";
 type Phase = "all" | HeatPoint["phase"];
 
-const LAYERS: { id: Layer; label: string; unit: string; color: string }[] = [
-  { id: "death", label: "Mes morts", unit: "morts", color: "255, 138, 76" },
-  { id: "kill", label: "Mes kills", unit: "kills", color: "94, 168, 255" },
-  { id: "killer", label: "Mes tueurs", unit: "positions de tueurs", color: "233, 196, 106" },
+const layerOptions = (): { id: Layer; label: string; unit: string; color: string }[] => [
+  { id: "death", label: t("Mes morts", "My deaths"), unit: t("morts", "deaths"), color: "255, 138, 76" },
+  { id: "kill", label: t("Mes kills", "My kills"), unit: "kills", color: "94, 168, 255" },
+  { id: "killer", label: t("Mes tueurs", "My killers"), unit: t("positions de tueurs", "killer positions"), color: "233, 196, 106" },
 ];
 
-const SIDES: { id: Side; label: string }[] = [
-  { id: "all", label: "Tous les côtés" },
-  { id: "attack", label: "Attaque" },
-  { id: "defense", label: "Défense" },
+const sideOptions = (): { id: Side; label: string }[] => [
+  { id: "all", label: t("Tous les côtés", "Both sides") },
+  { id: "attack", label: t("Attaque", "Attack") },
+  { id: "defense", label: t("Défense", "Defense") },
 ];
 
-const PHASES: { id: Phase; label: string }[] = [
-  { id: "all", label: "Tout le round" },
-  { id: "early", label: "Début" },
-  { id: "mid", label: "Milieu" },
-  { id: "post", label: "Après le plant" },
+const phaseOptions = (): { id: Phase; label: string }[] => [
+  { id: "all", label: t("Tout le round", "Whole round") },
+  { id: "early", label: t("Début", "Early") },
+  { id: "mid", label: t("Milieu", "Mid") },
+  { id: "post", label: t("Après le plant", "Post-plant") },
 ];
 
 type Result = "all" | "win" | "loss";
 
-const RESULTS: { id: Result; label: string }[] = [
-  { id: "all", label: "Tous" },
-  { id: "win", label: "Victoires" },
-  { id: "loss", label: "Défaites" },
+const resultOptions = (): { id: Result; label: string }[] => [
+  { id: "all", label: t("Tous", "All") },
+  { id: "win", label: t("Victoires", "Wins") },
+  { id: "loss", label: t("Défaites", "Losses") },
 ];
 
-const matchCount = (count: number) => `${count} ${count > 1 ? "matchs" : "match"}`;
+const matchCount = (count: number) => t(`${count} ${count > 1 ? "matchs" : "match"}`, `${count} ${count === 1 ? "match" : "matches"}`);
 
 function summary(
   season: string | null | undefined,
@@ -48,10 +49,10 @@ function summary(
   result: Result,
   limit: number | null,
 ) {
-  const parts = [season ? seasonLabel(season) : "Toutes les saisons"];
-  parts.push(data?.agents.find((agent) => agent.id === agentId)?.name ?? "tous les agents");
-  if (result !== "all") parts.push(result === "win" ? "victoires" : "défaites");
-  parts.push(limit ? `${limit} derniers matchs` : "tous les matchs");
+  const parts = [season ? seasonLabel(season) : t("Toutes les saisons", "All seasons")];
+  parts.push(data?.agents.find((agent) => agent.id === agentId)?.name ?? t("tous les agents", "all agents"));
+  if (result !== "all") parts.push(result === "win" ? t("victoires", "wins") : t("défaites", "losses"));
+  parts.push(limit ? t(`${limit} derniers matchs`, `last ${limit === 1 ? "match" : `${limit} matches`}`) : t("tous les matchs", "all matches"));
   return parts.join(", ");
 }
 const clamp = (value: number) => Math.min(0.92, Math.max(0.08, value));
@@ -109,7 +110,8 @@ export function Heatmaps({ account }: Props) {
   const activeFilters = [agentId !== null, result !== "all", limit !== null].filter(Boolean).length;
   const available = data?.available ?? 0;
 
-  const style = LAYERS.find((item) => item.id === layer) ?? LAYERS[0];
+  const layers = layerOptions();
+  const style = layers.find((item) => item.id === layer) ?? layers[0];
   const rotation = data?.rotation ?? 0;
   const points = useMemo(
     () =>
@@ -164,14 +166,15 @@ export function Heatmaps({ account }: Props) {
           onClick={() => setAdvanced(!advanced)}
           aria-expanded={advanced}
         >
-          Filtres avancés{activeFilters > 0 ? ` (${activeFilters})` : ""}
+          {t("Filtres avancés", "Advanced filters")}
+          {activeFilters > 0 ? ` (${activeFilters})` : ""}
         </button>
       </div>
 
       {advanced && (
-        <section className="advanced-filters" aria-label="Filtres avancés">
+        <section className="advanced-filters" aria-label={t("Filtres avancés", "Advanced filters")}>
           <div className="filter-block">
-            <span className="label">Acte</span>
+            <span className="label">{t("Acte", "Act")}</span>
             <SeasonPicker
               puuid={account.puuid}
               value={season}
@@ -187,7 +190,7 @@ export function Heatmaps({ account }: Props) {
             <span className="label">Agent</span>
             <div className="chips" role="group" aria-label="Agent">
               <button type="button" className={`chip${agentId === null ? " active" : ""}`} onClick={() => setAgentId(null)}>
-                Tous les agents
+                {t("Tous les agents", "All agents")}
               </button>
               {data?.agents.map((agent) => (
                 <button
@@ -204,14 +207,17 @@ export function Heatmaps({ account }: Props) {
           </div>
           <div className="row wrap" style={{ gap: 24 }}>
             <div className="filter-block">
-              <span className="label">Résultat</span>
-              <Segmented label="Résultat" options={RESULTS} value={result} onChange={setResult} />
+              <span className="label">{t("Résultat", "Result")}</span>
+              <Segmented label={t("Résultat", "Result")} options={resultOptions()} value={result} onChange={setResult} />
             </div>
           </div>
           {available > 1 && (
             <div className="filter-block">
               <label className="label" htmlFor="heat-limit">
-                Matchs sur {mapName} pris en compte : {limitDraft === null ? `tous (${available})` : `les ${limitDraft} derniers`}
+                {t(
+                  `Matchs sur ${mapName} pris en compte : ${limitDraft === null ? `tous (${available})` : `les ${limitDraft} derniers`}`,
+                  `Matches on ${mapName} included: ${limitDraft === null ? `all (${available})` : `last ${limitDraft}`}`,
+                )}
               </label>
               <input
                 id="heat-limit"
@@ -229,7 +235,7 @@ export function Heatmaps({ account }: Props) {
           )}
           {activeFilters > 0 && (
             <button type="button" className="btn btn-secondary" style={{ alignSelf: "flex-start" }} onClick={resetAdvanced}>
-              Réinitialiser
+              {t("Réinitialiser", "Reset")}
             </button>
           )}
         </section>
@@ -238,7 +244,7 @@ export function Heatmaps({ account }: Props) {
       {error && <p className="form-error">{error}</p>}
 
       {data && data.maps.length === 0 ? (
-        <div className="empty">Aucun match synchronisé sur cette période.</div>
+        <div className="empty">{t("Aucun match synchronisé sur cette période.", "No matches synced for this period.")}</div>
       ) : (
         <>
           <div className="stack" style={{ gap: 16 }}>
@@ -260,15 +266,15 @@ export function Heatmaps({ account }: Props) {
               ))}
             </div>
             <div className="row wrap">
-              <Segmented label="Afficher" options={LAYERS} value={layer} onChange={setLayer} />
-              <Segmented label="Côté" options={SIDES} value={side} onChange={setSide} />
-              <Segmented label="Moment" options={PHASES} value={phase} onChange={setPhase} />
+              <Segmented label={t("Afficher", "Show")} options={layers} value={layer} onChange={setLayer} />
+              <Segmented label={t("Côté", "Side")} options={sideOptions()} value={side} onChange={setSide} />
+              <Segmented label={t("Moment", "Timing")} options={phaseOptions()} value={phase} onChange={setPhase} />
             </div>
           </div>
 
           <div className="review">
             <div className={`minimap${zone ? " has-focus" : ""}`}>
-              {data?.minimap && <img src={data.minimap} alt={`Minimap de ${mapName}`} style={rotationStyle(rotation)} />}
+              {data?.minimap && <img src={data.minimap} alt={t(`Minimap de ${mapName}`, `${mapName} minimap`)} style={rotationStyle(rotation)} />}
               {points.map((point, i) => (
                 <span
                   key={`b${i}`}
@@ -292,17 +298,19 @@ export function Heatmaps({ account }: Props) {
                   {zone}
                 </span>
               )}
-              {data && !data.minimap && <span className="minimap-empty">Minimap indisponible, relance une synchro</span>}
+              {data && !data.minimap && <span className="minimap-empty">{t("Minimap indisponible, relance une synchro", "Minimap unavailable, run a sync again")}</span>}
             </div>
 
             <div className="stack" style={{ gap: 24 }}>
               <div className="stack" style={{ gap: 4 }}>
                 <span className="big-number">{points.length}</span>
-                <span className="muted">{style.unit} avec ces filtres</span>
+                <span className="muted">{t(`${style.unit} avec ces filtres`, `${style.unit} with these filters`)}</span>
               </div>
               <div className="stack" style={{ gap: 4 }}>
-                <span style={{ fontSize: 17, fontWeight: 700, letterSpacing: "-0.02em", paddingBottom: 6 }}>Par zone</span>
-                {zones.length === 0 && <span className="faint">Rien à afficher avec ces filtres.</span>}
+                <span style={{ fontSize: 17, fontWeight: 700, letterSpacing: "-0.02em", paddingBottom: 6 }}>
+                  {t("Par zone", "By zone")}
+                </span>
+                {zones.length === 0 && <span className="faint">{t("Rien à afficher avec ces filtres.", "Nothing to show with these filters.")}</span>}
                 {zones.map(([name, count]) => (
                   <button
                     type="button"
@@ -324,7 +332,10 @@ export function Heatmaps({ account }: Props) {
                 ))}
               </div>
               <span className="faint" style={{ fontSize: 12 }}>
-                Zones nommées d'après les callouts officiels de la map. Clique sur une zone pour la mettre en avant.
+                {t(
+                  "Zones nommées d'après les callouts officiels de la map. Clique sur une zone pour la mettre en avant.",
+                  "Zones are named after the map's official callouts. Click a zone to highlight it.",
+                )}
               </span>
             </div>
           </div>
