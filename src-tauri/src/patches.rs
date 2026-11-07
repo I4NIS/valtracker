@@ -15,7 +15,9 @@ use crate::state::AppState;
 
 pub const NOTES_SETTING: &str = "patch_notes";
 const REFRESH_SECS: i64 = 24 * 60 * 60;
+const RETRY_SECS: i64 = 60 * 60;
 const COMPETITIVE: &str = "competitive";
+const PATCH_CATEGORY: &str = "patch_notes";
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Note {
@@ -99,6 +101,10 @@ fn parse_notes(data: &Value) -> Vec<Note> {
     for item in data.as_array().map(Vec::as_slice).unwrap_or_default() {
         let title = item.get("title").and_then(Value::as_str).unwrap_or_default();
         let date = item.get("date").and_then(Value::as_str).unwrap_or_default();
+        let category = item.get("category").and_then(Value::as_str).unwrap_or(PATCH_CATEGORY);
+        if category != PATCH_CATEGORY || !title.contains("VAL") {
+            continue;
+        }
         let Some(version) = version_of(title).filter(|_| !date.is_empty()) else {
             continue;
         };
@@ -122,7 +128,10 @@ pub fn notes(conn: &Connection) -> Vec<Note> {
 }
 
 fn due(conn: &Connection, locale: &str, at: i64) -> bool {
-    cache(conn).is_none_or(|cache| cache.locale != locale || at - cache.checked_at >= REFRESH_SECS || at < cache.checked_at)
+    cache(conn).is_none_or(|cache| {
+        let wait = if cache.notes.is_empty() { RETRY_SECS } else { REFRESH_SECS };
+        cache.locale != locale || at - cache.checked_at >= wait || at < cache.checked_at
+    })
 }
 
 pub async fn refresh(state: &AppState, api: &Henrik) -> AppResult<bool> {
@@ -131,7 +140,7 @@ pub async fn refresh(state: &AppState, api: &Henrik) -> AppResult<bool> {
     if !due(&*state.conn()?, locale, at) {
         return Ok(false);
     }
-    let fetched = api.website(locale, "patch_notes").await;
+    let fetched = api.website(locale).await;
     let conn = state.conn()?;
     let previous = notes(&conn);
     let list = match &fetched {
@@ -263,6 +272,25 @@ mod tests {
         let notes = parse_notes(&data);
         let found: Vec<(&str, &str)> = notes.iter().map(|note| (note.version.as_str(), note.date.as_str())).collect();
         assert_eq!(found, [("11.07", "2025-09-23T17:00:00.000Z"), ("11.08", "2025-10-07T17:00:00.000Z")]);
+    }
+
+    #[test]
+    fn keeps_only_valorant_patch_notes() {
+        let data = json!([
+            { "category": "patch_notes", "title": "Notes de patch 13.09 VALORANT", "date": "2026-10-27T13:00:00Z" },
+            { "category": "patch_notes", "title": "Notes de patch 12.01 de VAL", "date": "2026-01-20T14:00:00Z" },
+            { "category": "patch_notes", "title": "Wild Rift Patch Notes 6.3", "date": "2025-10-22T09:00:00Z" },
+            { "category": "patch_notes", "title": "Notes de patch 17.3 de TFT", "date": "2026-05-12T18:00:00Z" },
+            { "category": "patch_notes", "title": "Patch 25.21 Notes", "date": "2025-10-21T18:00:00Z" },
+            { "category": "game_updates", "title": "Deep Dive Into VALORANT 4.04 Changes", "date": "2022-03-03T16:00:00Z" },
+        ]);
+        let versions: Vec<String> = parse_notes(&data).into_iter().map(|note| note.version).collect();
+        assert_eq!(versions, ["12.01", "13.09"]);
+        let conn = Connection::open_in_memory().unwrap();
+        db::migrate(&conn).unwrap();
+        let empty = Cache { locale: "fr-fr".into(), checked_at: 0, notes: Vec::new() };
+        db::set_setting(&conn, NOTES_SETTING, &serde_json::to_string(&empty).unwrap()).unwrap();
+        assert!(!due(&conn, "fr-fr", RETRY_SECS - 1) && due(&conn, "fr-fr", RETRY_SECS));
     }
 
     #[test]

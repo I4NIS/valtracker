@@ -83,8 +83,8 @@ impl Henrik {
         self.fetch(&["v1", "crosshair", "generate"], &[("id", code.to_string())]).await
     }
 
-    pub async fn website(&self, locale: &str, category: &str) -> AppResult<Value> {
-        self.get(&["v1", "website", locale], &[("category", category.to_string())]).await
+    pub async fn website(&self, locale: &str) -> AppResult<Value> {
+        self.get(&["v1", "website", locale], &[]).await
     }
 
     async fn get(&self, segments: &[&str], query: &[(&str, String)]) -> AppResult<Value> {
