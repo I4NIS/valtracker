@@ -29,7 +29,7 @@ Application Windows de suivi de performances Valorant, qui montre tes défauts d
 
 ## Comptes et synchro
 - Plusieurs comptes Riot (Riot ID + région), clé API modifiable dans les paramètres.
-- Modes suivis : Compétitif et Premier.
+- Mode suivi : Compétitif uniquement. Le mode Premier n'est pas pris en compte.
 - Synchro au lancement, toutes les 10 min tant que l'app est ouverte, et par un bouton.
 - On ne garde que les matchs avec le détail complet (pas de stats résumées des vieux actes).
 
