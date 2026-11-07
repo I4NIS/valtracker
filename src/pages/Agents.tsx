@@ -419,7 +419,7 @@ function AgentDetail({ agent, info, mastery, puuid, season, onOpenMatch }: Detai
             label="K/D"
             value={fmt(agent.kd, 2)}
             tone={agent.kd >= 1 ? "" : "bad"}
-            sub={`${agent.kills} / ${agent.deaths} / ${agent.assists}`}
+            sub={`${fmt(agent.kills)} / ${fmt(agent.deaths)} / ${fmt(agent.assists)}`}
           />
           <BigStat label="ADR" value={fmt(agent.adr)} sub={t("dégâts par round", "damage per round")} />
           <BigStat label="Headshot" value={pct(agent.hsPct)} sub={t("des balles touchées", "of shots that hit")} />
@@ -449,14 +449,14 @@ function AgentDetail({ agent, info, mastery, puuid, season, onOpenMatch }: Detai
               <span className="label">{t("Premier kill du round", "First blood")}</span>
               <span className="agent-opening-value win">{fmt(agent.firstBloodsPerRound, 2)}</span>
               <span className="faint agent-opening-sub">
-                {t(`par round, ${agent.firstBloods} sur ${agent.rounds} rounds`, `per round, ${agent.firstBloods} in ${agent.rounds} rounds`)}
+                {t(`par round, ${fmt(agent.firstBloods)} sur ${fmt(agent.rounds)} rounds`, `per round, ${fmt(agent.firstBloods)} in ${fmt(agent.rounds)} rounds`)}
               </span>
             </div>
             <div className="stack" style={{ gap: 2 }}>
               <span className="label">{t("Première mort du round", "First death")}</span>
               <span className="agent-opening-value bad">{fmt(agent.firstDeathsPerRound, 2)}</span>
               <span className="faint agent-opening-sub">
-                {t(`par round, ${agent.firstDeaths} sur ${agent.rounds} rounds`, `per round, ${agent.firstDeaths} in ${agent.rounds} rounds`)}
+                {t(`par round, ${fmt(agent.firstDeaths)} sur ${fmt(agent.rounds)} rounds`, `per round, ${fmt(agent.firstDeaths)} in ${fmt(agent.rounds)} rounds`)}
               </span>
             </div>
           </div>

@@ -3,7 +3,7 @@ use serde_json::Value;
 use std::collections::HashMap;
 
 use crate::assets::MapData;
-use crate::i18n::{english, tr};
+use crate::i18n::{english, integer, tr};
 use crate::riot;
 use crate::thresholds::Thresholds;
 use crate::weapon_stats::{held_weapon_id, kill_weapon_id};
@@ -718,9 +718,9 @@ pub fn analyze(
         }
         if death.loadout >= thresholds.full_buy {
             death.flaws.push(if english {
-                format!("Full buy lost: {} credits", death.loadout)
+                format!("Full buy lost: {} credits", integer(death.loadout))
             } else {
-                format!("Full buy perdu : {} crédits", death.loadout)
+                format!("Full buy perdu : {} crédits", integer(death.loadout))
             });
         }
     }

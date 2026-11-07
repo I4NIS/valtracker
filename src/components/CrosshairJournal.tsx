@@ -246,7 +246,7 @@ function PeriodStats({ period, previous }: { period: CrosshairPeriod; previous: 
       <Stat
         label={t("Premiers duels gagnés", "First duels won")}
         value={period.firstDuelsWonPct !== null ? pct(period.firstDuelsWonPct, 0) : "-"}
-        sub={period.firstDuels > 0 ? t(`sur ${period.firstDuels}`, `of ${period.firstDuels}`) : undefined}
+        sub={period.firstDuels > 0 ? t(`sur ${fmt(period.firstDuels)}`, `of ${fmt(period.firstDuels)}`) : undefined}
         delta={diff(period.firstDuelsWonPct, previous?.firstDuelsWonPct)}
         format={points}
       />

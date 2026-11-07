@@ -44,3 +44,32 @@ pub fn decimal(value: f64, digits: usize) -> String {
     let text = format!("{value:.digits$}");
     if english() { text } else { text.replace('.', ",") }
 }
+
+pub fn integer(value: i64) -> String {
+    let digits = value.unsigned_abs().to_string();
+    let separator = if english() { ',' } else { '\u{202f}' };
+    let mut grouped = String::new();
+    for (index, digit) in digits.chars().enumerate() {
+        if index > 0 && (digits.len() - index) % 3 == 0 {
+            grouped.push(separator);
+        }
+        grouped.push(digit);
+    }
+    if value < 0 { format!("-{grouped}") } else { grouped }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn integer_groups_thousands_per_language() {
+        set("fr");
+        assert_eq!(integer(4000), "4\u{202f}000");
+        assert_eq!(integer(950), "950");
+        assert_eq!(integer(-12500), "-12\u{202f}500");
+        set("en");
+        assert_eq!(integer(4000), "4,000");
+        set("fr");
+    }
+}

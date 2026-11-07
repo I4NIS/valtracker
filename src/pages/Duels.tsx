@@ -304,7 +304,7 @@ function OpeningCard({ title, side }: { title: string; side: OpeningSide }) {
         </div>
       </div>
       <span className="faint" style={{ fontSize: 12 }}>
-        {t(`${side.rounds} rounds joués de ce côté`, `${en(side.rounds, "round", "rounds")} played on this side`)}
+        {t(`${side.rounds} round${side.rounds > 1 ? "s" : ""} joué${side.rounds > 1 ? "s" : ""} de ce côté`, `${en(side.rounds, "round", "rounds")} played on this side`)}
       </span>
     </div>
   );
@@ -641,12 +641,12 @@ function DistanceSection({ buckets }: { buckets: DistanceBucket[] }) {
                 </div>
                 <div className="stack" style={{ gap: 6, minWidth: 0 }}>
                   <div style={{ width: `${Math.max((count / max) * 100, 8)}%` }}>
-                    <Split kills={bucket.kills} deaths={bucket.deaths} label={t(`${bucket.label} : ${bucket.kills} gagnés, ${bucket.deaths} perdus`, `${bucket.label}: ${bucket.kills} won, ${bucket.deaths} lost`)} />
+                    <Split kills={bucket.kills} deaths={bucket.deaths} label={t(`${bucket.label} : ${fmt(bucket.kills)} gagnés, ${fmt(bucket.deaths)} perdus`, `${bucket.label}: ${fmt(bucket.kills)} won, ${fmt(bucket.deaths)} lost`)} />
                   </div>
                   <span style={{ fontSize: 13 }}>
-                    <span className="good">{t(`${bucket.kills} gagnés`, `${bucket.kills} won`)}</span>
+                    <span className="good">{t(`${fmt(bucket.kills)} gagnés`, `${fmt(bucket.kills)} won`)}</span>
                     <span className="faint">, </span>
-                    <span className="bad">{t(`${bucket.deaths} perdus`, `${bucket.deaths} lost`)}</span>
+                    <span className="bad">{t(`${fmt(bucket.deaths)} perdus`, `${fmt(bucket.deaths)} lost`)}</span>
                   </span>
                 </div>
                 <span className={`duel-distance-rate ${count === 0 ? "faint" : bucket.winRate >= 50 ? "good" : "bad"}`}>
