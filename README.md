@@ -29,6 +29,7 @@ Les trackers en ligne donnent des chiffres. Valtracker va plus loin sur un point
 
 **Statistiques**
 - Aperçu de l'acte ou global : rang, RR, ACS, dégâts par round, K/D, KAD, headshot, win rate.
+- Filtres sur l'accueil : map, agent, rôle, 7 ou 30 derniers jours, solo ou en groupe.
 - Comparaison de chaque statistique avec la moyenne de tes lobbys.
 - Tes défauts du moment sur tes 20 derniers matchs : morts non tradées, morts isolé, first deaths.
 
@@ -38,6 +39,7 @@ Les trackers en ligne donnent des chiffres. Valtracker va plus loin sur un point
 - Timeline des rounds avec l'économie des deux équipes.
 - Détail de chaque round : toutes les actions dans l'ordre, issue, cérémonie et économie des 10 joueurs.
 - Défauts détectés à chaque mort : mort non tradée, joueur isolé, first death, full buy perdu, même spot répété.
+- Seuils d'analyse réglables dans les paramètres : fenêtre de trade, distance d'isolement, full buy, morts au même spot.
 - Revue guidée : chaque mort rejouée sur la minimap avec la position de tous les joueurs.
 
 **Heatmaps**
@@ -74,12 +76,11 @@ Les trackers en ligne donnent des chiffres. Valtracker va plus loin sur un point
 - Export et import de la base locale depuis les paramètres.
 - Pages instantanées : les statistiques sont précalculées au lancement et après chaque synchro.
 - Recherche rapide avec Ctrl+K : pages, actions et matchs.
-- Plusieurs comptes Riot, thème sombre et clair.
+- Plusieurs comptes Riot, avec une vue combinée de tous tes comptes sur l'accueil et les matchs.
+- Thème sombre et clair.
 - Mises à jour proposées au lancement et installées en un clic.
 
 **À venir**
-- Seuils d'analyse réglables.
-- Filtres par map, agent, rôle et période sur l'accueil.
 - Version anglaise.
 
 ## Ce que Valtracker ne fait pas

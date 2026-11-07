@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CommandPalette, useCommandPaletteShortcut } from "./components/CommandPalette";
+import { PickAccount } from "./components/PickAccount";
 import { Shell, type Page, type SyncView, type TourTarget } from "./components/Shell";
 import { TitleBar } from "./components/TitleBar";
 import { Tour } from "./components/Tour";
 import { UpdateBanner } from "./components/UpdateBanner";
 import { listen } from "@tauri-apps/api/event";
 import { api, errorMessage, onSyncProgress, type Account, type Bootstrap, type Theme } from "./lib/api";
-import { prefetchAccount } from "./lib/queries";
+import { ALL_ACCOUNTS, prefetchAccount } from "./lib/queries";
 import { invalidate } from "./lib/query";
 import { Agents } from "./pages/Agents";
 import { Duels } from "./pages/Duels";
@@ -23,12 +24,15 @@ import { Weapons } from "./pages/Weapons";
 
 const IDLE: SyncView = { running: false, stage: "", newMatches: 0, error: null, lastSyncAt: null };
 
+const SINGLE_ACCOUNT_PAGES: Page[] = ["progress", "agents", "maps", "weapons", "duels", "heatmaps", "journal"];
+
 export default function App() {
   const [boot, setBoot] = useState<Bootstrap | null>(null);
   const [fatal, setFatal] = useState<string | null>(null);
   const [theme, setTheme] = useState<Theme>("dark");
   const [page, setPage] = useState<Page>("home");
   const [openMatch, setOpenMatch] = useState<string | null>(null);
+  const [openMatchOwner, setOpenMatchOwner] = useState<string | null>(null);
   const [openRound, setOpenRound] = useState<number | undefined>(undefined);
   const [openDeath, setOpenDeath] = useState(false);
   const [sync, setSync] = useState<SyncView>(IDLE);
@@ -64,10 +68,11 @@ export default function App() {
     setPage(next);
   };
 
-  const showMatch = (matchId: string, round?: number, death = false) => {
+  const showMatch = (matchId: string, round?: number, puuid?: string, death = false) => {
     setPage("matches");
     setOpenMatch(matchId);
     setOpenRound(round);
+    setOpenMatchOwner(puuid ?? null);
     setOpenDeath(death);
   };
 
@@ -99,19 +104,24 @@ export default function App() {
   }, []);
 
   const account: Account | null = boot?.accounts.find((item) => item.puuid === boot.activePuuid) ?? null;
+  const combined = boot !== null && boot.combined && boot.accounts.length > 1 ? boot.accounts : null;
+  const matchAccount = (combined && combined.find((item) => item.puuid === openMatchOwner)) || account;
+  const single = combined ? null : account;
 
   useEffect(() => {
-    if (account) prefetchAccount(account.puuid).catch(() => undefined);
-  }, [account?.puuid, refreshKey]);
+    if (combined) prefetchAccount(ALL_ACCOUNTS).catch(() => undefined);
+    else if (account) prefetchAccount(account.puuid).catch(() => undefined);
+  }, [account?.puuid, combined !== null, refreshKey]);
   const needsSetup = boot !== null && (!boot.hasApiKey || boot.accounts.length === 0);
 
   useEffect(() => {
     setSync((current) => ({ ...current, lastSyncAt: account?.lastSyncAt ?? null }));
   }, [account?.lastSyncAt]);
 
-  const runSync = useCallback(() => {
-    if (account) api.syncAccount(account.puuid).catch(() => undefined);
-  }, [account]);
+  const runSync = useCallback(async () => {
+    const targets = combined ?? (account ? [account] : []);
+    for (const target of targets) await api.syncAccount(target.puuid).catch(() => undefined);
+  }, [account, combined]);
 
   useEffect(() => {
     if (!boot || needsSetup || launched.current || !account) return;
@@ -150,6 +160,12 @@ export default function App() {
     if (active && activePuuid) api.syncAccount(active.puuid).catch(() => undefined);
   };
 
+  const showCombined = async () => {
+    await api.setCombinedView(true);
+    await load();
+    setRefreshKey((key) => key + 1);
+  };
+
   if (fatal) {
     return (
       <div className="window">
@@ -173,6 +189,7 @@ export default function App() {
         page={page}
         onNavigate={navigate}
         account={account}
+        combinedCount={combined?.length ?? 0}
         theme={theme}
         onToggleTheme={() => changeTheme(theme === "dark" ? "light" : "dark")}
         sync={sync}
@@ -180,27 +197,34 @@ export default function App() {
         tourTarget={tourOpen ? tourTarget : null}
         onSearch={() => setPaletteOpen(true)}
       >
-        {page === "home" && account && <Home account={account} refreshKey={refreshKey} onOpenMatch={showMatch} />}
-        {page === "matches" && account && !openMatch && <Matches account={account} refreshKey={refreshKey} onOpen={showMatch} />}
-        {page === "heatmaps" && account && <Heatmaps account={account} refreshKey={refreshKey} />}
-        {page === "progress" && account && <Progression account={account} refreshKey={refreshKey} />}
-        {page === "agents" && account && <Agents account={account} refreshKey={refreshKey} />}
-        {page === "maps" && account && <Maps account={account} refreshKey={refreshKey} />}
-        {page === "weapons" && account && <Weapons account={account} refreshKey={refreshKey} onOpenRound={showMatch} />}
-        {page === "duels" && account && <Duels account={account} refreshKey={refreshKey} onOpenRound={showMatch} />}
-        {page === "journal" && account && <Journal account={account} refreshKey={refreshKey} onOpenMatch={showMatch} />}
-        {page === "matches" && account && openMatch && (
-          <MatchDetail account={account} matchId={openMatch} initialRound={openRound} initialDeath={openDeath} onBack={() => setOpenMatch(null)} />
+        {page === "home" && account && (
+          <Home account={account} accounts={combined} refreshKey={refreshKey} onOpenMatch={showMatch} />
+        )}
+        {page === "matches" && account && !openMatch && (
+          <Matches account={account} accounts={combined} refreshKey={refreshKey} onOpen={showMatch} />
+        )}
+        {combined && SINGLE_ACCOUNT_PAGES.includes(page) && <PickAccount accounts={combined} onPick={accountsChanged} />}
+        {single && page === "heatmaps" && <Heatmaps account={single} refreshKey={refreshKey} />}
+        {single && page === "progress" && <Progression account={single} refreshKey={refreshKey} />}
+        {single && page === "agents" && <Agents account={single} refreshKey={refreshKey} />}
+        {single && page === "maps" && <Maps account={single} refreshKey={refreshKey} />}
+        {single && page === "weapons" && <Weapons account={single} refreshKey={refreshKey} onOpenRound={showMatch} />}
+        {single && page === "duels" && <Duels account={single} refreshKey={refreshKey} onOpenRound={showMatch} />}
+        {single && page === "journal" && <Journal account={single} refreshKey={refreshKey} onOpenMatch={showMatch} />}
+        {page === "matches" && matchAccount && openMatch && (
+          <MatchDetail account={matchAccount} matchId={openMatch} initialRound={openRound} initialDeath={openDeath} onBack={() => setOpenMatch(null)} />
         )}
         {page === "settings" && (
           <Settings
             accounts={boot.accounts}
             activePuuid={boot.activePuuid}
+            combined={combined !== null}
             theme={theme}
             onTheme={changeTheme}
             notifyMatches={boot.notifyMatches}
             onNotifyMatches={changeNotify}
             onAccountsChanged={accountsChanged}
+            onCombined={showCombined}
             onReplayTour={() => setTourOpen(true)}
           />
         )}

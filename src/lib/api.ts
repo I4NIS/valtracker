@@ -28,6 +28,7 @@ export type Bootstrap = {
   language: string;
   tutorialDone: boolean;
   notifyMatches: boolean;
+  combined: boolean;
 };
 
 export type LobbyAverages = {
@@ -55,8 +56,28 @@ export type Overview = {
   lobby: LobbyAverages;
 };
 
+export type Party = "solo" | "group";
+
+export type OverviewFilters = {
+  season: string | null;
+  mapId: string | null;
+  agentId: string | null;
+  role: string | null;
+  days: number | null;
+  party: Party | null;
+};
+
+export type FilterOption = { id: string; name: string; matches: number };
+
+export type FilterOptions = {
+  maps: FilterOption[];
+  agents: FilterOption[];
+  roles: FilterOption[];
+};
+
 export type RecentMatch = {
   matchId: string;
+  puuid: string;
   startedAt: string;
   mapName: string | null;
   queue: string | null;
@@ -313,16 +334,30 @@ export type ImportCandidate = {
   matches: number;
 };
 
+export type Thresholds = {
+  tradeWindowMs: number;
+  isolationMeters: number;
+  fullBuy: number;
+  sameSpot: number;
+};
+
+export type ThresholdSettings = {
+  values: Thresholds;
+  defaults: Thresholds;
+};
+
 export const api = {
   bootstrap: () => invoke<Bootstrap>("bootstrap"),
   saveApiKey: (key: string) => invoke<void>("save_api_key", { key }),
   hasApiKey: () => invoke<boolean>("has_api_key"),
   addAccount: (riotId: string, region: string) => invoke<Account>("add_account", { riotId, region }),
   setActiveAccount: (puuid: string) => invoke<void>("set_active_account", { puuid }),
+  setCombinedView: (enabled: boolean) => invoke<void>("set_combined_view", { enabled }),
   removeAccount: (puuid: string) => invoke<void>("remove_account", { puuid }),
   listAccounts: () => invoke<Account[]>("list_accounts"),
   syncAccount: (puuid: string) => invoke<SyncReport>("sync_account", { puuid }),
-  getOverview: (puuid: string, season: string | null) => invoke<Overview>("get_overview", { puuid, season }),
+  getOverview: (puuid: string, filters: OverviewFilters) => invoke<Overview>("get_overview", { puuid, filters }),
+  getFilterOptions: (puuid: string) => invoke<FilterOptions>("get_filter_options", { puuid }),
   getRecentMatches: (puuid: string, limit = 10, offset = 0) =>
     invoke<RecentMatch[]>("get_recent_matches", { puuid, limit, offset }),
   getMatch: (puuid: string, matchId: string) => invoke<MatchDetail>("get_match", { puuid, matchId }),
@@ -335,6 +370,8 @@ export const api = {
   exportDatabase: (fileName: string) => invoke<string | null>("export_database", { fileName }),
   pickDatabaseImport: () => invoke<ImportCandidate | null>("pick_database_import"),
   importDatabase: (path: string) => invoke<void>("import_database", { path }),
+  getThresholds: () => invoke<ThresholdSettings>("get_thresholds"),
+  setThresholds: (thresholds: Thresholds) => invoke<ThresholdSettings>("set_thresholds", { thresholds }),
 };
 
 export function onSyncProgress(callback: (progress: SyncProgress) => void): Promise<UnlistenFn> {

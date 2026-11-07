@@ -102,13 +102,17 @@ pub fn encode(game: &Value) -> AppResult<Vec<u8>> {
     Ok(encoder.finish()?)
 }
 
-pub fn decode(bytes: &[u8]) -> Option<Value> {
+pub fn inflate(bytes: &[u8]) -> Option<Vec<u8>> {
     if bytes.first() == Some(&b'{') {
-        return serde_json::from_slice(bytes).ok();
+        return Some(bytes.to_vec());
     }
     let mut json = Vec::new();
     DeflateDecoder::new(bytes).read_to_end(&mut json).ok()?;
-    serde_json::from_slice(&json).ok()
+    Some(json)
+}
+
+pub fn decode(bytes: &[u8]) -> Option<Value> {
+    serde_json::from_slice(&inflate(bytes)?).ok()
 }
 
 pub fn load_game(conn: &Connection, match_id: &str) -> AppResult<Option<Value>> {

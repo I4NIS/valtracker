@@ -1,5 +1,5 @@
 import { getAgentStats } from "./agents";
-import { api, type HeatmapFilters } from "./api";
+import { api, type HeatmapFilters, type OverviewFilters } from "./api";
 import { getDuels } from "./duels";
 import { favorites } from "./favorites";
 import { journal } from "./journal";
@@ -11,9 +11,21 @@ type Season = string | null;
 
 const s = (season: Season) => season ?? "all";
 
+export const ALL_ACCOUNTS = "all";
+
+export const NO_FILTERS: OverviewFilters = { season: null, mapId: null, agentId: null, role: null, days: null, party: null };
+
+const filterKey = (filters: OverviewFilters) =>
+  [s(filters.season), filters.mapId, filters.agentId, filters.role, filters.days, filters.party].map((part) => part ?? "all").join("|");
+
 export const queries = {
+  thresholds: () => ({ key: "thresholds", fetch: () => api.getThresholds() }),
   seasons: (puuid: string) => ({ key: `seasons|${puuid}`, fetch: () => api.getSeasons(puuid) }),
-  overview: (puuid: string, season: Season) => ({ key: `overview|${puuid}|${s(season)}`, fetch: () => api.getOverview(puuid, season) }),
+  overview: (puuid: string, filters: OverviewFilters) => ({
+    key: `overview|${puuid}|${filterKey(filters)}`,
+    fetch: () => api.getOverview(puuid, filters),
+  }),
+  filterOptions: (puuid: string) => ({ key: `filterOptions|${puuid}`, fetch: () => api.getFilterOptions(puuid) }),
   recent: (puuid: string, limit: number, offset = 0) => ({
     key: `recent|${puuid}|${limit}|${offset}`,
     fetch: () => api.getRecentMatches(puuid, limit, offset),
@@ -51,9 +63,17 @@ export async function prefetchAccount(puuid: string) {
   await prefetch(queries.seasons(puuid));
   const current = defaultSeason(puuid) ?? null;
   const tasks: Query<unknown>[] = [
-    queries.overview(puuid, current),
+    queries.overview(puuid, { ...NO_FILTERS, season: current }),
+    queries.filterOptions(puuid),
     queries.recent(puuid, 10),
     queries.recent(puuid, 20),
+    ...(puuid === ALL_ACCOUNTS ? [] : accountOnly(puuid, current)),
+  ];
+  for (const task of tasks) await prefetch(task);
+}
+
+function accountOnly(puuid: string, current: Season): Query<unknown>[] {
+  return [
     queries.flaws(puuid),
     queries.progression(puuid, current),
     queries.notes(puuid),
@@ -64,5 +84,4 @@ export async function prefetchAccount(puuid: string) {
     queries.weapons(puuid, current),
     queries.duels(puuid, current),
   ];
-  for (const task of tasks) await prefetch(task);
 }

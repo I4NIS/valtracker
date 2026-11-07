@@ -1,19 +1,38 @@
 import "../styles/home.css";
 import { useEffect, useState } from "react";
 import { ExportRecapButton } from "../components/ExportRecap";
+import { FilterPill, type PillOption } from "../components/FilterPill";
+import { Icon } from "../components/Icon";
 import { MatchList } from "../components/MatchList";
 import { RankBadge } from "../components/RankBadge";
-import type { Account, RecentMatch } from "../lib/api";
-import { seasonLabel, tierLabel } from "../lib/assets";
-import { fmt, greeting, pct, signed, timeAgo } from "../lib/format";
+import type { Account, OverviewFilters, Party, RecentMatch } from "../lib/api";
+import { agentIcon, seasonLabel, tierLabel } from "../lib/assets";
+import { fmt, greeting, pct, roleLabel, signed, timeAgo, tradeWindowText } from "../lib/format";
 import { useQuery } from "../lib/query";
-import { defaultSeason, queries } from "../lib/queries";
+import { ALL_ACCOUNTS, defaultSeason, queries } from "../lib/queries";
 
 type Props = {
   account: Account;
   refreshKey: number;
-  onOpenMatch: (matchId: string) => void;
+  accounts: Account[] | null;
+  onOpenMatch: (matchId: string, round?: number, puuid?: string) => void;
 };
+
+type Extra = Omit<OverviewFilters, "season">;
+
+const NO_EXTRA: Extra = { mapId: null, agentId: null, role: null, days: null, party: null };
+
+const PERIODS: PillOption<number>[] = [
+  { value: 7, label: "7 derniers jours" },
+  { value: 30, label: "30 derniers jours" },
+];
+
+const PARTIES: PillOption<Party>[] = [
+  { value: "solo", label: "Solo" },
+  { value: "group", label: "En groupe" },
+];
+
+let remembered: { puuid: string; extra: Extra } | null = null;
 
 type BigStat = {
   label: string;
@@ -27,20 +46,35 @@ type BigStat = {
   lobbyText: string;
 };
 
-export function Home({ account, onOpenMatch }: Props) {
-  const [season, setSeason] = useState<string | null | undefined>(() => defaultSeason(account.puuid));
-  const seasonsQuery = useQuery(queries.seasons(account.puuid));
+export function Home({ account, accounts, onOpenMatch }: Props) {
+  const puuid = accounts ? ALL_ACCOUNTS : account.puuid;
+  const [season, setSeason] = useState<string | null | undefined>(() => defaultSeason(puuid));
+  const seasonsQuery = useQuery(queries.seasons(puuid));
   const seasons = seasonsQuery.data ?? [];
-  const overviewQuery = useQuery(season === undefined ? null : queries.overview(account.puuid, season));
-  const recent = useQuery(queries.recent(account.puuid, 10)).data ?? [];
-  const flaws = useQuery(queries.flaws(account.puuid)).data ?? null;
+  const [scope, setScope] = useState(puuid);
+  const [extra, setExtra] = useState<Extra>(() => (remembered?.puuid === puuid ? remembered.extra : NO_EXTRA));
+  if (scope !== puuid) {
+    setScope(puuid);
+    setSeason(defaultSeason(puuid));
+    setExtra(NO_EXTRA);
+  }
+  const options = useQuery(queries.filterOptions(puuid)).data ?? null;
+  const overviewQuery = useQuery(season === undefined ? null : queries.overview(puuid, { ...extra, season }));
+  const recent = useQuery(queries.recent(puuid, 10)).data ?? [];
+  const flaws = useQuery(accounts ? null : queries.flaws(puuid)).data ?? null;
+  const thresholds = useQuery(queries.thresholds()).data?.values;
   const overview = overviewQuery.data ?? null;
   const error = overviewQuery.error ?? seasonsQuery.error;
+
+  useEffect(() => {
+    remembered = { puuid, extra };
+  }, [puuid, extra]);
 
   useEffect(() => {
     if (season === undefined && seasonsQuery.data) setSeason(seasonsQuery.data[0]?.short ?? null);
   }, [season, seasonsQuery.data]);
 
+  const filtered = Object.values(extra).some((value) => value !== null);
   const rr = account.rr ?? 0;
   const stats: BigStat[] = overview
     ? [
@@ -97,42 +131,68 @@ export function Home({ account, onOpenMatch }: Props) {
     <div className="content">
       <div className="stack">
         <h1 className="title">
-          {greeting()}, {account.name}
+          {accounts ? "Tous les comptes" : `${greeting()}, ${account.name}`}
         </h1>
         <p className="muted">
-          {account.lastSyncAt ? `Dernière synchro ${timeAgo(account.lastSyncAt)}.` : "Première synchro en cours."}
+          {accounts
+            ? `Stats cumulées de tes ${accounts.length} comptes.`
+            : account.lastSyncAt
+              ? `Dernière synchro ${timeAgo(account.lastSyncAt)}.`
+              : "Première synchro en cours."}
         </p>
       </div>
 
       {error && <p className="form-error">{error}</p>}
 
       <div className="hero">
-        <div className="rank">
-          <RankBadge tier={account.tier} size={104} label={tierLabel(account.tierName)} />
-          <div className="stack" style={{ gap: 10, flexGrow: 1 }}>
-            <span className="rank-name">{tierLabel(account.tierName)}</span>
-            {account.tier ? (
-              <div className="row" style={{ maxWidth: 300 }}>
-                <div className="bar" style={{ flexGrow: 1 }}>
-                  <span style={{ width: `${Math.min(rr, 100)}%` }} />
+        {accounts ? (
+          <ul className="home-accounts" aria-label="Comptes">
+            {accounts.map((item) => (
+              <li key={item.puuid}>
+                <RankBadge tier={item.tier} size={44} label={tierLabel(item.tierName)} />
+                <span className="stack" style={{ gap: 0 }}>
+                  <strong>
+                    {item.name} <span className="faint">#{item.tag}</span>
+                  </strong>
+                  <span className="faint" style={{ fontSize: 13 }}>
+                    {tierLabel(item.tierName)}
+                    {item.tier ? `, ${item.rr ?? 0} RR` : ""}
+                  </span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <div className="rank">
+            <RankBadge tier={account.tier} size={104} label={tierLabel(account.tierName)} />
+            <div className="stack" style={{ gap: 10, flexGrow: 1 }}>
+              <span className="rank-name">{tierLabel(account.tierName)}</span>
+              {account.tier ? (
+                <div className="row" style={{ maxWidth: 300 }}>
+                  <div className="bar" style={{ flexGrow: 1 }}>
+                    <span style={{ width: `${Math.min(rr, 100)}%` }} />
+                  </div>
+                  <strong>{rr} RR</strong>
                 </div>
-                <strong>{rr} RR</strong>
-              </div>
-            ) : null}
-            {account.peakTierName && (
-              <span className="row muted" style={{ gap: 6, fontSize: 13 }}>
-                Peak
-                <RankBadge tier={account.peakTier} size={24} label={tierLabel(account.peakTierName)} />
-                {tierLabel(account.peakTierName)}
-              </span>
-            )}
+              ) : null}
+              {account.peakTierName && (
+                <span className="row muted" style={{ gap: 6, fontSize: 13 }}>
+                  Peak
+                  <RankBadge tier={account.peakTier} size={24} label={tierLabel(account.peakTierName)} />
+                  {tierLabel(account.peakTierName)}
+                </span>
+              )}
+            </div>
           </div>
-        </div>
+        )}
         {overview && overview.matches > 0 && (
           <div className="home-record">
             <WinRing wins={overview.wins} losses={overview.losses} winPct={overview.winPct} />
             <div className="stack" style={{ gap: 10 }}>
-              <span className="label">{season ? seasonLabel(season) : "Global"}</span>
+              <span className="label">
+                {season ? seasonLabel(season) : "Global"}
+                {filtered ? ", avec filtres" : ""}
+              </span>
               <span className="home-legend">
                 <i className="home-dot is-win" aria-hidden="true" />
                 {overview.wins} victoires
@@ -157,20 +217,20 @@ export function Home({ account, onOpenMatch }: Props) {
               <span className="faint" style={{ fontSize: 13 }}>
                 {recentWins} V {timeline.length - recentWins} D sur les {timeline.length} derniers
               </span>
-              <ExportRecapButton kind="session" account={account} label="Exporter ma dernière session" />
+              {!accounts && <ExportRecapButton kind="session" account={account} label="Exporter ma dernière session" />}
             </div>
           </div>
           <ul className="home-form" aria-label="Résultats des derniers matchs, du plus ancien au plus récent">
             {timeline.map((game) => {
               const text = matchText(game);
               return (
-                <li key={game.matchId}>
+                <li key={`${game.matchId}|${game.puuid}`}>
                   <button
                     type="button"
                     className={`home-form-cell ${game.won ? "is-win" : "is-loss"}`}
                     title={text}
                     aria-label={`${text}. Ouvrir le match`}
-                    onClick={() => onOpenMatch(game.matchId)}
+                    onClick={() => onOpenMatch(game.matchId, undefined, game.puuid)}
                   >
                     {game.won ? "V" : "D"}
                   </button>
@@ -182,20 +242,76 @@ export function Home({ account, onOpenMatch }: Props) {
       )}
 
       <section className="stack" style={{ gap: 20 }}>
-        <div className="chips" role="group" aria-label="Période">
-          {seasons.map((item) => (
-            <button
-              key={item.short}
-              type="button"
-              className={`chip${season === item.short ? " active" : ""}`}
-              onClick={() => setSeason(item.short)}
-            >
-              {seasonLabel(item.short)}
+        <div className="home-filters">
+          <div className="chips" role="group" aria-label="Acte">
+            {seasons.map((item) => (
+              <button
+                key={item.short}
+                type="button"
+                className={`chip${season === item.short ? " active" : ""}`}
+                onClick={() => setSeason(item.short)}
+              >
+                {seasonLabel(item.short)}
+              </button>
+            ))}
+            <button type="button" className={`chip${season === null ? " active" : ""}`} onClick={() => setSeason(null)}>
+              Global
             </button>
-          ))}
-          <button type="button" className={`chip${season === null ? " active" : ""}`} onClick={() => setSeason(null)}>
-            Global
-          </button>
+          </div>
+          <div className="chips" role="group" aria-label="Filtres">
+            {(options?.maps.length ?? 0) > 1 && (
+              <FilterPill
+                label="Map"
+                allLabel="Toutes les maps"
+                value={extra.mapId}
+                options={options!.maps.map((map) => ({ value: map.id, label: map.name, count: map.matches }))}
+                onChange={(mapId) => setExtra({ ...extra, mapId })}
+              />
+            )}
+            {(options?.agents.length ?? 0) > 1 && (
+              <FilterPill
+                label="Agent"
+                allLabel="Tous les agents"
+                value={extra.agentId}
+                options={options!.agents.map((agent) => ({
+                  value: agent.id,
+                  label: agent.name,
+                  count: agent.matches,
+                  image: agentIcon(agent.id),
+                }))}
+                onChange={(agentId) => setExtra({ ...extra, agentId })}
+              />
+            )}
+            {(options?.roles.length ?? 0) > 1 && (
+              <FilterPill
+                label="Rôle"
+                allLabel="Tous les rôles"
+                value={extra.role}
+                options={options!.roles.map((role) => ({ value: role.id, label: roleLabel(role.id), count: role.matches }))}
+                onChange={(role) => setExtra({ ...extra, role })}
+              />
+            )}
+            <FilterPill
+              label="Période"
+              allLabel="Tout"
+              value={extra.days}
+              options={PERIODS}
+              onChange={(days) => setExtra({ ...extra, days })}
+            />
+            <FilterPill
+              label="Solo ou en groupe"
+              allLabel="Solo et en groupe"
+              value={extra.party}
+              options={PARTIES}
+              onChange={(party) => setExtra({ ...extra, party })}
+            />
+            {filtered && (
+              <button type="button" className="chip filter-reset" onClick={() => setExtra(NO_EXTRA)}>
+                <Icon name="close" size={14} strokeWidth={2} />
+                Réinitialiser
+              </button>
+            )}
+          </div>
         </div>
 
         {overview && overview.matches > 0 ? (
@@ -230,7 +346,11 @@ export function Home({ account, onOpenMatch }: Props) {
           </>
         ) : (
           <div className="empty">
-            {overview ? "Aucun match compétitif synchronisé sur cette période pour l'instant." : "Chargement des statistiques..."}
+            {!overview
+              ? "Chargement des statistiques..."
+              : filtered
+                ? "Aucun match ne correspond à ces filtres."
+                : "Aucun match compétitif synchronisé sur cette période pour l'instant."}
           </div>
         )}
       </section>
@@ -248,13 +368,13 @@ export function Home({ account, onOpenMatch }: Props) {
               value={pct((flaws.untraded * 100) / flaws.deaths, 0)}
               ratio={flaws.untraded / flaws.deaths}
               title="de tes morts ne sont pas tradées"
-              detail={`${flaws.untraded} sur ${flaws.deaths} : personne n'a tué ton tueur dans les 3 secondes.`}
+              detail={`${flaws.untraded} sur ${flaws.deaths} : personne n'a tué ton tueur ${tradeWindowText(thresholds?.tradeWindowMs ?? 3000)}.`}
             />
             <FlawStat
               value={pct((flaws.isolated * 100) / flaws.deaths, 0)}
               ratio={flaws.isolated / flaws.deaths}
               title="de tes morts arrivent isolé"
-              detail={`${flaws.isolated} sur ${flaws.deaths}, sans coéquipier à moins de 15 m.`}
+              detail={`${flaws.isolated} sur ${flaws.deaths}, sans coéquipier à moins de ${fmt(thresholds?.isolationMeters ?? 15)} m.`}
             />
             <FlawStat
               value={flaws.firstDeaths ? `1 / ${Math.max(1, Math.round(flaws.rounds / flaws.firstDeaths))}` : "0"}
@@ -272,7 +392,7 @@ export function Home({ account, onOpenMatch }: Props) {
         {recent.length === 0 ? (
           <div className="empty">Tes matchs apparaîtront ici dès la fin de la synchro.</div>
         ) : (
-          <MatchList matches={recent} onOpen={onOpenMatch} />
+          <MatchList matches={recent} accounts={accounts} onOpen={(matchId, owner) => onOpenMatch(matchId, undefined, owner)} />
         )}
       </section>
     </div>

@@ -3,12 +3,9 @@ use serde_json::Value;
 use std::collections::HashMap;
 
 use crate::assets::MapData;
+use crate::thresholds::Thresholds;
 use crate::weapon_stats::{held_weapon_id, kill_weapon_id};
 
-const TRADE_WINDOW_MS: i64 = 3000;
-pub const ISOLATION_METERS: f64 = 15.0;
-const FULL_BUY: i64 = 3900;
-const SAME_SPOT: usize = 3;
 const UNITS_PER_METER: f64 = 100.0;
 const MIN_KILLS_FOR_HS_BADGE: i64 = 5;
 
@@ -293,7 +290,13 @@ impl Projector<'_> {
     }
 }
 
-pub fn analyze(game: &Value, puuid: &str, map: Option<&MapData>, roles: &HashMap<String, String>) -> Option<MatchDetail> {
+pub fn analyze(
+    game: &Value,
+    puuid: &str,
+    map: Option<&MapData>,
+    roles: &HashMap<String, String>,
+    thresholds: &Thresholds,
+) -> Option<MatchDetail> {
     let players = game.pointer("/players")?.as_array()?;
     let me = players.iter().find(|player| text(player, "/puuid") == Some(puuid))?;
     let my_team = text(me, "/team_id")?.to_string();
@@ -538,7 +541,7 @@ pub fn analyze(game: &Value, puuid: &str, map: Option<&MapData>, roles: &HashMap
                 let delta = int(other, "/time_in_round_in_ms") - time;
                 int(other, "/round") as usize == round
                     && text(other, "/victim/puuid") == Some(killer_id)
-                    && (0..=TRADE_WINDOW_MS).contains(&delta)
+                    && (0..=thresholds.trade_window_ms).contains(&delta)
             });
             let first_death = first_kills
                 .get(&(round as i64))
@@ -589,12 +592,12 @@ pub fn analyze(game: &Value, puuid: &str, map: Option<&MapData>, roles: &HashMap
     }
     for death in &mut deaths {
         if !death.traded {
-            death.flaws.push(format!("Non tradée : personne n'a tué {} dans les 3 secondes", death.killer_name));
+            death.flaws.push(format!("Non tradée : personne n'a tué {} {}", death.killer_name, thresholds.trade_window_text()));
         } else {
             death.positives.push("Tradée par un coéquipier".to_string());
         }
         match death.nearest_ally_m {
-            Some(meters) if meters > ISOLATION_METERS => {
+            Some(meters) if meters > thresholds.isolation_meters => {
                 death.flaws.push(format!("Isolé : coéquipier le plus proche à {} m", meters.round()));
             }
             None => death.positives.push("Dernier joueur en vie de ton équipe".to_string()),
@@ -605,16 +608,16 @@ pub fn analyze(game: &Value, puuid: &str, map: Option<&MapData>, roles: &HashMap
         }
         if let Some(zone) = &death.zone {
             let count = zone_counts.get(zone).copied().unwrap_or(0);
-            if count >= SAME_SPOT {
+            if count >= thresholds.same_spot {
                 death.flaws.push(format!("{count} morts à {zone} dans ce match"));
             }
         }
-        if death.loadout >= FULL_BUY {
+        if death.loadout >= thresholds.full_buy {
             death.flaws.push(format!("Full buy perdu : {} crédits", death.loadout));
         }
     }
 
-    let flaws = match_flaws(&deaths, &round_lines, &zone_counts);
+    let flaws = match_flaws(&deaths, &round_lines, &zone_counts, thresholds);
 
     let me_line = lines.iter().find(|line| line.is_me)?.clone();
     let teammates: Vec<&PlayerLine> = lines
@@ -734,7 +737,7 @@ fn assign_badges(lines: &mut [PlayerLine], players: &[Value], teams: &[Value], d
     }
 }
 
-fn match_flaws(deaths: &[Death], rounds: &[RoundLine], zones: &HashMap<String, usize>) -> Vec<Flaw> {
+fn match_flaws(deaths: &[Death], rounds: &[RoundLine], zones: &HashMap<String, usize>, thresholds: &Thresholds) -> Vec<Flaw> {
     let mut flaws = Vec::new();
     let total = deaths.len();
     if total == 0 {
@@ -745,16 +748,16 @@ fn match_flaws(deaths: &[Death], rounds: &[RoundLine], zones: &HashMap<String, u
     if untraded > 0 {
         let traded: Vec<usize> = deaths.iter().filter(|death| death.traded).map(|death| death.round).collect();
         let detail = if traded.is_empty() {
-            "Aucune de tes morts n'a été vengée dans les 3 secondes".to_string()
+            format!("Aucune de tes morts n'a été vengée {}", thresholds.trade_window_text())
         } else {
-            format!("Seules tes morts des rounds {} ont été vengées dans les 3 secondes", round_list(&traded))
+            format!("Seules tes morts des rounds {} ont été vengées {}", round_list(&traded), thresholds.trade_window_text())
         };
         flaws.push(Flaw { value: format!("{untraded} / {total}"), title: "morts non tradées".into(), detail });
     }
 
     let isolated: Vec<&Death> = deaths
         .iter()
-        .filter(|death| death.nearest_ally_m.is_some_and(|meters| meters > ISOLATION_METERS))
+        .filter(|death| death.nearest_ally_m.is_some_and(|meters| meters > thresholds.isolation_meters))
         .collect();
     if !isolated.is_empty() {
         let rounds_list: Vec<usize> = isolated.iter().map(|death| death.round).collect();
@@ -769,7 +772,7 @@ fn match_flaws(deaths: &[Death], rounds: &[RoundLine], zones: &HashMap<String, u
         });
     }
 
-    if let Some((zone, count)) = zones.iter().filter(|(_, count)| **count >= SAME_SPOT).max_by_key(|(_, count)| **count) {
+    if let Some((zone, count)) = zones.iter().filter(|(_, count)| **count >= thresholds.same_spot).max_by_key(|(_, count)| **count) {
         let in_zone: Vec<&Death> = deaths.iter().filter(|death| death.zone.as_deref() == Some(zone.as_str())).collect();
         let rounds_list: Vec<usize> = in_zone.iter().map(|death| death.round).collect();
         let side = if in_zone.iter().all(|death| death.attack) {
@@ -799,7 +802,7 @@ fn match_flaws(deaths: &[Death], rounds: &[RoundLine], zones: &HashMap<String, u
 
     let wasted: Vec<&RoundLine> = rounds
         .iter()
-        .filter(|round| round.died && round.my_loadout >= FULL_BUY && round.my_kills == 0)
+        .filter(|round| round.died && round.my_loadout >= thresholds.full_buy && round.my_kills == 0)
         .collect();
     if !wasted.is_empty() {
         let rounds_list: Vec<usize> = wasted.iter().map(|round| round.number).collect();

@@ -2,11 +2,12 @@ use rusqlite::{Connection, OptionalExtension, params};
 use serde::Serialize;
 use std::collections::HashMap;
 
-use crate::analysis::{self, ISOLATION_METERS};
+use crate::analysis;
 use crate::assets;
 use crate::error::AppResult;
 use crate::stats;
 use crate::storage;
+use crate::thresholds::Thresholds;
 
 const COMPETITIVE: &str = "competitive";
 const RECENT_MATCHES: i64 = 20;
@@ -70,7 +71,13 @@ struct Summary {
     isolated: i64,
 }
 
-fn summary(conn: &Connection, roles: &HashMap<String, String>, puuid: &str, match_id: &str) -> AppResult<Option<Summary>> {
+fn summary(
+    conn: &Connection,
+    roles: &HashMap<String, String>,
+    thresholds: &Thresholds,
+    puuid: &str,
+    match_id: &str,
+) -> AppResult<Option<Summary>> {
     let cached = conn
         .query_row(
             "SELECT score, place, traded, first_deaths, isolated FROM match_summaries WHERE match_id = ?1 AND puuid = ?2",
@@ -92,7 +99,7 @@ fn summary(conn: &Connection, roles: &HashMap<String, String>, puuid: &str, matc
     let Some(game) = storage::load_game(conn, match_id)? else {
         return Ok(None);
     };
-    let Some(detail) = analysis::analyze(&game, puuid, None, roles) else {
+    let Some(detail) = analysis::analyze(&game, puuid, None, roles, thresholds) else {
         return Ok(None);
     };
     let deaths = &detail.death_reviews;
@@ -103,7 +110,7 @@ fn summary(conn: &Connection, roles: &HashMap<String, String>, puuid: &str, matc
         first_deaths: deaths.iter().filter(|death| death.first_death).count() as i64,
         isolated: deaths
             .iter()
-            .filter(|death| death.nearest_ally_m.is_some_and(|meters| meters > ISOLATION_METERS))
+            .filter(|death| death.nearest_ally_m.is_some_and(|meters| meters > thresholds.isolation_meters))
             .count() as i64,
     };
     if !roles.is_empty() {
@@ -127,6 +134,7 @@ fn summary(conn: &Connection, roles: &HashMap<String, String>, puuid: &str, matc
 
 pub fn games(conn: &Connection, puuid: &str, season: Option<&str>, limit: Option<i64>) -> AppResult<Vec<GameSummary>> {
     let roles = assets::agent_roles(conn)?;
+    let thresholds = Thresholds::load(conn)?;
     let mut stmt = conn.prepare(
         "SELECT m.match_id, m.started_at, m.map_name, p.agent_id, p.won, m.rounds, p.kills, p.deaths, p.assists,
                 p.score, p.headshots, p.headshots + p.bodyshots + p.legshots
@@ -157,7 +165,7 @@ pub fn games(conn: &Connection, puuid: &str, season: Option<&str>, limit: Option
 
     let mut games = Vec::with_capacity(rows.len());
     for (match_id, started_at, map_name, agent_id, won, rounds, kills, deaths, assists, score, headshots, shots) in rows {
-        let analysis = summary(conn, &roles, puuid, &match_id)?;
+        let analysis = summary(conn, &roles, &thresholds, puuid, &match_id)?;
         games.push(GameSummary {
             started_at,
             map_name,
@@ -196,7 +204,7 @@ pub fn rr_history(conn: &Connection, puuid: &str, season: Option<&str>) -> AppRe
 }
 
 pub fn progression(conn: &Connection, puuid: &str, season: Option<&str>) -> AppResult<Progression> {
-    let overview = stats::overview(conn, puuid, season)?;
+    let overview = stats::overview(conn, puuid, &stats::Filters::season(season))?;
     Ok(Progression {
         rr: rr_history(conn, puuid, season)?,
         games: games(conn, puuid, season, None)?,

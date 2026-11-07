@@ -12,6 +12,7 @@ use crate::state::AppState;
 
 pub const API_KEY_SETTING: &str = "api_key";
 pub const ACTIVE_ACCOUNT_SETTING: &str = "active_account";
+pub const COMBINED_SETTING: &str = "combined_view";
 
 const PAGE_SIZE: usize = 10;
 const MAX_MATCHES_PER_MODE: usize = 2000;
@@ -168,16 +169,24 @@ pub fn spawn_auto_sync(app: AppHandle) {
     tauri::async_runtime::spawn(async move {
         loop {
             tokio::time::sleep(AUTO_SYNC_INTERVAL).await;
-            let active = app
-                .state::<AppState>()
-                .conn()
-                .ok()
-                .and_then(|conn| db::get_setting(&conn, ACTIVE_ACCOUNT_SETTING).ok().flatten());
-            if let Some(puuid) = active {
+            let targets = app.state::<AppState>().conn().ok().map(|conn| sync_targets(&conn)).unwrap_or_default();
+            for puuid in targets {
                 let _ = run(&app, &puuid).await;
             }
         }
     });
+}
+
+fn sync_targets(conn: &rusqlite::Connection) -> Vec<String> {
+    let combined = db::get_setting(conn, COMBINED_SETTING).ok().flatten().as_deref() == Some("true");
+    if combined {
+        if let Ok(accounts) = repo::list_accounts(conn) {
+            if accounts.len() > 1 {
+                return accounts.into_iter().map(|account| account.puuid).collect();
+            }
+        }
+    }
+    db::get_setting(conn, ACTIVE_ACCOUNT_SETTING).ok().flatten().into_iter().collect()
 }
 
 fn refreshed(app: &AppHandle, state: &AppState, puuid: &str) {

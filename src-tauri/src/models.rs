@@ -69,6 +69,7 @@ pub struct Overview {
 #[serde(rename_all = "camelCase")]
 pub struct RecentMatch {
     pub match_id: String,
+    pub puuid: String,
     pub started_at: String,
     pub map_name: Option<String>,
     pub queue: Option<String>,

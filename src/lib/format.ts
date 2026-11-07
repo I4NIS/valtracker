@@ -68,3 +68,8 @@ export function roleLabel(role: string | null | undefined): string {
 export function placeLabel(place: number): string {
   return place === 1 ? "1er" : `${place}e`;
 }
+
+export function tradeWindowText(ms: number): string {
+  if (ms === 1000) return "dans la seconde";
+  return `dans les ${fmt(ms / 1000, ms % 1000 === 0 ? 0 : 1)} secondes`;
+}

@@ -4,7 +4,7 @@ import { ExportRecapButton } from "../components/ExportRecap";
 import { SeasonPicker } from "../components/SeasonPicker";
 import type { Account, GameSummary, RrPoint } from "../lib/api";
 import { seasonLabel, tierNameById } from "../lib/assets";
-import { fmt, fullDate, pct, signed } from "../lib/format";
+import { fmt, fullDate, pct, signed, tradeWindowText } from "../lib/format";
 import { useQuery } from "../lib/query";
 import { defaultSeason, queries } from "../lib/queries";
 
@@ -21,6 +21,7 @@ const average = (values: number[]) => (values.length ? values.reduce((sum, value
 export function Progression({ account }: Props) {
   const [season, setSeason] = useState<string | null | undefined>(() => defaultSeason(account.puuid));
   const query = useQuery(season === undefined ? null : queries.progression(account.puuid, season));
+  const tradeWindow = useQuery(queries.thresholds()).data?.values.tradeWindowMs ?? 3000;
   const data = query.data ?? null;
   const error = query.error;
 
@@ -141,7 +142,7 @@ export function Progression({ account }: Props) {
               average={pct(tradedPct(recent), 0)}
               values={recent.map((game) => (game.deaths ? (game.traded * 100) / game.deaths : 0))}
               reference={tradedPct(recent)}
-              note="Part de tes morts vengées dans les 3 secondes, comparée à ta moyenne"
+              note={`Part de tes morts vengées ${tradeWindowText(tradeWindow)}, comparée à ta moyenne`}
             />
           </div>
 

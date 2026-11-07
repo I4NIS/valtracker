@@ -12,7 +12,7 @@ import { queries } from "../lib/queries";
 type Props = {
   account: Account;
   refreshKey: number;
-  onOpenMatch: (matchId: string, round?: number, death?: boolean) => void;
+  onOpenMatch: (matchId: string, round?: number, puuid?: string, death?: boolean) => void;
 };
 
 type View = "notes" | "favorites";
@@ -72,7 +72,7 @@ function FavoritesView({ account, onOpenMatch }: Pick<Props, "account" | "onOpen
 
   const open = (entry: FavoriteEntry) => {
     if (entry.kind === "match" || entry.roundIndex === null) onOpenMatch(entry.matchId);
-    else onOpenMatch(entry.matchId, entry.roundIndex, entry.kind === "death");
+    else onOpenMatch(entry.matchId, entry.roundIndex, undefined, entry.kind === "death");
   };
 
   if (query.error) return <p className="form-error">{query.error}</p>;

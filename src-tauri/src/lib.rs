@@ -23,6 +23,7 @@ mod stats;
 mod storage;
 mod sync;
 mod tray;
+mod thresholds;
 
 use tauri::Manager;
 
@@ -64,10 +65,12 @@ pub fn run() {
             commands::has_api_key,
             commands::add_account,
             commands::set_active_account,
+            commands::set_combined_view,
             commands::remove_account,
             commands::list_accounts,
             commands::sync_account,
             commands::get_overview,
+            commands::get_filter_options,
             commands::get_recent_matches,
             commands::get_match,
             commands::get_progression,
@@ -93,6 +96,8 @@ pub fn run() {
             backup::export_database,
             backup::pick_database_import,
             backup::import_database,
+            thresholds::get_thresholds,
+            thresholds::set_thresholds,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

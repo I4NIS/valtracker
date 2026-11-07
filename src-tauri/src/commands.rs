@@ -17,7 +17,8 @@ use crate::repo;
 use crate::state::AppState;
 use crate::stats;
 use crate::storage;
-use crate::sync::{self, ACTIVE_ACCOUNT_SETTING, API_KEY_SETTING};
+use crate::sync::{self, ACTIVE_ACCOUNT_SETTING, API_KEY_SETTING, COMBINED_SETTING};
+use crate::thresholds::Thresholds;
 
 const REGIONS: [&str; 6] = ["eu", "na", "ap", "kr", "latam", "br"];
 const PREFERENCES: [&str; 4] = ["theme", "language", "tutorial_done", notify::NOTIFY_SETTING];
@@ -32,6 +33,7 @@ pub struct Bootstrap {
     language: String,
     tutorial_done: bool,
     notify_matches: bool,
+    combined: bool,
 }
 
 #[tauri::command]
@@ -41,6 +43,7 @@ pub fn bootstrap(state: State<'_, AppState>) -> AppResult<Bootstrap> {
     let active = db::get_setting(&conn, ACTIVE_ACCOUNT_SETTING)?
         .filter(|puuid| accounts.iter().any(|account| &account.puuid == puuid))
         .or_else(|| accounts.first().map(|account| account.puuid.clone()));
+    let combined = accounts.len() > 1 && db::get_setting(&conn, COMBINED_SETTING)?.as_deref() == Some("true");
     Ok(Bootstrap {
         has_api_key: db::get_setting(&conn, API_KEY_SETTING)?.is_some_and(|key| !key.is_empty()),
         accounts,
@@ -49,6 +52,7 @@ pub fn bootstrap(state: State<'_, AppState>) -> AppResult<Bootstrap> {
         language: db::get_setting(&conn, "language")?.unwrap_or_else(|| "fr".into()),
         tutorial_done: db::get_setting(&conn, "tutorial_done")?.as_deref() == Some("true"),
         notify_matches: notify::enabled(&conn)?,
+        combined,
     })
 }
 
@@ -85,17 +89,36 @@ pub async fn add_account(state: State<'_, AppState>, riot_id: String, region: St
     let puuid = repo::upsert_account(&conn, &data, &region)?
         .ok_or_else(|| AppError::Api("Réponse inattendue de l'API HenrikDev".into()))?;
     db::set_setting(&conn, ACTIVE_ACCOUNT_SETTING, &puuid)?;
+    forget_combined(&state);
     repo::get_account(&conn, &puuid)?.ok_or_else(|| AppError::Invalid("Compte introuvable".into()))
 }
 
 #[tauri::command]
 pub fn set_active_account(state: State<'_, AppState>, puuid: String) -> AppResult<()> {
-    db::set_setting(&*state.conn()?, ACTIVE_ACCOUNT_SETTING, &puuid)
+    let conn = state.conn()?;
+    db::set_setting(&conn, COMBINED_SETTING, "false")?;
+    db::set_setting(&conn, ACTIVE_ACCOUNT_SETTING, &puuid)
+}
+
+#[tauri::command]
+pub fn set_combined_view(state: State<'_, AppState>, enabled: bool) -> AppResult<()> {
+    let conn = state.conn()?;
+    if enabled && repo::list_accounts(&conn)?.len() < 2 {
+        return Err(AppError::Invalid("La vue combinée demande au moins deux comptes".into()));
+    }
+    db::set_setting(&conn, COMBINED_SETTING, if enabled { "true" } else { "false" })
 }
 
 #[tauri::command]
 pub fn remove_account(state: State<'_, AppState>, puuid: String) -> AppResult<()> {
-    repo::delete_account(&*state.conn()?, &puuid)
+    repo::delete_account(&*state.conn()?, &puuid)?;
+    forget_combined(&state);
+    Ok(())
+}
+
+fn forget_combined(state: &AppState) {
+    let prefix = format!("{}|", stats::ALL_ACCOUNTS);
+    state.forget(|key| key.starts_with(&prefix));
 }
 
 #[tauri::command]
@@ -109,8 +132,13 @@ pub async fn sync_account(app: AppHandle, puuid: String) -> AppResult<SyncReport
 }
 
 #[tauri::command(async)]
-pub fn get_overview(state: State<'_, AppState>, puuid: String, season: Option<String>) -> AppResult<Response> {
-    Report::Overview(season).serve(&state, &puuid)
+pub fn get_overview(state: State<'_, AppState>, puuid: String, filters: Option<stats::Filters>) -> AppResult<Response> {
+    Report::Overview(filters.unwrap_or_default()).serve(&state, &puuid)
+}
+
+#[tauri::command(async)]
+pub fn get_filter_options(state: State<'_, AppState>, puuid: String) -> AppResult<Response> {
+    Report::FilterOptions.serve(&state, &puuid)
 }
 
 #[tauri::command(async)]
@@ -136,7 +164,8 @@ fn match_detail(conn: &Connection, puuid: &str, match_id: &str) -> AppResult<Mat
     let map_id = game.pointer("/metadata/map/id").and_then(Value::as_str).unwrap_or_default();
     let map = assets::load_map(conn, map_id)?;
     let roles = assets::agent_roles(conn)?;
-    let mut detail = analysis::analyze(&game, puuid, map.as_ref(), &roles)
+    let thresholds = Thresholds::load(conn)?;
+    let mut detail = analysis::analyze(&game, puuid, map.as_ref(), &roles, &thresholds)
         .ok_or_else(|| AppError::Invalid("Impossible d'analyser ce match".into()))?;
     if let Some((change, rr)) = conn
         .query_row(
