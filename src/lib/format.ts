@@ -42,6 +42,7 @@ export function pct(value: number, digits = 1): string {
 
 export function signed(value: number, digits = 0): string {
   const text = fmt(Math.abs(value), digits);
+  if (Number(Math.abs(value).toFixed(digits)) === 0) return text;
   return value >= 0 ? `+${text}` : `-${text}`;
 }
 
