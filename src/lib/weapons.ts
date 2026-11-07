@@ -90,6 +90,7 @@ const CATEGORIES: Record<string, string> = {
   "Capacités": "Compétences et ultimes",
   Abilities: "Compétences et ultimes",
   Spike: "Explosion",
+  Chute: "Environnement",
 };
 
 const CATEGORIES_EN: Record<string, string> = {
@@ -102,6 +103,7 @@ const CATEGORIES_EN: Record<string, string> = {
   "Corps à corps": "Melee",
   "Compétences et ultimes": "Abilities and ultimates",
   Explosion: "Explosion",
+  Environnement: "Environment",
 };
 
 export function weaponCategory(name: string): string {
@@ -141,6 +143,7 @@ export type WeaponDuel = {
   opponent: string;
   opponentAgentId: string | null;
   agentId: string | null;
+  ability: string | null;
   distance: number | null;
   roundWon: boolean | null;
 };

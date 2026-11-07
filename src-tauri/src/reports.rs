@@ -97,6 +97,9 @@ pub fn warm(app: &AppHandle, puuid: String) {
                 state.store_json(key, json, generation);
             }
         }
+        for season in [current.as_deref(), None] {
+            weapon_stats::warm_histories(&state, &conn, &puuid, season);
+        }
     });
 }
 

@@ -4,7 +4,7 @@ use serde_json::Value;
 use std::collections::HashMap;
 
 use crate::analysis::{int, point, text};
-use crate::error::AppResult;
+use crate::error::{AppError, AppResult};
 use crate::i18n::tr;
 use crate::state::AppState;
 use crate::storage;
@@ -13,6 +13,7 @@ const COMPETITIVE: &str = "competitive";
 const ABILITIES: &str = "Capacités";
 const MELEE: &str = "Couteau";
 const SPIKE: &str = "Spike";
+const FALL: &str = "Chute";
 const UNITS_PER_METER: f64 = 100.0;
 const SHORT_RANGE: f64 = 10.0;
 const LONG_RANGE: f64 = 25.0;
@@ -197,6 +198,8 @@ fn weapon_key(kill: &Value) -> String {
     let kind = text(kill, "/weapon/type").unwrap_or_default();
     if kind.eq_ignore_ascii_case("melee") {
         MELEE.to_string()
+    } else if kind.eq_ignore_ascii_case("fall") {
+        FALL.to_string()
     } else if kind.eq_ignore_ascii_case("bomb") {
         SPIKE.to_string()
     } else if name.is_empty() || kind.eq_ignore_ascii_case("ability") {
@@ -403,11 +406,49 @@ pub struct WeaponDuel {
     pub opponent: String,
     pub opponent_agent_id: Option<String>,
     pub agent_id: Option<String>,
+    pub ability: Option<String>,
     pub distance: Option<f64>,
     pub round_won: Option<bool>,
 }
 
-pub fn history(conn: &Connection, puuid: &str, season: Option<&str>, weapon: &str, deaths: bool) -> AppResult<Vec<WeaponDuel>> {
+type Histories = HashMap<(String, bool), Vec<WeaponDuel>>;
+
+fn duel(game: &Value, kill: &Value, match_id: &str, started_at: &str, puuid: &str, deaths: bool) -> Option<WeaponDuel> {
+    let empty = Vec::new();
+    let players = game.pointer("/players").and_then(Value::as_array).unwrap_or(&empty);
+    let player = |id: &str| players.iter().find(|player| text(player, "/puuid") == Some(id));
+    let killer = text(kill, "/killer/puuid")?;
+    let opponent = if deaths { killer } else { text(kill, "/victim/puuid")? };
+    let my_team = player(puuid).and_then(|player| text(player, "/team_id"));
+    let round_index = int(kill, "/round");
+    let winner = game
+        .pointer("/rounds")
+        .and_then(Value::as_array)
+        .and_then(|rounds| rounds.get(round_index as usize))
+        .and_then(|round| text(round, "/winning_team"));
+    let ability = text(kill, "/weapon/type")
+        .filter(|kind| kind.eq_ignore_ascii_case("ability"))
+        .and_then(|_| text(kill, "/weapon/name"))
+        .map(str::trim)
+        .filter(|name| !name.is_empty())
+        .map(str::to_string);
+    Some(WeaponDuel {
+        match_id: match_id.to_string(),
+        map_id: text(game, "/metadata/map/id").map(str::to_string),
+        map_name: text(game, "/metadata/map/name").map(str::to_string),
+        started_at: started_at.to_string(),
+        round_index,
+        time_ms: int(kill, "/time_in_round_in_ms"),
+        opponent: player(opponent).and_then(|player| text(player, "/name")).unwrap_or(tr("Inconnu", "Unknown")).to_string(),
+        opponent_agent_id: player(opponent).and_then(|player| text(player, "/agent/id")).map(str::to_string),
+        agent_id: player(puuid).and_then(|player| text(player, "/agent/id")).map(str::to_string),
+        ability,
+        distance: kill_distance(kill, killer),
+        round_won: my_team.zip(winner).map(|(mine, winner)| mine == winner),
+    })
+}
+
+pub fn histories(conn: &Connection, puuid: &str, season: Option<&str>) -> AppResult<Histories> {
     let mut stmt = conn.prepare(
         "SELECT m.match_id, m.started_at, m.raw FROM match_players p JOIN matches m ON m.match_id = p.match_id
          WHERE p.puuid = ?1 AND m.queue = ?2 AND (?3 IS NULL OR m.season_short = ?3)
@@ -421,66 +462,61 @@ pub fn history(conn: &Connection, puuid: &str, season: Option<&str>, weapon: &st
     drop(stmt);
 
     let empty = Vec::new();
-    let mut list = Vec::new();
+    let mut all: Histories = HashMap::new();
     for (match_id, started_at, raw) in rows {
         let Some(game) = storage::decode(&raw) else {
             continue;
         };
-        let players = game.pointer("/players").and_then(Value::as_array).unwrap_or(&empty);
-        let agent_of = |id: &str| {
-            players.iter().find(|player| text(player, "/puuid") == Some(id)).and_then(|player| text(player, "/agent/id")).map(str::to_string)
-        };
-        let name_of = |id: &str| {
-            players
-                .iter()
-                .find(|player| text(player, "/puuid") == Some(id))
-                .and_then(|player| text(player, "/name"))
-                .unwrap_or(tr("Inconnu", "Unknown"))
-                .to_string()
-        };
-        let my_team = players.iter().find(|player| text(player, "/puuid") == Some(puuid)).and_then(|player| text(player, "/team_id"));
-        let rounds = game.pointer("/rounds").and_then(Value::as_array).unwrap_or(&empty);
-        let mut found: Vec<WeaponDuel> = game
-            .pointer("/kills")
-            .and_then(Value::as_array)
-            .unwrap_or(&empty)
-            .iter()
-            .filter(|kill| opposed(kill) && weapon_key(kill) == weapon)
-            .filter_map(|kill| {
-                let killer = text(kill, "/killer/puuid")?;
-                let victim = text(kill, "/victim/puuid")?;
-                if killer == victim || (if deaths { victim != puuid } else { killer != puuid }) {
-                    return None;
-                }
-                let opponent = if deaths { killer } else { victim };
-                let round_index = int(kill, "/round");
-                let round_won = match (my_team, rounds.get(round_index as usize).and_then(|round| text(round, "/winning_team"))) {
-                    (Some(mine), Some(winner)) => Some(mine == winner),
-                    _ => None,
-                };
-                Some(WeaponDuel {
-                    match_id: match_id.clone(),
-                    map_id: text(&game, "/metadata/map/id").map(str::to_string),
-                    map_name: text(&game, "/metadata/map/name").map(str::to_string),
-                    started_at: started_at.clone(),
-                    round_index,
-                    time_ms: int(kill, "/time_in_round_in_ms"),
-                    opponent: name_of(opponent),
-                    opponent_agent_id: agent_of(opponent),
-                    agent_id: agent_of(puuid),
-                    distance: kill_distance(kill, killer),
-                    round_won,
-                })
-            })
-            .collect();
-        found.sort_by(|a, b| b.round_index.cmp(&a.round_index).then(b.time_ms.cmp(&a.time_ms)));
-        list.extend(found);
-        if list.len() >= HISTORY_LIMIT {
-            list.truncate(HISTORY_LIMIT);
-            break;
+        let mut kills: Vec<&Value> = game.pointer("/kills").and_then(Value::as_array).unwrap_or(&empty).iter().collect();
+        kills.sort_by_key(|kill| std::cmp::Reverse((int(kill, "/round"), int(kill, "/time_in_round_in_ms"))));
+        for kill in kills {
+            let killer = text(kill, "/killer/puuid").unwrap_or_default();
+            let victim = text(kill, "/victim/puuid").unwrap_or_default();
+            if killer.is_empty() || killer == victim || !opposed(kill) {
+                continue;
+            }
+            let deaths = match (killer == puuid, victim == puuid) {
+                (true, _) => false,
+                (_, true) => true,
+                _ => continue,
+            };
+            let list = all.entry((weapon_key(kill), deaths)).or_default();
+            if list.len() >= HISTORY_LIMIT {
+                continue;
+            }
+            if let Some(entry) = duel(&game, kill, &match_id, &started_at, puuid, deaths) {
+                list.push(entry);
+            }
         }
     }
-    Ok(list)
+    Ok(all)
+}
+
+fn history_key(puuid: &str, season: Option<&str>, weapon: &str, deaths: bool) -> String {
+    format!("{puuid}|WeaponHistory({season:?},{weapon:?},{deaths})")
+}
+
+fn ready_key(puuid: &str, season: Option<&str>) -> String {
+    format!("{puuid}|WeaponHistories({season:?})")
+}
+
+fn store_histories(state: &AppState, puuid: &str, season: Option<&str>, all: &Histories, generation: u64) {
+    for ((weapon, deaths), list) in all {
+        if let Ok(json) = serde_json::to_string(list) {
+            state.store_json(history_key(puuid, season, weapon, *deaths), json, generation);
+        }
+    }
+    state.store_json(ready_key(puuid, season), "true".into(), generation);
+}
+
+pub fn warm_histories(state: &AppState, conn: &Connection, puuid: &str, season: Option<&str>) {
+    if state.cached_json(&ready_key(puuid, season)).is_some() {
+        return;
+    }
+    let generation = state.generation();
+    if let Ok(all) = histories(conn, puuid, season) {
+        store_histories(state, puuid, season, &all, generation);
+    }
 }
 
 #[tauri::command(async)]
@@ -491,9 +527,58 @@ pub fn get_weapon_history(
     weapon: String,
     deaths: bool,
 ) -> AppResult<tauri::ipc::Response> {
-    let key = format!("{puuid}|WeaponHistory({season:?},{weapon:?},{deaths})");
-    state.cached(key, |conn| {
-        let list = history(conn, &puuid, season.as_deref(), &weapon, deaths)?;
-        serde_json::to_string(&list).map_err(|err| crate::error::AppError::Invalid(err.to_string()))
-    })
+    let season = season.as_deref();
+    if let Some(json) = state.cached_json(&history_key(&puuid, season, &weapon, deaths)) {
+        return Ok(tauri::ipc::Response::new(json));
+    }
+    if state.cached_json(&ready_key(&puuid, season)).is_some() {
+        return Ok(tauri::ipc::Response::new(String::from("[]")));
+    }
+    let generation = state.generation();
+    let all = histories(&*state.conn()?, &puuid, season)?;
+    store_histories(&state, &puuid, season, &all, generation);
+    let list = all.get(&(weapon, deaths)).map(Vec::as_slice).unwrap_or_default();
+    let json = serde_json::to_string(list).map_err(|err| AppError::Invalid(err.to_string()))?;
+    Ok(tauri::ipc::Response::new(json))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn game() -> Value {
+        json!({
+            "metadata": { "map": { "id": "map", "name": "Ascent" } },
+            "players": [
+                { "puuid": "me", "name": "Moi", "team_id": "Blue", "agent": { "id": "jett" } },
+                { "puuid": "foe", "name": "Rival", "team_id": "Red", "agent": { "id": "raze" } }
+            ],
+            "rounds": [{ "winning_team": "Blue" }, { "winning_team": "Red" }],
+            "kills": [
+                { "round": 0, "time_in_round_in_ms": 1000, "killer": { "puuid": "me", "team": "Blue" }, "victim": { "puuid": "foe", "team": "Red" }, "weapon": { "type": "Ability", "name": "Blade Storm" } },
+                { "round": 1, "time_in_round_in_ms": 2000, "killer": { "puuid": "foe", "team": "Red" }, "victim": { "puuid": "me", "team": "Blue" }, "weapon": { "type": "Ability", "name": "Showstopper" } },
+                { "round": 1, "time_in_round_in_ms": 500, "killer": { "puuid": "foe", "team": "Red" }, "victim": { "puuid": "me", "team": "Blue" }, "weapon": { "type": "Weapon", "name": "Odin" } },
+                { "round": 1, "time_in_round_in_ms": 800, "killer": { "puuid": "me", "team": "Blue" }, "victim": { "puuid": "foe", "team": "Red" }, "weapon": { "type": "Fall" } }
+            ]
+        })
+    }
+
+    #[test]
+    fn ability_duels_keep_their_name() {
+        let game = game();
+        let kills = game.pointer("/kills").and_then(Value::as_array).unwrap();
+        assert_eq!(weapon_key(&kills[0]), ABILITIES);
+        assert_eq!(weapon_key(&kills[3]), FALL);
+        let kill = duel(&game, &kills[0], "m", "2026-01-01", "me", false).unwrap();
+        assert_eq!(kill.ability.as_deref(), Some("Blade Storm"));
+        assert_eq!(kill.opponent, "Rival");
+        assert_eq!(kill.round_won, Some(true));
+        let death = duel(&game, &kills[1], "m", "2026-01-01", "me", true).unwrap();
+        assert_eq!(death.ability.as_deref(), Some("Showstopper"));
+        assert_eq!(death.opponent_agent_id.as_deref(), Some("raze"));
+        assert_eq!(death.round_won, Some(false));
+        assert_eq!(duel(&game, &kills[2], "m", "2026-01-01", "me", true).unwrap().ability, None);
+    }
+}
+
