@@ -25,6 +25,7 @@ const UNITS_PER_METER: f64 = 100.0;
 const PNG_SIGNATURE: &[u8] = b"\x89PNG\r\n\x1a\n";
 const MAX_IMAGE_BYTES: usize = 32 * 1024 * 1024;
 const MAX_NAME_ATTEMPTS: usize = 1000;
+const MAX_SELECTION: usize = 500;
 
 #[derive(Debug, Clone, Default, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -828,6 +829,11 @@ pub fn get_session_recap(state: State<'_, AppState>, puuid: String) -> AppResult
 
 #[tauri::command(async)]
 pub fn get_selection_recap(state: State<'_, AppState>, puuid: String, match_ids: Vec<String>) -> AppResult<Response> {
+    if match_ids.len() > MAX_SELECTION {
+        return Err(AppError::Invalid(
+            tr("Choisis au plus 500 parties pour un récap", "Pick at most 500 matches for a recap").into(),
+        ));
+    }
     let mut ids = match_ids;
     ids.sort();
     ids.dedup();
