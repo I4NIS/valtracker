@@ -10,6 +10,18 @@ import { queries } from "../lib/queries";
 import { RankBadge } from "../components/RankBadge";
 import { HENRIK_DASHBOARD, REGIONS, tierLabel } from "../lib/assets";
 
+type Section = "general" | "accounts" | "key" | "analysis" | "data";
+
+const SECTIONS = (): { id: Section; label: string }[] => [
+  { id: "general", label: t("Général", "General") },
+  { id: "accounts", label: t("Comptes", "Accounts") },
+  { id: "key", label: t("Clé API", "API key") },
+  { id: "analysis", label: t("Seuils d'analyse", "Analysis thresholds") },
+  { id: "data", label: t("Données", "Data") },
+];
+
+let rememberedSection: Section = "general";
+
 type Props = {
   accounts: Account[];
   activePuuid: string | null;
@@ -45,6 +57,12 @@ export function Settings({
   const [region, setRegion] = useState("eu");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [section, setSection] = useState<Section>(rememberedSection);
+
+  const pick = (next: Section) => {
+    rememberedSection = next;
+    setSection(next);
+  };
 
   const saveKey = async (event: FormEvent) => {
     event.preventDefault();
@@ -84,196 +102,226 @@ export function Settings({
 
   return (
     <div className="content">
-      <h1 className="title">{t("Paramètres", "Settings")}</h1>
+      <header className="page-head">
+        <h1 className="title">{t("Paramètres", "Settings")}</h1>
+      </header>
 
-      <section className="stack" style={{ gap: 14 }}>
-        <h2 className="section-title">{t("Apparence", "Appearance")}</h2>
-        <div className="segmented" role="group" aria-label={t("Thème", "Theme")}>
-          <button type="button" className={theme === "dark" ? "active" : undefined} onClick={() => onTheme("dark")}>
-            {t("Sombre", "Dark")}
-          </button>
-          <button type="button" className={theme === "light" ? "active" : undefined} onClick={() => onTheme("light")}>
-            {t("Clair", "Light")}
-          </button>
-        </div>
-      </section>
-
-      <section className="stack" style={{ gap: 14 }}>
-        <h2 className="section-title">{t("Langue", "Language")}</h2>
-        <div className="segmented" role="group" aria-label={t("Langue", "Language")}>
-          <button type="button" className={language === "fr" ? "active" : undefined} onClick={() => onLanguage("fr")}>
-            Français
-          </button>
-          <button type="button" className={language === "en" ? "active" : undefined} onClick={() => onLanguage("en")}>
-            English
-          </button>
-        </div>
-      </section>
-
-      <section className="stack" style={{ gap: 14 }}>
-        <h2 className="section-title">{t("Notifications", "Notifications")}</h2>
-        <div className="panel settings-toggle">
-          <span className="stack" style={{ gap: 2, minWidth: 0 }}>
-            <strong id="settings-notify">{t("Notifications après chaque nouveau match", "Notify after each new match")}</strong>
-            <span className="hint">
-              {t(
-                "Une notification Windows avec la map, le score et ton K/D quand la synchro trouve un nouveau match.",
-                "A Windows notification with the map, the score and your K/D when the sync finds a new match.",
-              )}
-            </span>
-          </span>
-          <button
-            type="button"
-            role="switch"
-            className="switch"
-            aria-checked={notifyMatches}
-            aria-labelledby="settings-notify"
-            onClick={() => onNotifyMatches(!notifyMatches)}
-          >
-            <span />
-          </button>
-        </div>
-      </section>
-
-      <section className="stack" style={{ gap: 14 }}>
-        <h2 className="section-title">{t("Clé API HenrikDev", "HenrikDev API key")}</h2>
-        <form className="panel stack" style={{ gap: 14 }} onSubmit={saveKey}>
-          <div className="field">
-            <label htmlFor="settings-key">{t("Nouvelle clé", "New key")}</label>
-            <input
-              id="settings-key"
-              className="input"
-              type="password"
-              placeholder="HDEV-xxxxxxxx-xxxx-xxxx"
-              value={key}
-              onChange={(event) => setKey(event.target.value)}
-              autoComplete="off"
-              spellCheck={false}
-            />
-            <span className="hint">
-              {t(
-                "La clé actuelle reste en place tant que tu n'en enregistres pas une nouvelle.",
-                "The current key stays in place until you save a new one.",
-              )}
-            </span>
-          </div>
-          {keyMessage && <p className="hint">{keyMessage}</p>}
-          <div className="row wrap">
-            <button type="submit" className="btn btn-primary" disabled={!key.trim()}>
-              {t("Enregistrer la clé", "Save key")}
+      <div className="settings-layout">
+        <nav className="settings-nav" aria-label={t("Sections des paramètres", "Settings sections")}>
+          {SECTIONS().map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              className={section === item.id ? "active" : undefined}
+              aria-current={section === item.id ? "page" : undefined}
+              onClick={() => pick(item.id)}
+            >
+              {item.label}
             </button>
-            <button type="button" className="btn btn-secondary" onClick={() => openUrl(HENRIK_DASHBOARD)}>
-              <Icon name="external" size={16} strokeWidth={2} />
-              {t("Tableau de bord HenrikDev", "HenrikDev dashboard")}
-            </button>
-          </div>
-        </form>
-      </section>
-
-      <section className="stack" style={{ gap: 14 }}>
-        <h2 className="section-title">{t("Comptes", "Accounts")}</h2>
-        <div className="panel settings-list">
-          {accounts.length > 1 && (
-            <div>
-              <span className="settings-all" aria-hidden="true">
-                <Icon name="agents" size={20} />
-              </span>
-              <span className="stack" style={{ gap: 0, flexGrow: 1 }}>
-                <strong>{t("Tous les comptes", "All accounts")}</strong>
-                <span className="faint" style={{ fontSize: 13 }}>
-                  {t(
-                    `Accueil et matchs de tes ${accounts.length} comptes réunis`,
-                    `Home and matches from your ${accounts.length} accounts combined`,
-                  )}
-                </span>
-              </span>
-              {combined ? (
-                <span className="faint" style={{ fontSize: 13 }}>
-                  {t("Vue active", "Active view")}
-                </span>
-              ) : (
-                <button type="button" className="btn btn-secondary" onClick={onCombined}>
-                  {t("Utiliser", "Use")}
-                </button>
-              )}
-              <span className="settings-spacer" aria-hidden="true" />
-            </div>
-          )}
-          {accounts.map((account) => (
-            <div key={account.puuid}>
-              <RankBadge tier={account.tier} size={40} label={tierLabel(account.tierName)} />
-              <span className="stack" style={{ gap: 0, flexGrow: 1 }}>
-                <strong>
-                  {account.name} <span className="faint">#{account.tag}</span>
-                </strong>
-                <span className="faint" style={{ fontSize: 13 }}>
-                  {tierLabel(account.tierName)}, {REGIONS.find((item) => item.id === account.region)?.label ?? account.region}
-                </span>
-              </span>
-              {!combined && account.puuid === activePuuid ? (
-                <span className="faint" style={{ fontSize: 13 }}>
-                  {t("Compte actif", "Active account")}
-                </span>
-              ) : (
-                <button type="button" className="btn btn-secondary" onClick={() => activate(account.puuid)}>
-                  {t("Utiliser", "Use")}
-                </button>
-              )}
-              <button
-                type="button"
-                className="icon-btn"
-                onClick={() => remove(account.puuid)}
-                aria-label={t(`Retirer ${account.name}`, `Remove ${account.name}`)}
-                title={t("Retirer ce compte", "Remove this account")}
-              >
-                <Icon name="close" size={16} strokeWidth={2} />
-              </button>
-            </div>
           ))}
-        </div>
-        <form className="panel stack" style={{ gap: 14 }} onSubmit={addAccount}>
-          <div className="row wrap" style={{ alignItems: "flex-end" }}>
-            <div className="field" style={{ flex: "1 1 240px" }}>
-              <label htmlFor="settings-riot">{t("Ajouter un compte", "Add an account")}</label>
-              <input
-                id="settings-riot"
-                className="input"
-                placeholder={t("Pseudo#TAG", "Name#TAG")}
-                value={riotId}
-                onChange={(event) => setRiotId(event.target.value)}
-                spellCheck={false}
-              />
-            </div>
-            <div className="field" style={{ flex: "0 1 200px" }}>
-              <label htmlFor="settings-region">{t("Région", "Region")}</label>
-              <select id="settings-region" className="input" value={region} onChange={(event) => setRegion(event.target.value)}>
-                {REGIONS.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.label}
-                  </option>
+        </nav>
+
+        <div className="settings-body">
+          {section === "general" && (
+            <>
+              <div className="settings-pair">
+                <section className="stack" style={{ gap: 14 }}>
+                  <h2 className="section-title">{t("Apparence", "Appearance")}</h2>
+                  <div className="segmented" role="group" aria-label={t("Thème", "Theme")}>
+                    <button type="button" className={theme === "dark" ? "active" : undefined} onClick={() => onTheme("dark")}>
+                      {t("Sombre", "Dark")}
+                    </button>
+                    <button type="button" className={theme === "light" ? "active" : undefined} onClick={() => onTheme("light")}>
+                      {t("Clair", "Light")}
+                    </button>
+                  </div>
+                </section>
+
+                <section className="stack" style={{ gap: 14 }}>
+                  <h2 className="section-title">{t("Langue", "Language")}</h2>
+                  <div className="segmented" role="group" aria-label={t("Langue", "Language")}>
+                    <button type="button" className={language === "fr" ? "active" : undefined} onClick={() => onLanguage("fr")}>
+                      Français
+                    </button>
+                    <button type="button" className={language === "en" ? "active" : undefined} onClick={() => onLanguage("en")}>
+                      English
+                    </button>
+                  </div>
+                </section>
+              </div>
+
+              <section className="stack" style={{ gap: 14 }}>
+                <h2 className="section-title">{t("Notifications", "Notifications")}</h2>
+                <div className="panel settings-toggle">
+                  <span className="stack" style={{ gap: 2, minWidth: 0 }}>
+                    <strong id="settings-notify">{t("Notifications après chaque nouveau match", "Notify after each new match")}</strong>
+                    <span className="hint">
+                      {t(
+                        "Une notification Windows avec la map, le score et ton K/D quand la synchro trouve un nouveau match.",
+                        "A Windows notification with the map, the score and your K/D when the sync finds a new match.",
+                      )}
+                    </span>
+                  </span>
+                  <button
+                    type="button"
+                    role="switch"
+                    className="switch"
+                    aria-checked={notifyMatches}
+                    aria-labelledby="settings-notify"
+                    onClick={() => onNotifyMatches(!notifyMatches)}
+                  >
+                    <span />
+                  </button>
+                </div>
+              </section>
+
+              <section className="stack" style={{ gap: 14 }}>
+                <h2 className="section-title">{t("Aide", "Help")}</h2>
+                <div className="row">
+                  <button type="button" className="btn btn-secondary" onClick={onReplayTour}>
+                    {t("Revoir le tutoriel", "Replay the tour")}
+                  </button>
+                </div>
+              </section>
+            </>
+          )}
+
+          {section === "key" && (
+            <section className="stack" style={{ gap: 14 }}>
+              <h2 className="section-title">{t("Clé API HenrikDev", "HenrikDev API key")}</h2>
+              <form className="panel stack" style={{ gap: 14 }} onSubmit={saveKey}>
+                <div className="field">
+                  <label htmlFor="settings-key">{t("Nouvelle clé", "New key")}</label>
+                  <input
+                    id="settings-key"
+                    className="input"
+                    type="password"
+                    placeholder="HDEV-xxxxxxxx-xxxx-xxxx"
+                    value={key}
+                    onChange={(event) => setKey(event.target.value)}
+                    autoComplete="off"
+                    spellCheck={false}
+                  />
+                  <span className="hint">
+                    {t(
+                      "La clé actuelle reste en place tant que tu n'en enregistres pas une nouvelle.",
+                      "The current key stays in place until you save a new one.",
+                    )}
+                  </span>
+                </div>
+                {keyMessage && <p className="hint">{keyMessage}</p>}
+                <div className="row wrap">
+                  <button type="submit" className="btn btn-primary" disabled={!key.trim()}>
+                    {t("Enregistrer la clé", "Save key")}
+                  </button>
+                  <button type="button" className="btn btn-secondary" onClick={() => openUrl(HENRIK_DASHBOARD)}>
+                    <Icon name="external" size={16} strokeWidth={2} />
+                    {t("Tableau de bord HenrikDev", "HenrikDev dashboard")}
+                  </button>
+                </div>
+              </form>
+            </section>
+          )}
+
+          {section === "accounts" && (
+            <section className="stack" style={{ gap: 14 }}>
+              <h2 className="section-title">{t("Comptes", "Accounts")}</h2>
+              <div className="panel settings-list">
+                {accounts.length > 1 && (
+                  <div>
+                    <span className="settings-all" aria-hidden="true">
+                      <Icon name="agents" size={20} />
+                    </span>
+                    <span className="stack" style={{ gap: 0, flexGrow: 1 }}>
+                      <strong>{t("Tous les comptes", "All accounts")}</strong>
+                      <span className="faint" style={{ fontSize: 13 }}>
+                        {t(
+                          `Accueil et matchs de tes ${accounts.length} comptes réunis`,
+                          `Home and matches from your ${accounts.length} accounts combined`,
+                        )}
+                      </span>
+                    </span>
+                    {combined ? (
+                      <span className="faint" style={{ fontSize: 13 }}>
+                        {t("Vue active", "Active view")}
+                      </span>
+                    ) : (
+                      <button type="button" className="btn btn-secondary" onClick={onCombined}>
+                        {t("Utiliser", "Use")}
+                      </button>
+                    )}
+                    <span className="settings-spacer" aria-hidden="true" />
+                  </div>
+                )}
+                {accounts.map((account) => (
+                  <div key={account.puuid}>
+                    <RankBadge tier={account.tier} size={40} label={tierLabel(account.tierName)} />
+                    <span className="stack" style={{ gap: 0, flexGrow: 1 }}>
+                      <strong>
+                        {account.name} <span className="faint">#{account.tag}</span>
+                      </strong>
+                      <span className="faint" style={{ fontSize: 13 }}>
+                        {tierLabel(account.tierName)}, {REGIONS.find((item) => item.id === account.region)?.label ?? account.region}
+                      </span>
+                    </span>
+                    {!combined && account.puuid === activePuuid ? (
+                      <span className="faint" style={{ fontSize: 13 }}>
+                        {t("Compte actif", "Active account")}
+                      </span>
+                    ) : (
+                      <button type="button" className="btn btn-secondary" onClick={() => activate(account.puuid)}>
+                        {t("Utiliser", "Use")}
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className="icon-btn"
+                      onClick={() => remove(account.puuid)}
+                      aria-label={t(`Retirer ${account.name}`, `Remove ${account.name}`)}
+                      title={t("Retirer ce compte", "Remove this account")}
+                    >
+                      <Icon name="close" size={16} strokeWidth={2} />
+                    </button>
+                  </div>
                 ))}
-              </select>
-            </div>
-            <button type="submit" className="btn btn-primary" disabled={busy || !riotId.includes("#")}>
-              {busy ? t("Recherche...", "Searching...") : t("Ajouter", "Add")}
-            </button>
-          </div>
-          {error && <p className="form-error">{error}</p>}
-        </form>
-      </section>
+              </div>
+              <form className="panel stack" style={{ gap: 14 }} onSubmit={addAccount}>
+                <div className="row wrap" style={{ alignItems: "flex-end" }}>
+                  <div className="field" style={{ flex: "1 1 240px" }}>
+                    <label htmlFor="settings-riot">{t("Ajouter un compte", "Add an account")}</label>
+                    <input
+                      id="settings-riot"
+                      className="input"
+                      placeholder={t("Pseudo#TAG", "Name#TAG")}
+                      value={riotId}
+                      onChange={(event) => setRiotId(event.target.value)}
+                      spellCheck={false}
+                    />
+                  </div>
+                  <div className="field" style={{ flex: "0 1 200px" }}>
+                    <label htmlFor="settings-region">{t("Région", "Region")}</label>
+                    <select id="settings-region" className="input" value={region} onChange={(event) => setRegion(event.target.value)}>
+                      {REGIONS.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <button type="submit" className="btn btn-primary" disabled={busy || !riotId.includes("#")}>
+                    {busy ? t("Recherche...", "Searching...") : t("Ajouter", "Add")}
+                  </button>
+                </div>
+                {error && <p className="form-error">{error}</p>}
+              </form>
+            </section>
+          )}
 
-      <ThresholdSection />
+          {section === "analysis" && <ThresholdSection />}
 
-      <DataSection />
-
-      <section className="stack" style={{ gap: 14 }}>
-        <h2 className="section-title">{t("Aide", "Help")}</h2>
-        <div className="row">
-          <button type="button" className="btn btn-secondary" onClick={onReplayTour}>
-            {t("Revoir le tutoriel", "Replay the tour")}
-          </button>
+          {section === "data" && <DataSection />}
         </div>
-      </section>
+      </div>
     </div>
   );
 }
