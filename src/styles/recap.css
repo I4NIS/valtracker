@@ -44,9 +44,16 @@
   letter-spacing: -0.02em;
 }
 
+.export-head,
+.export-modes,
+.export-foot {
+  flex-shrink: 0;
+}
+
 .export-modes {
   padding: 18px 24px 0;
   overflow-x: auto;
+  scrollbar-width: none;
 }
 
 .export-body {

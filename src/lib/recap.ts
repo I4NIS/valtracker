@@ -150,8 +150,9 @@ export const recapApi = {
   getSelectionRecap: (puuid: string, matchIds: string[]) => invoke<SessionRecap>("get_selection_recap", { puuid, matchIds }),
   getRangeRecap: (puuid: string, from: number, to: number) => invoke<SessionRecap>("get_range_recap", { puuid, from, to }),
   getRecapMatches: (puuid: string) => invoke<RecapMatch[]>("get_recap_matches", { puuid }),
+  copyImage: async (blob: Blob) => invoke<void>("copy_recap_image", new Uint8Array(await blob.arrayBuffer())),
   saveImage: async (fileName: string, blob: Blob) =>
-    invoke<{ path: string; copied: boolean }>("save_recap_image", new Uint8Array(await blob.arrayBuffer()), {
+    invoke<string>("save_recap_image", new Uint8Array(await blob.arrayBuffer()), {
       headers: { "x-file-name": fileName },
     }),
   reveal: (path: string) => invoke<void>("reveal_recap", { path }),

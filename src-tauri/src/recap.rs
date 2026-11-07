@@ -19,7 +19,6 @@ use crate::storage;
 const COMPETITIVE: &str = "competitive";
 const SESSION_GAP_SECS: i64 = 3600;
 const UNITS_PER_METER: f64 = 100.0;
-const FOLDER: &str = "Valtracker";
 const PNG_SIGNATURE: &[u8] = b"\x89PNG\r\n\x1a\n";
 const MAX_IMAGE_BYTES: usize = 32 * 1024 * 1024;
 
@@ -846,9 +845,8 @@ pub fn get_act_recap(state: State<'_, AppState>, puuid: String, season: Option<S
     state.cached(format!("{puuid}|ActRecap({season:?})"), |conn| json(act(conn, &puuid, season.as_deref())))
 }
 
-fn recap_folder(app: &AppHandle) -> AppResult<PathBuf> {
-    let pictures = app.path().picture_dir().map_err(|err| AppError::Invalid(err.to_string()))?;
-    Ok(pictures.join(FOLDER))
+fn downloads(app: &AppHandle) -> AppResult<PathBuf> {
+    app.path().download_dir().map_err(|err| AppError::Invalid(err.to_string()))
 }
 
 fn safe_name(raw: &str) -> String {
@@ -871,38 +869,42 @@ fn free_path(folder: &Path, stem: &str) -> PathBuf {
     path
 }
 
-#[tauri::command(async)]
-pub fn save_recap_image(app: AppHandle, request: Request<'_>) -> AppResult<SavedImage> {
-    let InvokeBody::Raw(bytes) = request.body() else {
-        return Err(AppError::Invalid(tr("Image invalide", "Invalid image").into()));
-    };
-    if !bytes.starts_with(PNG_SIGNATURE) || bytes.len() > MAX_IMAGE_BYTES {
-        return Err(AppError::Invalid(tr("Image invalide", "Invalid image").into()));
+fn png<'a>(request: &'a Request<'_>) -> AppResult<&'a [u8]> {
+    match request.body() {
+        InvokeBody::Raw(bytes) if bytes.starts_with(PNG_SIGNATURE) && bytes.len() <= MAX_IMAGE_BYTES => Ok(bytes),
+        _ => Err(AppError::Invalid(tr("Image invalide", "Invalid image").into())),
     }
+}
+
+#[tauri::command(async)]
+pub fn copy_recap_image(app: AppHandle, request: Request<'_>) -> AppResult<()> {
+    let image = tauri::image::Image::from_bytes(png(&request)?).map_err(|_| AppError::Invalid(tr("Image invalide", "Invalid image").into()))?;
+    app.clipboard()
+        .write_image(&image)
+        .map_err(|_| AppError::Invalid(tr("La copie dans le presse-papiers a échoué", "Couldn't copy to the clipboard").into()))
+}
+
+#[tauri::command(async)]
+pub fn save_recap_image(app: AppHandle, request: Request<'_>) -> AppResult<String> {
+    let bytes = png(&request)?;
     let name = request.headers().get("x-file-name").and_then(|value| value.to_str().ok()).unwrap_or_default();
-    let folder = recap_folder(&app)?;
+    let folder = downloads(&app)?;
     std::fs::create_dir_all(&folder)?;
     let path = free_path(&folder, &safe_name(name));
     std::fs::write(&path, bytes)?;
-    let copied = tauri::image::Image::from_bytes(bytes).is_ok_and(|image| app.clipboard().write_image(&image).is_ok());
-    Ok(SavedImage { path: path.to_string_lossy().into_owned(), copied })
-}
-
-#[derive(Serialize)]
-pub struct SavedImage {
-    path: String,
-    copied: bool,
+    Ok(path.to_string_lossy().into_owned())
 }
 
 #[tauri::command]
 pub fn reveal_recap(app: AppHandle, path: String) -> AppResult<()> {
-    let folder = recap_folder(&app)?;
+    let folder = downloads(&app)?;
     let target = PathBuf::from(&path);
     if target.parent() != Some(folder.as_path()) || !target.is_file() {
         return Err(AppError::Invalid(tr("Fichier introuvable", "File not found").into()));
     }
     app.opener().reveal_item_in_dir(&target).map_err(|err| AppError::Invalid(err.to_string()))
 }
+
 
 #[cfg(test)]
 mod tests {

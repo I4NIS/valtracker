@@ -33,7 +33,7 @@ type Choice =
 
 type Preview = { url: string; blob: Blob; name: string };
 
-type Status = { ok: boolean; message: string; path: string | null };
+type Status = { step: "copied" } | { step: "saved"; path: string } | { step: "error"; message: string };
 
 const PAGE = 30;
 const DEBOUNCE_MS = 220;
@@ -259,29 +259,38 @@ export function ExportDialog({ account, preset, onClose }: { account: Account; p
     setMatchIds((current) => (current.includes(id) ? current.filter((value) => value !== id) : [...current, id]));
   }
 
-  async function exportImage() {
-    if (!preview || busy) return;
+  async function act(task: () => Promise<Status>) {
+    if (busy) return;
     setBusy(true);
-    setStatus(null);
     try {
-      const saved = await recapApi.saveImage(`${preview.name}.png`, preview.blob);
-      const message = saved.copied
-        ? t("Image copiée et enregistrée", "Image copied and saved")
-        : t("Image enregistrée, la copie a échoué", "Image saved, copy failed");
-      setStatus({ ok: true, message, path: saved.path });
+      setStatus(await task());
     } catch (error) {
-      setStatus({ ok: false, message: errorMessage(error), path: null });
+      setStatus({ step: "error", message: errorMessage(error) });
     } finally {
       setBusy(false);
     }
   }
 
-  async function reveal(path: string) {
-    try {
+  function copy() {
+    if (!preview) return;
+    const image = preview;
+    act(async () => {
+      await recapApi.copyImage(image.blob);
+      return { step: "copied" };
+    });
+  }
+
+  function download() {
+    if (!preview) return;
+    const image = preview;
+    act(async () => ({ step: "saved", path: await recapApi.saveImage(`${image.name}.png`, image.blob) }));
+  }
+
+  function reveal(path: string) {
+    act(async () => {
       await recapApi.reveal(path);
-    } catch (error) {
-      setStatus({ ok: false, message: errorMessage(error), path: null });
-    }
+      return { step: "saved", path };
+    });
   }
 
   const multiple = mode === "matches";
@@ -455,22 +464,35 @@ export function ExportDialog({ account, preset, onClose }: { account: Account; p
           <div className="export-status" role="status">
             {status && (
               <>
-                <span className={`export-status-icon${status.ok ? "" : " is-error"}`}>
-                  <Icon name={status.ok ? "check" : "close"} size={14} strokeWidth={2.4} />
+                <span className={`export-status-icon${status.step === "error" ? " is-error" : ""}`}>
+                  <Icon name={status.step === "error" ? "close" : "check"} size={14} strokeWidth={2.4} />
                 </span>
-                <span className="export-status-text">{status.message}</span>
-                {status.path && (
-                  <button type="button" className="btn btn-secondary export-small" onClick={() => reveal(status.path as string)}>
-                    {t("Ouvrir le dossier", "Open folder")}
-                  </button>
-                )}
+                <span className="export-status-text">
+                  {status.step === "copied"
+                    ? t("Image copiée", "Image copied")
+                    : status.step === "saved"
+                      ? t("Image enregistrée dans Téléchargements", "Image saved to Downloads")
+                      : status.message}
+                </span>
               </>
             )}
           </div>
           <div className="export-foot-actions">
-            <button type="button" className="btn btn-primary" onClick={exportImage} disabled={!preview || rendering || busy} aria-busy={busy}>
-              <Icon name={busy ? "running" : "image"} size={16} className={busy ? "spin" : undefined} />
-              {busy ? t("Export en cours", "Exporting") : t("Exporter", "Export")}
+            {status?.step === "copied" && (
+              <button type="button" className="btn btn-secondary" onClick={download} disabled={busy}>
+                <Icon name="download" size={16} strokeWidth={2} />
+                {t("Télécharger", "Download")}
+              </button>
+            )}
+            {status?.step === "saved" && (
+              <button type="button" className="btn btn-secondary" onClick={() => reveal(status.path)} disabled={busy}>
+                <Icon name="folder" size={16} strokeWidth={2} />
+                {t("Afficher dans le dossier", "Show in folder")}
+              </button>
+            )}
+            <button type="button" className="btn btn-primary" onClick={copy} disabled={!preview || rendering || busy} aria-busy={busy}>
+              <Icon name={busy ? "running" : "copy"} size={16} strokeWidth={2} className={busy ? "spin" : undefined} />
+              {t("Copier l'image", "Copy image")}
             </button>
           </div>
         </footer>

@@ -97,6 +97,7 @@ pub fn run() {
             recap::get_selection_recap,
             recap::get_range_recap,
             recap::get_recap_matches,
+            recap::copy_recap_image,
             recap::save_recap_image,
             recap::reveal_recap,
             backup::export_database,
