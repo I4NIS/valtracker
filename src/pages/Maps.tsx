@@ -77,12 +77,10 @@ export function Maps({ account, onOpenRound }: Props) {
 
   return (
     <div className="content">
-      <div className="stack">
-        <span className="eyebrow">{season ? seasonLabel(season) : t("Toutes les saisons", "All seasons")}</span>
+      <header className="page-head">
         <h1 className="title">Maps</h1>
-      </div>
-
-      <SeasonPicker puuid={account.puuid} value={season} onChange={setSeason} />
+        <SeasonPicker puuid={account.puuid} value={season} onChange={setSeason} />
+      </header>
 
       {error && !maps && <p className="form-error">{error}</p>}
 
@@ -118,13 +116,13 @@ export function Maps({ account, onOpenRound }: Props) {
             ))}
           </div>
 
-          <section className="stack" style={{ gap: 20 }}>
-            <div className="stack" style={{ gap: 4 }}>
+          <section className="stack" style={{ gap: 14 }}>
+            <div className="section-head">
               <h2 className="section-title">{t("Tes meilleures et pires maps", "Your best and worst maps")}</h2>
-              <span className="hint">
+              <span className="faint">
                 {t(
-                  `Classement par taux de victoire, maps jouées au moins ${MIN_RANKED} fois.`,
-                  `Ranked by win rate, maps played at least ${MIN_RANKED} times.`,
+                  `Classement par taux de victoire, maps jouées au moins ${MIN_RANKED} fois`,
+                  `Ranked by win rate, maps played at least ${MIN_RANKED} times`,
                 )}
               </span>
             </div>
