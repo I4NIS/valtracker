@@ -1249,6 +1249,24 @@ a {
   background: var(--bad);
 }
 
+.update-banner {
+  position: fixed;
+  left: 24px;
+  bottom: 24px;
+  z-index: 60;
+  width: min(460px, calc(100vw - 48px));
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+  border-radius: 18px;
+  background: var(--raised);
+  border: 1px solid var(--line);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+  animation: rise 220ms ease-out;
+}
+
 .round-picker {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(40px, 1fr));

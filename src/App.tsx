@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Shell, type Page, type SyncView, type TourTarget } from "./components/Shell";
 import { TitleBar } from "./components/TitleBar";
 import { Tour } from "./components/Tour";
+import { UpdateBanner } from "./components/UpdateBanner";
 import { api, errorMessage, onSyncProgress, type Account, type Bootstrap, type Theme } from "./lib/api";
 import { Heatmaps } from "./pages/Heatmaps";
 import { Home } from "./pages/Home";
@@ -177,6 +178,7 @@ export default function App() {
         {soon && <Soon title={soon.title} text={soon.text} />}
       </Shell>
       {tourOpen && <Tour onTarget={setTourTarget} onClose={closeTour} />}
+      <UpdateBanner />
     </>
   );
 }
