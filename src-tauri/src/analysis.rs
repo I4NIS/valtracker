@@ -61,6 +61,38 @@ pub struct TeamBlock {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct RoundEvent {
+    pub time_s: f64,
+    pub kind: &'static str,
+    pub actor: String,
+    pub actor_agent_id: Option<String>,
+    pub actor_ally: bool,
+    pub actor_me: bool,
+    pub target: Option<String>,
+    pub target_agent_id: Option<String>,
+    pub target_ally: bool,
+    pub target_me: bool,
+    pub weapon: Option<String>,
+    pub site: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EconomyLine {
+    pub name: String,
+    pub agent_id: Option<String>,
+    pub ally: bool,
+    pub me: bool,
+    pub loadout: i64,
+    pub remaining: i64,
+    pub weapon: Option<String>,
+    pub armor: Option<String>,
+    pub kills: i64,
+    pub damage: i64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RoundLine {
     pub number: usize,
     pub won: bool,
@@ -71,6 +103,41 @@ pub struct RoundLine {
     pub enemy_loadout: i64,
     pub my_kills: i64,
     pub died: bool,
+    pub result: String,
+    pub ceremony: Option<String>,
+    pub events: Vec<RoundEvent>,
+    pub economy: Vec<EconomyLine>,
+}
+
+fn result_label(raw: &str) -> String {
+    let lower = raw.to_lowercase();
+    if lower.is_empty() {
+        "Temps écoulé".into()
+    } else if lower.contains("elim") {
+        "Élimination".into()
+    } else if lower.contains("detonat") || lower.contains("exploded") {
+        "Spike explosé".into()
+    } else if lower.contains("defus") {
+        "Spike désamorcé".into()
+    } else if lower.contains("time") || lower.contains("expire") {
+        "Temps écoulé".into()
+    } else if lower.contains("surrender") {
+        "Abandon".into()
+    } else {
+        raw.to_string()
+    }
+}
+
+fn ceremony_label(raw: &str) -> Option<String> {
+    match raw {
+        "CeremonyAce" => Some("Ace".into()),
+        "CeremonyTeamAce" => Some("Ace d'équipe".into()),
+        "CeremonyClutch" => Some("Clutch".into()),
+        "CeremonyFlawless" => Some("Flawless".into()),
+        "CeremonyThrifty" => Some("Victoire en éco".into()),
+        "CeremonyCloser" => Some("Round décisif".into()),
+        _ => None,
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -329,6 +396,84 @@ pub fn analyze(game: &Value, puuid: &str, map: Option<&MapData>, roles: &HashMap
                     enemy_total = (enemy_total.0 + loadout, enemy_total.1 + 1);
                 }
             }
+            let person = |id: &str, fallback: Option<&str>| {
+                let line = lines.iter().find(|line| line.puuid == id);
+                (
+                    line.map_or_else(|| fallback.unwrap_or("Inconnu").to_string(), |line| line.name.clone()),
+                    line.and_then(|line| line.agent_id.clone()),
+                    team_of(id) == Some(my_team.as_str()),
+                    id == puuid,
+                )
+            };
+            let mut events: Vec<RoundEvent> = kills
+                .iter()
+                .filter(|kill| int(kill, "/round") as usize == index)
+                .map(|kill| {
+                    let (actor, actor_agent_id, actor_ally, actor_me) =
+                        person(text(kill, "/killer/puuid").unwrap_or_default(), text(kill, "/killer/name"));
+                    let (target, target_agent_id, target_ally, target_me) =
+                        person(text(kill, "/victim/puuid").unwrap_or_default(), text(kill, "/victim/name"));
+                    RoundEvent {
+                        time_s: int(kill, "/time_in_round_in_ms") as f64 / 1000.0,
+                        kind: "kill",
+                        actor,
+                        actor_agent_id,
+                        actor_ally,
+                        actor_me,
+                        target: Some(target),
+                        target_agent_id,
+                        target_ally,
+                        target_me,
+                        weapon: text(kill, "/weapon/name").map(str::to_string),
+                        site: None,
+                    }
+                })
+                .collect();
+            for (kind, pointer) in [("plant", "/plant"), ("defuse", "/defuse")] {
+                let Some(action) = round.pointer(pointer).filter(|value| value.is_object()) else {
+                    continue;
+                };
+                let (actor, actor_agent_id, actor_ally, actor_me) =
+                    person(text(action, "/player/puuid").unwrap_or_default(), text(action, "/player/name"));
+                events.push(RoundEvent {
+                    time_s: int(action, "/round_time_in_ms") as f64 / 1000.0,
+                    kind,
+                    actor,
+                    actor_agent_id,
+                    actor_ally,
+                    actor_me,
+                    target: None,
+                    target_agent_id: None,
+                    target_ally: false,
+                    target_me: false,
+                    weapon: None,
+                    site: text(action, "/site").map(str::to_string),
+                });
+            }
+            events.sort_by(|a, b| a.time_s.total_cmp(&b.time_s));
+            let mut economy: Vec<EconomyLine> = stats
+                .iter()
+                .map(|stat| {
+                    let id = text(stat, "/player/puuid").unwrap_or_default();
+                    let (name, agent_id, ally, me) = person(id, text(stat, "/player/name"));
+                    EconomyLine {
+                        name,
+                        agent_id,
+                        ally,
+                        me,
+                        loadout: int(stat, "/economy/loadout_value"),
+                        remaining: int(stat, "/economy/remaining"),
+                        weapon: text(stat, "/economy/weapon/name").map(str::to_string),
+                        armor: text(stat, "/economy/armor/name").map(str::to_string),
+                        kills: int(stat, "/stats/kills"),
+                        damage: stat
+                            .pointer("/damage_events")
+                            .and_then(Value::as_array)
+                            .map_or(0, |events| events.iter().map(|event| int(event, "/damage")).sum()),
+                    }
+                })
+                .collect();
+            economy.sort_by(|a, b| b.ally.cmp(&a.ally).then(b.loadout.cmp(&a.loadout)));
             RoundLine {
                 number: index + 1,
                 won: text(round, "/winning_team") == Some(my_team.as_str()),
@@ -339,6 +484,10 @@ pub fn analyze(game: &Value, puuid: &str, map: Option<&MapData>, roles: &HashMap
                 enemy_loadout: if enemy_total.1 > 0 { enemy_total.0 / enemy_total.1 } else { 0 },
                 my_kills: mine.1,
                 died: my_deaths.iter().any(|kill| int(kill, "/round") as usize == index),
+                result: result_label(text(round, "/result").unwrap_or_default()),
+                ceremony: text(round, "/ceremony").and_then(ceremony_label),
+                events,
+                economy,
             }
         })
         .collect();
