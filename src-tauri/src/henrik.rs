@@ -3,10 +3,13 @@ use serde_json::Value;
 use std::time::Duration;
 
 use crate::error::{AppError, AppResult};
+use crate::http;
 use crate::i18n::{english, tr};
 
 const BASE_URL: &str = "https://api.henrikdev.xyz/valorant/";
 const MAX_ATTEMPTS: usize = 4;
+const MIN_WAIT_SECS: u64 = 1;
+const MAX_WAIT_SECS: u64 = 120;
 
 pub struct Henrik {
     client: Client,
@@ -14,13 +17,8 @@ pub struct Henrik {
 }
 
 impl Henrik {
-    pub fn new(key: impl Into<String>) -> Self {
-        let client = Client::builder()
-            .timeout(Duration::from_secs(30))
-            .user_agent("Valtracker")
-            .build()
-            .unwrap_or_default();
-        Self { client, key: key.into() }
+    pub fn new(key: impl Into<String>) -> AppResult<Self> {
+        Ok(Self { client: http::client()?, key: key.into() })
     }
 
     pub async fn account(&self, name: &str, tag: &str) -> AppResult<Value> {
@@ -63,16 +61,16 @@ impl Henrik {
             let reset = header_secs(&response, "x-ratelimit-reset").unwrap_or(60);
             if status == StatusCode::TOO_MANY_REQUESTS {
                 let wait = header_secs(&response, "retry-after").unwrap_or(reset);
-                tokio::time::sleep(Duration::from_secs(wait.max(1))).await;
+                tokio::time::sleep(pause(wait)).await;
                 continue;
             }
             let remaining = header_secs(&response, "x-ratelimit-remaining");
-            let body: Value = response.json().await.unwrap_or(Value::Null);
+            let body: Value = serde_json::from_slice(&http::body(response).await?).unwrap_or(Value::Null);
             if !status.is_success() {
                 return Err(api_error(status, &body));
             }
             if remaining == Some(0) {
-                tokio::time::sleep(Duration::from_secs(reset.max(1))).await;
+                tokio::time::sleep(pause(reset)).await;
             }
             return Ok(body.get("data").cloned().unwrap_or(Value::Null));
         }
@@ -90,6 +88,10 @@ fn build_url(segments: &[&str], query: &[(&str, String)]) -> AppResult<Url> {
         url.query_pairs_mut().extend_pairs(query);
     }
     Ok(url)
+}
+
+fn pause(secs: u64) -> Duration {
+    Duration::from_secs(secs.clamp(MIN_WAIT_SECS, MAX_WAIT_SECS))
 }
 
 fn header_secs(response: &Response, name: &str) -> Option<u64> {

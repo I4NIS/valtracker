@@ -167,9 +167,9 @@ pub fn map_stats(conn: &Connection, puuid: &str, season: Option<&str>) -> AppRes
         if stat.map_id.is_empty() {
             stat.map_id = map_id;
             stat.name = row.get(1)?;
-            stat.splash = row.get(2)?;
-            stat.list_icon = row.get(17)?;
-            stat.minimap = row.get(18)?;
+            stat.splash = assets::trusted_image(row.get(2)?);
+            stat.list_icon = assets::trusted_image(row.get(17)?);
+            stat.minimap = assets::trusted_image(row.get(18)?);
             stat.rotation = layout.map_or(0, MapData::rotation);
         }
         let agent_id: Option<String> = row.get(3)?;

@@ -153,8 +153,12 @@ pub fn schema_version() -> i64 {
 }
 
 pub fn migrate(conn: &Connection) -> AppResult<()> {
+    migrate_to(conn, schema_version())
+}
+
+pub fn migrate_to(conn: &Connection, target: i64) -> AppResult<()> {
     let version: i64 = conn.pragma_query_value(None, "user_version", |row| row.get(0))?;
-    for (index, sql) in MIGRATIONS.iter().enumerate().skip(version as usize) {
+    for (index, sql) in MIGRATIONS.iter().enumerate().take(target.max(0) as usize).skip(version.max(0) as usize) {
         conn.execute_batch(sql)?;
         conn.pragma_update(None, "user_version", (index + 1) as i64)?;
     }

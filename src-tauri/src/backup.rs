@@ -1,19 +1,23 @@
 use rusqlite::backup::Backup;
+use rusqlite::config::DbConfig;
 use rusqlite::{Connection, OpenFlags, params};
 use serde::Serialize;
-use std::path::{Path, PathBuf};
+use std::collections::BTreeSet;
+use std::path::{Component, Path, PathBuf, Prefix};
 use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_dialog::{DialogExt, FileDialogBuilder, FilePath};
 
+use crate::assets;
 use crate::db;
 use crate::error::{AppError, AppResult};
 use crate::i18n::tr;
 use crate::state::AppState;
 use crate::sync::{ACTIVE_ACCOUNT_SETTING, API_KEY_SETTING};
 
-const REQUIRED_TABLES: [&str; 5] = ["settings", "accounts", "matches", "match_players", "mmr_history"];
 const PAGES_PER_STEP: i32 = 512;
+const SECRET_SETTINGS: [&str; 1] = [API_KEY_SETTING];
+const CACHED_TABLES: [&str; 2] = ["maps", "agents"];
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -27,9 +31,48 @@ fn not_valtracker() -> AppError {
     AppError::Invalid(tr("Ce fichier n'est pas une base Valtracker", "This file is not a Valtracker database").into())
 }
 
-pub fn inspect(path: &Path) -> AppResult<ImportCandidate> {
+fn open_untrusted(path: &Path) -> AppResult<Connection> {
     let conn = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX)
         .map_err(|_| not_valtracker())?;
+    harden(&conn).map_err(|_| not_valtracker())?;
+    Ok(conn)
+}
+
+fn harden(conn: &Connection) -> rusqlite::Result<()> {
+    conn.set_db_config(DbConfig::SQLITE_DBCONFIG_DEFENSIVE, true)?;
+    conn.set_db_config(DbConfig::SQLITE_DBCONFIG_TRUSTED_SCHEMA, false)?;
+    conn.execute_batch("PRAGMA trusted_schema = OFF;")
+}
+
+fn internal(kind: &str, name: &str, without_sql: bool) -> bool {
+    match kind {
+        "index" => without_sql && name.starts_with("sqlite_autoindex_"),
+        "table" => matches!(name, "sqlite_sequence" | "sqlite_stat1" | "sqlite_stat4"),
+        _ => false,
+    }
+}
+
+fn schema(conn: &Connection) -> rusqlite::Result<BTreeSet<(String, String, String)>> {
+    let mut stmt = conn.prepare("SELECT type, name, tbl_name, sql IS NULL FROM sqlite_master")?;
+    let rows = stmt
+        .query_map([], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?, row.get::<_, String>(2)?, row.get::<_, bool>(3)?))
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok(rows
+        .into_iter()
+        .filter(|(kind, name, _, without_sql)| !internal(kind, name, *without_sql))
+        .map(|(kind, name, table, _)| (kind, name, table))
+        .collect())
+}
+
+fn expected_schema(version: i64) -> AppResult<BTreeSet<(String, String, String)>> {
+    let reference = Connection::open_in_memory()?;
+    db::migrate_to(&reference, version)?;
+    Ok(schema(&reference)?)
+}
+
+fn verify(conn: &Connection) -> AppResult<i64> {
     let version: i64 = conn.pragma_query_value(None, "user_version", |row| row.get(0)).map_err(|_| not_valtracker())?;
     if version < 1 {
         return Err(not_valtracker());
@@ -39,14 +82,34 @@ pub fn inspect(path: &Path) -> AppResult<ImportCandidate> {
             tr("Cette base vient d'une version plus récente de Valtracker", "This database comes from a newer version of Valtracker").into(),
         ));
     }
-    for table in REQUIRED_TABLES {
-        let found: i64 = conn
-            .query_row("SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = ?1", params![table], |row| row.get(0))
-            .map_err(|_| not_valtracker())?;
-        if found == 0 {
-            return Err(not_valtracker());
+    let found = schema(conn).map_err(|_| not_valtracker())?;
+    if found != expected_schema(version)? {
+        return Err(not_valtracker());
+    }
+    Ok(version)
+}
+
+fn table_exists(conn: &Connection, table: &str) -> AppResult<bool> {
+    let found: i64 =
+        conn.query_row("SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = ?1", params![table], |row| row.get(0))?;
+    Ok(found > 0)
+}
+
+fn scrub(conn: &Connection) -> AppResult<()> {
+    for key in SECRET_SETTINGS.iter().chain([&assets::REFRESHED_SETTING]) {
+        conn.execute("DELETE FROM settings WHERE key = ?1", params![key])?;
+    }
+    for table in CACHED_TABLES {
+        if table_exists(conn, table)? {
+            conn.execute_batch(&format!("DELETE FROM {table};"))?;
         }
     }
+    Ok(())
+}
+
+pub fn inspect(path: &Path) -> AppResult<ImportCandidate> {
+    let conn = open_untrusted(path)?;
+    verify(&conn)?;
     let count = |sql: &str| conn.query_row(sql, [], |row| row.get::<_, i64>(0)).map_err(|_| not_valtracker());
     Ok(ImportCandidate {
         path: path.display().to_string(),
@@ -61,11 +124,25 @@ pub fn export_to(source: &Path, target: &Path) -> AppResult<()> {
             tr("Choisis un autre emplacement que la base actuelle", "Choose a location other than the current database").into(),
         ));
     }
-    if target.exists() {
-        std::fs::remove_file(target)?;
-    }
+    let mut name = target.file_name().unwrap_or_default().to_owned();
+    name.push(".valtracker-export.tmp");
+    let temp = target.with_file_name(name);
+    remove_with_journals(&temp);
+    let result = write_export(source, &temp).and_then(|()| Ok(std::fs::rename(&temp, target)?));
+    remove_with_journals(&temp);
+    result
+}
+
+fn write_export(source: &Path, temp: &Path) -> AppResult<()> {
     let conn = Connection::open_with_flags(source, OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_NO_MUTEX)?;
-    conn.execute("VACUUM INTO ?1", params![target.to_string_lossy()])?;
+    conn.execute("VACUUM INTO ?1", params![temp.to_string_lossy()])?;
+    drop(conn);
+    let copy = Connection::open_with_flags(temp, OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_NO_MUTEX)?;
+    copy.execute_batch("PRAGMA secure_delete = ON; PRAGMA journal_mode = MEMORY;")?;
+    for key in SECRET_SETTINGS {
+        copy.execute("DELETE FROM settings WHERE key = ?1", params![key])?;
+    }
+    copy.execute_batch("VACUUM;")?;
     Ok(())
 }
 
@@ -85,11 +162,13 @@ fn remove_with_journals(path: &Path) {
 }
 
 fn prepare(source: &Path, temp: &Path, page_size: i64, api_key: Option<&str>) -> AppResult<()> {
-    let from = Connection::open_with_flags(source, OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX)
-        .map_err(|_| not_valtracker())?;
+    let from = open_untrusted(source)?;
     let mut copy = Connection::open(temp)?;
+    harden(&copy)?;
     Backup::new(&from, &mut copy)?.run_to_completion(PAGES_PER_STEP, Duration::ZERO, None)?;
     drop(from);
+    verify(&copy)?;
+    scrub(&copy)?;
     copy.execute_batch("PRAGMA journal_mode = DELETE;")?;
     copy.pragma_update(None, "page_size", page_size)?;
     copy.execute_batch("VACUUM;")?;
@@ -120,6 +199,24 @@ pub fn replace(live: &mut Connection, live_path: &Path, source: &Path) -> AppRes
     result?;
     db::migrate(live)?;
     Ok(candidate)
+}
+
+fn is_remote(path: &Path) -> bool {
+    match path.components().next() {
+        Some(Component::Prefix(prefix)) => {
+            matches!(prefix.kind(), Prefix::UNC(..) | Prefix::VerbatimUNC(..) | Prefix::Verbatim(..) | Prefix::DeviceNS(..))
+        }
+        _ => {
+            let text = path.as_os_str().to_string_lossy();
+            text.starts_with(r"\\") || text.starts_with("//")
+        }
+    }
+}
+
+fn remote_location() -> AppError {
+    AppError::Invalid(
+        tr("Copie d'abord la base sur ce PC pour l'importer", "Copy the database to this PC first to import it").into(),
+    )
 }
 
 fn dialog(app: &AppHandle) -> FileDialogBuilder<tauri::Wry> {
@@ -164,31 +261,59 @@ pub async fn pick_database_import(app: AppHandle) -> AppResult<Option<ImportCand
     dialog(&app).set_title(tr("Importer une base", "Import a database")).pick_file(move |path| {
         let _ = sender.send(path);
     });
+    let state = app.state::<AppState>();
+    state.set_import_source(None);
     let Some(source) = chosen(receiver).await? else {
         return Ok(None);
     };
-    blocking(move || inspect(&source)).await.map(Some)
+    if is_remote(&source) {
+        return Err(remote_location());
+    }
+    let path = source.clone();
+    let candidate = blocking(move || inspect(&path)).await?;
+    state.set_import_source(Some(source));
+    Ok(Some(candidate))
 }
 
 #[tauri::command]
 pub async fn import_database(app: AppHandle, path: String) -> AppResult<()> {
     let state = app.state::<AppState>();
+    let source = state
+        .import_source()
+        .filter(|source| source.display().to_string() == path)
+        .ok_or_else(|| AppError::Invalid(tr("Choisis d'abord la base à importer", "Choose the database to import first").into()))?;
+    if is_remote(&source) {
+        return Err(remote_location());
+    }
     let _sync = state.sync_lock.lock().await;
     let handle = app.clone();
     let active = blocking(move || {
         let state = handle.state::<AppState>();
         let mut live = state.conn()?;
-        replace(&mut live, &state.db_path, Path::new(&path))?;
+        replace(&mut live, &state.db_path, &source)?;
         crate::i18n::load(&live);
         db::get_setting(&live, ACTIVE_ACCOUNT_SETTING)
     })
     .await?;
+    state.set_import_source(None);
     crate::tray::relabel(&app);
     state.invalidate();
     let _ = app.emit("data-changed", active.clone().unwrap_or_default());
-    if let Some(puuid) = active {
+    if let Some(puuid) = active.clone() {
         crate::reports::warm(&app, puuid);
     }
+    let handle = app.clone();
+    tauri::async_runtime::spawn(async move {
+        let state = handle.state::<AppState>();
+        if assets::refresh_if_needed(&state).await.is_err() {
+            return;
+        }
+        state.invalidate();
+        let _ = handle.emit("data-changed", active.clone().unwrap_or_default());
+        if let Some(puuid) = active {
+            crate::reports::warm(&handle, puuid);
+        }
+    });
     Ok(())
 }
 
@@ -307,6 +432,108 @@ mod tests {
         let version: i64 = live.pragma_query_value(None, "user_version", |row| row.get(0)).unwrap();
         assert_eq!(version, db::schema_version());
         assert!(!scratch.path("valtracker-import.tmp.db").exists());
+    }
+
+    #[test]
+    fn rejects_a_database_with_a_trigger() {
+        let scratch = Scratch::new();
+        let path = scratch.path("trigger.db");
+        let conn = db::open(&path).unwrap();
+        conn.execute_batch("CREATE TRIGGER wipe AFTER INSERT ON accounts BEGIN DELETE FROM matches; END;").unwrap();
+        drop(conn);
+        assert!(inspect(&path).is_err());
+        let live_path = scratch.path("valtracker.db");
+        let mut live = db::open(&live_path).unwrap();
+        assert!(replace(&mut live, &live_path, &path).is_err());
+    }
+
+    #[test]
+    fn rejects_a_database_with_a_view_or_an_extra_index() {
+        let scratch = Scratch::new();
+        let view = scratch.path("view.db");
+        let conn = db::open(&view).unwrap();
+        conn.execute_batch("CREATE VIEW everything AS SELECT * FROM settings;").unwrap();
+        drop(conn);
+        assert!(inspect(&view).is_err());
+
+        let index = scratch.path("index.db");
+        let conn = db::open(&index).unwrap();
+        conn.execute_batch("CREATE INDEX extra ON settings(value);").unwrap();
+        drop(conn);
+        assert!(inspect(&index).is_err());
+    }
+
+    #[test]
+    fn accepts_an_older_schema() {
+        let scratch = Scratch::new();
+        let path = scratch.path("old.db");
+        let conn = Connection::open(&path).unwrap();
+        db::migrate_to(&conn, 3).unwrap();
+        drop(conn);
+        assert!(inspect(&path).is_ok());
+    }
+
+    #[test]
+    fn import_never_adopts_the_imported_key_or_assets() {
+        let scratch = Scratch::new();
+        let other_path = scratch.path("other.db");
+        let other = db::open(&other_path).unwrap();
+        account(&other, "imported");
+        db::set_setting(&other, API_KEY_SETTING, "attacker-key").unwrap();
+        db::set_setting(&other, assets::REFRESHED_SETTING, "99999999999").unwrap();
+        other
+            .execute_batch(
+                "INSERT INTO maps (uuid, name, display_icon, x_multiplier, y_multiplier, x_scalar, y_scalar, splash)
+                 VALUES ('m', 'Map', 'https://evil.example/a.png', 1, 1, 0, 0, 'https://evil.example/b.png');
+                 INSERT INTO agents (uuid, name, icon) VALUES ('a', 'Agent', 'https://evil.example/c.png');",
+            )
+            .unwrap();
+        drop(other);
+
+        let live_path = scratch.path("valtracker.db");
+        let mut live = db::open(&live_path).unwrap();
+        replace(&mut live, &live_path, &other_path).unwrap();
+        assert_eq!(db::get_setting(&live, API_KEY_SETTING).unwrap(), None);
+        assert_eq!(db::get_setting(&live, assets::REFRESHED_SETTING).unwrap(), None);
+        let cached: i64 = live
+            .query_row("SELECT (SELECT COUNT(*) FROM maps) + (SELECT COUNT(*) FROM agents)", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(cached, 0);
+    }
+
+    #[test]
+    fn export_leaves_out_the_api_key() {
+        let scratch = Scratch::new();
+        let live_path = scratch.path("valtracker.db");
+        let live = db::open(&live_path).unwrap();
+        account(&live, "a");
+        db::set_setting(&live, API_KEY_SETTING, "HDEV-secret-key-to-hide").unwrap();
+        db::set_setting(&live, "theme", "dark").unwrap();
+        let export_path = scratch.path("export.db");
+        std::fs::write(&export_path, "ancien export").unwrap();
+        export_to(&live_path, &export_path).unwrap();
+        drop(live);
+
+        let bytes = std::fs::read(&export_path).unwrap();
+        assert!(!bytes.windows(b"HDEV-secret-key-to-hide".len()).any(|window| window == b"HDEV-secret-key-to-hide"));
+        let exported = Connection::open(&export_path).unwrap();
+        assert_eq!(db::get_setting(&exported, API_KEY_SETTING).unwrap(), None);
+        assert_eq!(db::get_setting(&exported, "theme").unwrap().as_deref(), Some("dark"));
+        let leftovers: Vec<_> = std::fs::read_dir(&scratch.0)
+            .unwrap()
+            .filter_map(Result::ok)
+            .filter(|entry| entry.file_name().to_string_lossy().contains(".tmp"))
+            .collect();
+        assert!(leftovers.is_empty());
+    }
+
+    #[test]
+    fn spots_network_locations() {
+        assert!(is_remote(Path::new(r"\\serveur\partage\valtracker.db")));
+        assert!(is_remote(Path::new(r"\\?\UNC\serveur\partage\valtracker.db")));
+        assert!(is_remote(Path::new("//serveur/partage/valtracker.db")));
+        assert!(!is_remote(Path::new(r"C:\Users\joueur\valtracker.db")));
+        assert!(!is_remote(Path::new(r"\\?\C:\Users\joueur\valtracker.db")));
     }
 
     #[test]

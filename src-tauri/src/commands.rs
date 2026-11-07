@@ -23,6 +23,7 @@ use crate::thresholds::Thresholds;
 
 const REGIONS: [&str; 6] = ["eu", "na", "ap", "kr", "latam", "br"];
 const PREFERENCES: [&str; 4] = ["theme", "language", "tutorial_done", notify::NOTIFY_SETTING];
+const MAX_API_KEY_LEN: usize = 128;
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -63,7 +64,16 @@ pub fn save_api_key(state: State<'_, AppState>, key: String) -> AppResult<()> {
     if key.is_empty() {
         return Err(AppError::Invalid(tr("La clé API est vide", "The API key is empty").into()));
     }
+    if !valid_api_key(key) {
+        return Err(AppError::Invalid(
+            tr("Cette clé API n'a pas un format valide", "This API key does not have a valid format").into(),
+        ));
+    }
     db::set_setting(&*state.conn()?, API_KEY_SETTING, key)
+}
+
+fn valid_api_key(key: &str) -> bool {
+    key.len() <= MAX_API_KEY_LEN && key.chars().all(|c| c.is_ascii_alphanumeric() || c == '-')
 }
 
 #[tauri::command]
@@ -87,7 +97,7 @@ pub async fn add_account(state: State<'_, AppState>, riot_id: String, region: St
     }
     let key = db::get_setting(&*state.conn()?, API_KEY_SETTING)?
         .ok_or_else(|| AppError::Invalid(tr("Ajoute d'abord ta clé API HenrikDev", "Add your HenrikDev API key first").into()))?;
-    let data = Henrik::new(key).account(&name, &tag).await?;
+    let data = Henrik::new(key)?.account(&name, &tag).await?;
     let conn = state.conn()?;
     let puuid = repo::upsert_account(&conn, &data, &region)?
         .ok_or_else(|| AppError::Api(tr("Réponse inattendue de l'API HenrikDev", "Unexpected response from the HenrikDev API").into()))?;
@@ -245,4 +255,18 @@ pub fn set_preference(app: AppHandle, state: State<'_, AppState>, key: String, v
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn accepts_only_plausible_api_keys() {
+        assert!(valid_api_key("HDEV-1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d"));
+        assert!(!valid_api_key("HDEV-1a2b 3c4d"));
+        assert!(!valid_api_key("HDEV-1a2b\r\nX-Injected: oui"));
+        assert!(!valid_api_key("clé"));
+        assert!(!valid_api_key(&"a".repeat(MAX_API_KEY_LEN + 1)));
+    }
 }
