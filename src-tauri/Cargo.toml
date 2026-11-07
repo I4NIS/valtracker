@@ -27,6 +27,7 @@ tauri-plugin-clipboard-manager = "2"
 flate2 = "1.1.11"
 tauri-plugin-notification = "2"
 tauri-plugin-dialog = "2"
+tauri-plugin-single-instance = "2"
 
 [profile.release]
 codegen-units = 1
