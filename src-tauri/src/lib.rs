@@ -12,6 +12,7 @@ mod heatmap;
 mod henrik;
 mod models;
 mod progression;
+mod recap;
 mod reports;
 mod repo;
 mod state;
@@ -29,6 +30,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_clipboard_manager::init())
         .setup(|app| {
             let dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&dir)?;
@@ -73,6 +75,10 @@ pub fn run() {
             journal::save_note,
             journal::list_notes,
             journal::list_tags,
+            recap::get_session_recap,
+            recap::get_act_recap,
+            recap::save_recap_image,
+            recap::reveal_recap,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

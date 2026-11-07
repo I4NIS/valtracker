@@ -1,5 +1,6 @@
 import "../styles/progression.css";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { ExportRecapButton } from "../components/ExportRecap";
 import { SeasonPicker } from "../components/SeasonPicker";
 import type { Account, GameSummary, RrPoint } from "../lib/api";
 import { seasonLabel, tierNameById } from "../lib/assets";
@@ -37,7 +38,12 @@ export function Progression({ account }: Props) {
         <h1 className="title">Progression</h1>
       </div>
 
-      <SeasonPicker puuid={account.puuid} value={season} onChange={setSeason} />
+      <div className="row between wrap" style={{ gap: 12 }}>
+        <SeasonPicker puuid={account.puuid} value={season} onChange={setSeason} />
+        {season !== undefined && (
+          <ExportRecapButton kind="act" account={account} season={season} label={season ? "Exporter le récap de l'acte" : "Exporter le récap de l'acte en cours"} />
+        )}
+      </div>
 
       {error && <p className="form-error">{error}</p>}
 
