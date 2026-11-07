@@ -248,6 +248,7 @@ struct PlayerRow {
     rounds_lost: i64,
     riot_score: Option<f64>,
     riot_grade: Option<String>,
+    behavior: [Option<f64>; 4],
 }
 
 pub struct PreparedMatch {
@@ -318,6 +319,8 @@ pub fn prepare_match(game: Value) -> AppResult<Option<PreparedMatch>> {
                 rounds_lost: team.map_or(0, |team| int(team, "/rounds/lost")),
                 riot_score: player.pointer("/performance/score").and_then(Value::as_f64),
                 riot_grade: owned(player, "/performance/ratings/grade"),
+                behavior: ["/behavior/afk_rounds", "/behavior/rounds_in_spawn", "/behavior/friendly_fire/incoming", "/behavior/friendly_fire/outgoing"]
+                    .map(|pointer| player.pointer(pointer).and_then(Value::as_f64)),
             }
         })
         .collect();
@@ -367,11 +370,13 @@ pub fn insert_prepared(conn: &Connection, game: &PreparedMatch) -> AppResult<boo
     let mut stmt = conn.prepare_cached(
         "INSERT OR REPLACE INTO match_players
             (match_id, puuid, name, tag, team, agent_id, agent_name, tier, score, kills, deaths, assists,
-             headshots, bodyshots, legshots, damage_dealt, damage_received, won, rounds_won, rounds_lost, riot_score, riot_grade)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22)",
+             headshots, bodyshots, legshots, damage_dealt, damage_received, won, rounds_won, rounds_lost, riot_score, riot_grade,
+             afk_rounds, rounds_in_spawn, friendly_fire_in, friendly_fire_out)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26)",
     )?;
     for player in &game.players {
         let [score, kills, deaths, assists, headshots, bodyshots, legshots, dealt, received] = player.stats;
+        let [afk_rounds, rounds_in_spawn, friendly_fire_in, friendly_fire_out] = player.behavior;
         stmt.execute(params![
             game.match_id,
             player.puuid,
@@ -395,6 +400,10 @@ pub fn insert_prepared(conn: &Connection, game: &PreparedMatch) -> AppResult<boo
             player.rounds_lost,
             player.riot_score,
             player.riot_grade,
+            afk_rounds,
+            rounds_in_spawn,
+            friendly_fire_in,
+            friendly_fire_out,
         ])?;
     }
     Ok(true)

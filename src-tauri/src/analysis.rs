@@ -224,6 +224,8 @@ pub struct MatchDetail {
     pub flaws: Vec<Flaw>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub riot: Option<riot::RiotPerformance>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub behavior: Option<Vec<riot::Fact>>,
 }
 
 pub fn text<'a>(value: &'a Value, pointer: &str) -> Option<&'a str> {
@@ -780,6 +782,7 @@ pub fn analyze(
         death_reviews: deaths,
         flaws,
         riot: riot::performance(me),
+        behavior: riot::behavior(game, puuid),
     })
 }
 

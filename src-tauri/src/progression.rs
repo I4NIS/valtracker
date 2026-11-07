@@ -57,6 +57,21 @@ pub struct Progression {
     pub lobby_acs: f64,
     pub lobby_hs_pct: f64,
     pub rr_breakdown: crate::ranked::RrBreakdown,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub conduct: Option<Conduct>,
+}
+
+#[derive(Debug, Clone, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Conduct {
+    pub matches: i64,
+    pub with_afk_ally: i64,
+    pub losses_with_afk_ally: i64,
+    pub with_afk_enemy: i64,
+    pub wins_with_afk_enemy: i64,
+    pub my_afk_rounds: f64,
+    pub friendly_fire_received: f64,
+    pub friendly_fire_dealt: f64,
 }
 
 #[derive(Debug, Clone, Default, Serialize)]
@@ -228,7 +243,35 @@ pub fn progression(conn: &Connection, puuid: &str, season: Option<&str>) -> AppR
         lobby_acs: overview.lobby.acs,
         lobby_hs_pct: overview.lobby.hs_pct,
         rr_breakdown: crate::ranked::breakdown(conn, puuid, season)?,
+        conduct: conduct(conn, puuid, season)?,
     })
+}
+
+pub fn conduct(conn: &Connection, puuid: &str, season: Option<&str>) -> AppResult<Option<Conduct>> {
+    let mut stmt = conn.prepare(
+        "SELECT p.won,
+                EXISTS (SELECT 1 FROM match_players o WHERE o.match_id = p.match_id AND o.puuid <> p.puuid AND o.team = p.team AND o.afk_rounds > 0),
+                EXISTS (SELECT 1 FROM match_players o WHERE o.match_id = p.match_id AND o.team <> p.team AND o.afk_rounds > 0),
+                p.afk_rounds, COALESCE(p.friendly_fire_in, 0), COALESCE(p.friendly_fire_out, 0)
+         FROM match_players p JOIN matches m ON m.match_id = p.match_id
+         WHERE p.puuid = ?1 AND m.queue = ?2 AND (?3 IS NULL OR m.season_short = ?3) AND p.afk_rounds IS NOT NULL",
+    )?;
+    let mut rows = stmt.query(params![puuid, COMPETITIVE, season])?;
+    let mut acc = Conduct::default();
+    while let Some(row) = rows.next()? {
+        let won: bool = row.get(0)?;
+        let afk_ally: bool = row.get(1)?;
+        let afk_enemy: bool = row.get(2)?;
+        acc.matches += 1;
+        acc.with_afk_ally += i64::from(afk_ally);
+        acc.losses_with_afk_ally += i64::from(afk_ally && !won);
+        acc.with_afk_enemy += i64::from(afk_enemy);
+        acc.wins_with_afk_enemy += i64::from(afk_enemy && won);
+        acc.my_afk_rounds += row.get::<_, f64>(3)?;
+        acc.friendly_fire_received += row.get::<_, f64>(4)?;
+        acc.friendly_fire_dealt += row.get::<_, f64>(5)?;
+    }
+    Ok((acc.matches > 0).then_some(acc))
 }
 
 pub fn recent_flaws(conn: &Connection, puuid: &str) -> AppResult<RecentFlaws> {

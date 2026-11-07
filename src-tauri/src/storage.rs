@@ -88,6 +88,7 @@ fn player(player: &mut Value) -> Value {
         ("ability_casts", take(player, "ability_casts")),
         ("customization", pick(player.get_mut("customization"), &["card"])),
         ("performance", take(player, "performance")),
+        ("behavior", take(player, "behavior")),
     ])
 }
 
@@ -109,6 +110,9 @@ fn round_stat(stat: &mut Value) -> Value {
             "damage_events",
             each(stat.get_mut("damage_events"), |event| pick(Some(event), &["player", "damage", "headshots", "bodyshots", "legshots"])),
         ),
+        ("was_afk", take(stat, "was_afk")),
+        ("stayed_in_spawn", take(stat, "stayed_in_spawn")),
+        ("received_penalty", take(stat, "received_penalty")),
     ])
 }
 
@@ -306,6 +310,7 @@ mod tests {
                     "ability_casts": player["ability_casts"],
                     "customization": pick(&player["customization"], &["card"]),
                     "performance": player["performance"],
+                    "behavior": player["behavior"],
                 })),
                 "teams": each(&game["teams"], |team| pick(team, &["team_id", "won", "rounds"])),
                 "rounds": each(&game["rounds"], |round| json!({
@@ -326,6 +331,9 @@ mod tests {
                         },
                         "stats": pick(&stat["stats"], &["score", "kills", "headshots", "bodyshots", "legshots"]),
                         "damage_events": each(&stat["damage_events"], |event| pick(event, &["player", "damage", "headshots", "bodyshots", "legshots"])),
+                        "was_afk": stat["was_afk"],
+                        "stayed_in_spawn": stat["stayed_in_spawn"],
+                        "received_penalty": stat["received_penalty"],
                     })),
                 })),
                 "kills": each(&game["kills"], |kill| json!({
@@ -387,6 +395,7 @@ mod tests {
                     "breakdown": { "adjusted_kills": 14.2, "adjusted_deaths": -1.5 },
                     "ratings": { "grade": "merit", "combat": { "kill_impact": "up" }, "utility": null },
                 },
+                "behavior": { "afk_rounds": 2.0, "friendly_fire": { "incoming": 30.0, "outgoing": 0.0 }, "rounds_in_spawn": 2.0 },
             }],
             "teams": [{ "team_id": "Red", "won": true }],
             "rounds": [{
@@ -399,7 +408,7 @@ mod tests {
                     "player_locations": [{ "player": { "puuid": "p", "name": "P", "team": "Red" }, "location": { "x": 3, "y": 4 }, "view_radians": 1.5 }],
                 },
                 "defuse": null,
-                "stats": [{ "player": { "puuid": "p" } }],
+                "stats": [{ "player": { "puuid": "p" }, "was_afk": true, "stayed_in_spawn": true, "received_penalty": false }],
             }],
             "kills": [],
         })
@@ -415,6 +424,9 @@ mod tests {
         assert_eq!(slim.pointer("/rounds/0/plant/player_locations/0/location"), Some(&json!({ "x": 3, "y": 4 })));
         assert_eq!(slim.pointer("/rounds/0/plant/player_locations/0/player"), Some(&json!({ "puuid": "p", "team": "Red" })));
         assert_eq!(slim.pointer("/rounds/0/defuse"), Some(&Value::Null));
+        assert_eq!(slim.pointer("/players/0/behavior/friendly_fire/incoming"), Some(&json!(30.0)));
+        assert_eq!(slim.pointer("/rounds/0/stats/0/was_afk"), Some(&json!(true)));
+        assert_eq!(slim.pointer("/rounds/0/stats/0/received_penalty"), Some(&json!(false)));
         assert!(slim.pointer("/players/0/account_level").is_none());
         assert!(slim.pointer("/metadata/premier").is_none());
     }

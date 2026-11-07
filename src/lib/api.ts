@@ -268,7 +268,10 @@ export type MatchDetail = {
   deathReviews: Death[];
   flaws: Flaw[];
   riot?: RiotPerformance;
+  behavior?: Fact[];
 };
+
+export type Fact = { tone: "bad" | "neutral" | "gold"; text: string };
 
 export type RiotPerformance = {
   score: number | null;
@@ -347,6 +350,18 @@ export type Progression = {
   lobbyAcs: number;
   lobbyHsPct: number;
   rrBreakdown: RrBreakdown;
+  conduct?: Conduct;
+};
+
+export type Conduct = {
+  matches: number;
+  withAfkAlly: number;
+  lossesWithAfkAlly: number;
+  withAfkEnemy: number;
+  winsWithAfkEnemy: number;
+  myAfkRounds: number;
+  friendlyFireReceived: number;
+  friendlyFireDealt: number;
 };
 
 export type RecentFlaws = {

@@ -1,5 +1,5 @@
 import "../styles/riot.css";
-import type { MatchDetail, RiotPerformance } from "../lib/api";
+import type { Fact, MatchDetail, RiotPerformance } from "../lib/api";
 import { fmt } from "../lib/format";
 import { t } from "../lib/i18n";
 import { gradeLabel, gradeTone, notAvailable, trendLabel, trendLevel } from "../lib/riot";
@@ -84,10 +84,43 @@ function RiotPanel({ riot, score }: { riot: RiotPerformance | undefined; score: 
   );
 }
 
+export function FactList({ facts }: { facts: Fact[] }) {
+  return (
+    <ul className="riot-facts">
+      {facts.map((fact) => (
+        <li key={fact.text} className={fact.tone}>
+          <span>{fact.text}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function BehaviorPanel({ facts }: { facts: Fact[] | undefined }) {
+  return (
+    <section className="riot-panel">
+      <div className="section-head">
+        <h2 className="section-title">{t("Comportement", "Behavior")}</h2>
+        <span className="faint" style={{ fontSize: 13 }}>
+          {t("AFK, tirs alliés et pénalités relevés par Riot", "AFK, friendly fire and penalties recorded by Riot")}
+        </span>
+      </div>
+      {!facts ? (
+        <span className="faint">{notAvailable()}</span>
+      ) : facts.length === 0 ? (
+        <span className="faint">{t("Aucun AFK, tir allié ni pénalité dans ce match.", "No AFK, friendly fire or penalty in this match.")}</span>
+      ) : (
+        <FactList facts={facts} />
+      )}
+    </section>
+  );
+}
+
 export function MatchRiot({ detail }: { detail: MatchDetail }) {
   return (
     <div className="match-riot">
       <RiotPanel riot={detail.riot} score={detail.score} />
+      <BehaviorPanel facts={detail.behavior} />
     </div>
   );
 }
