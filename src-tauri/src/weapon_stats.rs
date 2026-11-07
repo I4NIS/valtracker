@@ -387,3 +387,112 @@ pub fn report(conn: &Connection, puuid: &str, season: Option<&str>) -> AppResult
 pub fn get_weapon_stats(state: tauri::State<'_, AppState>, puuid: String, season: Option<String>) -> AppResult<tauri::ipc::Response> {
     crate::reports::Report::Weapons(season).serve(&state, &puuid)
 }
+
+const HISTORY_LIMIT: usize = 500;
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WeaponDuel {
+    pub match_id: String,
+    pub map_id: Option<String>,
+    pub map_name: Option<String>,
+    pub started_at: String,
+    pub round_index: i64,
+    pub time_ms: i64,
+    pub opponent: String,
+    pub opponent_agent_id: Option<String>,
+    pub agent_id: Option<String>,
+    pub distance: Option<f64>,
+    pub round_won: Option<bool>,
+}
+
+pub fn history(conn: &Connection, puuid: &str, season: Option<&str>, weapon: &str, deaths: bool) -> AppResult<Vec<WeaponDuel>> {
+    let mut stmt = conn.prepare(
+        "SELECT m.match_id, m.started_at, m.raw FROM match_players p JOIN matches m ON m.match_id = p.match_id
+         WHERE p.puuid = ?1 AND m.queue = ?2 AND (?3 IS NULL OR m.season_short = ?3)
+         ORDER BY m.started_at DESC",
+    )?;
+    let rows = stmt
+        .query_map(params![puuid, COMPETITIVE, season], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?, row.get_ref(2)?.as_bytes()?.to_vec()))
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+    drop(stmt);
+
+    let empty = Vec::new();
+    let mut list = Vec::new();
+    for (match_id, started_at, raw) in rows {
+        let Some(game) = storage::decode(&raw) else {
+            continue;
+        };
+        let players = game.pointer("/players").and_then(Value::as_array).unwrap_or(&empty);
+        let agent_of = |id: &str| {
+            players.iter().find(|player| text(player, "/puuid") == Some(id)).and_then(|player| text(player, "/agent/id")).map(str::to_string)
+        };
+        let name_of = |id: &str| {
+            players
+                .iter()
+                .find(|player| text(player, "/puuid") == Some(id))
+                .and_then(|player| text(player, "/name"))
+                .unwrap_or("Inconnu")
+                .to_string()
+        };
+        let my_team = players.iter().find(|player| text(player, "/puuid") == Some(puuid)).and_then(|player| text(player, "/team_id"));
+        let rounds = game.pointer("/rounds").and_then(Value::as_array).unwrap_or(&empty);
+        let mut found: Vec<WeaponDuel> = game
+            .pointer("/kills")
+            .and_then(Value::as_array)
+            .unwrap_or(&empty)
+            .iter()
+            .filter(|kill| opposed(kill) && weapon_key(kill) == weapon)
+            .filter_map(|kill| {
+                let killer = text(kill, "/killer/puuid")?;
+                let victim = text(kill, "/victim/puuid")?;
+                if killer == victim || (if deaths { victim != puuid } else { killer != puuid }) {
+                    return None;
+                }
+                let opponent = if deaths { killer } else { victim };
+                let round_index = int(kill, "/round");
+                let round_won = match (my_team, rounds.get(round_index as usize).and_then(|round| text(round, "/winning_team"))) {
+                    (Some(mine), Some(winner)) => Some(mine == winner),
+                    _ => None,
+                };
+                Some(WeaponDuel {
+                    match_id: match_id.clone(),
+                    map_id: text(&game, "/metadata/map/id").map(str::to_string),
+                    map_name: text(&game, "/metadata/map/name").map(str::to_string),
+                    started_at: started_at.clone(),
+                    round_index,
+                    time_ms: int(kill, "/time_in_round_in_ms"),
+                    opponent: name_of(opponent),
+                    opponent_agent_id: agent_of(opponent),
+                    agent_id: agent_of(puuid),
+                    distance: kill_distance(kill, killer),
+                    round_won,
+                })
+            })
+            .collect();
+        found.sort_by(|a, b| b.round_index.cmp(&a.round_index).then(b.time_ms.cmp(&a.time_ms)));
+        list.extend(found);
+        if list.len() >= HISTORY_LIMIT {
+            list.truncate(HISTORY_LIMIT);
+            break;
+        }
+    }
+    Ok(list)
+}
+
+#[tauri::command(async)]
+pub fn get_weapon_history(
+    state: tauri::State<'_, AppState>,
+    puuid: String,
+    season: Option<String>,
+    weapon: String,
+    deaths: bool,
+) -> AppResult<tauri::ipc::Response> {
+    let key = format!("{puuid}|WeaponHistory({season:?},{weapon:?},{deaths})");
+    state.cached(key, |conn| {
+        let list = history(conn, &puuid, season.as_deref(), &weapon, deaths)?;
+        serde_json::to_string(&list).map_err(|err| crate::error::AppError::Invalid(err.to_string()))
+    })
+}

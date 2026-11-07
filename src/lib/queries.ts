@@ -4,7 +4,7 @@ import { getDuels } from "./duels";
 import { journal } from "./journal";
 import { getMapStats } from "./mapStats";
 import { peek, prefetch, type Query } from "./query";
-import { getWeaponStats } from "./weapons";
+import { getWeaponHistory, getWeaponStats } from "./weapons";
 
 type Season = string | null;
 
@@ -30,6 +30,10 @@ export const queries = {
   agents: (puuid: string, season: Season) => ({ key: `agents|${puuid}|${s(season)}`, fetch: () => getAgentStats(puuid, season) }),
   maps: (puuid: string, season: Season) => ({ key: `maps|${puuid}|${s(season)}`, fetch: () => getMapStats(puuid, season) }),
   weapons: (puuid: string, season: Season) => ({ key: `weapons|${puuid}|${s(season)}`, fetch: () => getWeaponStats(puuid, season) }),
+  weaponHistory: (puuid: string, season: Season, weapon: string, deaths: boolean) => ({
+    key: `weaponHistory|${puuid}|${s(season)}|${weapon}|${deaths}`,
+    fetch: () => getWeaponHistory(puuid, season, weapon, deaths),
+  }),
   duels: (puuid: string, season: Season) => ({ key: `duels|${puuid}|${s(season)}`, fetch: () => getDuels(puuid, season) }),
   notes: (puuid: string) => ({ key: `journal|notes|${puuid}`, fetch: () => journal.listNotes(puuid) }),
   tags: (puuid: string) => ({ key: `journal|tags|${puuid}`, fetch: () => journal.listTags(puuid) }),

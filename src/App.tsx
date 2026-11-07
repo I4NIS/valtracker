@@ -179,7 +179,7 @@ export default function App() {
         {page === "progress" && account && <Progression account={account} refreshKey={refreshKey} />}
         {page === "agents" && account && <Agents account={account} refreshKey={refreshKey} />}
         {page === "maps" && account && <Maps account={account} refreshKey={refreshKey} />}
-        {page === "weapons" && account && <Weapons account={account} refreshKey={refreshKey} />}
+        {page === "weapons" && account && <Weapons account={account} refreshKey={refreshKey} onOpenRound={showMatch} />}
         {page === "duels" && account && <Duels account={account} refreshKey={refreshKey} onOpenRound={showMatch} />}
         {page === "journal" && account && <Journal account={account} refreshKey={refreshKey} onOpenMatch={showMatch} />}
         {page === "matches" && account && openMatch && (

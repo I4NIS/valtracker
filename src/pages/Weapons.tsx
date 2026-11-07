@@ -4,8 +4,8 @@ import { AbilityArt, Art, SpikeGlyph } from "../components/GameArt";
 import { SeasonPicker } from "../components/SeasonPicker";
 import type { Account } from "../lib/api";
 import { agentIcon, seasonLabel } from "../lib/assets";
-import { fmt, pct } from "../lib/format";
-import { findAbility, useAgentCatalog, weaponArt, type Catalog } from "../lib/gameAssets";
+import { fmt, fullDate, pct } from "../lib/format";
+import { findAbility, mapArt, useAgentCatalog, weaponArt, type Catalog } from "../lib/gameAssets";
 import { useQuery } from "../lib/query";
 import { defaultSeason, queries } from "../lib/queries";
 import {
@@ -15,6 +15,7 @@ import {
   type AbilityPart,
   type KillerLine,
   type RangeSplit,
+  type WeaponDuel,
   type WeaponLine,
   type WeaponReport,
 } from "../lib/weapons";
@@ -22,12 +23,14 @@ import {
 type Props = {
   account: Account;
   refreshKey: number;
+  onOpenRound?: (matchId: string, roundIndex: number) => void;
 };
 
 const KILLER_LIMIT = 8;
 const ABILITIES = "Capacités";
 const SPIKE = "Spike";
 const STACK_LIMIT = 3;
+const HISTORY_PAGE = 10;
 
 const meters = (value: number | null) => (value === null ? "-" : `${fmt(value, 1)} m`);
 const plural = (count: number, one: string, many: string) => `${fmt(count)} ${count > 1 ? many : one}`;
@@ -78,12 +81,13 @@ function WeaponThumb({ item, catalog, width, height, eager }: { item: Armed; cat
   );
 }
 
-export function Weapons({ account }: Props) {
+export function Weapons({ account, onOpenRound }: Props) {
   const [season, setSeason] = useState<string | null | undefined>(() => defaultSeason(account.puuid));
   const query = useQuery(season === undefined ? null : queries.weapons(account.puuid, season));
   const data = query.data ?? null;
   const error = query.error;
   const [selected, setSelected] = useState<string | null>(null);
+  const [deathsMode, setDeathsMode] = useState(false);
   const catalog = useAgentCatalog();
 
   const weapon = useMemo(
@@ -191,7 +195,10 @@ export function Weapons({ account }: Props) {
                             type="button"
                             className={`weapon-row${active ? " active" : ""}`}
                             aria-pressed={active}
-                            onClick={() => setSelected(item.name)}
+                            onClick={() => {
+                              setSelected(item.name);
+                              setDeathsMode(false);
+                            }}
                           >
                             <span className="weapon-ident">
                               <WeaponThumb item={item} catalog={catalog} width={84} height={28} />
@@ -234,6 +241,18 @@ export function Weapons({ account }: Props) {
             </section>
           )}
 
+          {weapon && season !== undefined && (
+            <WeaponHistory
+              key={`${season ?? "all"}-${weapon.name}`}
+              puuid={account.puuid}
+              season={season}
+              weapon={weapon}
+              deaths={deathsMode}
+              onDeaths={setDeathsMode}
+              onOpenRound={onOpenRound}
+            />
+          )}
+
           {killers.length > 0 && (
             <section className="stack" style={{ gap: 16 }}>
               <div className="row between wrap" style={{ alignItems: "baseline" }}>
@@ -248,7 +267,14 @@ export function Weapons({ account }: Props) {
                     catalog={catalog}
                     top={topDeaths}
                     active={weapon?.name === item.name}
-                    onSelect={data.weapons.some((entry) => entry.name === item.name) ? () => setSelected(item.name) : undefined}
+                    onSelect={
+                      data.weapons.some((entry) => entry.name === item.name)
+                        ? () => {
+                            setSelected(item.name);
+                            setDeathsMode(true);
+                          }
+                        : undefined
+                    }
                   />
                 ))}
               </div>
@@ -504,5 +530,129 @@ function KillerRow({
         <div className="killer-row">{body}</div>
       )}
     </div>
+  );
+}
+
+function clock(ms: number): string {
+  const seconds = Math.max(0, Math.round(ms / 1000));
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+}
+
+function WeaponHistory({
+  puuid,
+  season,
+  weapon,
+  deaths,
+  onDeaths,
+  onOpenRound,
+}: {
+  puuid: string;
+  season: string | null;
+  weapon: WeaponLine;
+  deaths: boolean;
+  onDeaths: (deaths: boolean) => void;
+  onOpenRound?: (matchId: string, roundIndex: number) => void;
+}) {
+  const [shown, setShown] = useState(HISTORY_PAGE);
+  const query = useQuery(queries.weaponHistory(puuid, season, weapon.name, deaths));
+  const list = query.pending ? null : (query.data ?? []);
+  const total = deaths ? weapon.deaths : weapon.kills;
+
+  return (
+    <section className="stack" style={{ gap: 16 }}>
+      <div className="row between wrap" style={{ alignItems: "center", gap: 12 }}>
+        <h2 className="section-title">Historique : {weapon.name}</h2>
+        <div className="segmented" role="tablist" aria-label="Kills ou morts">
+          {[false, true].map((value) => (
+            <button
+              key={String(value)}
+              type="button"
+              role="tab"
+              aria-selected={deaths === value}
+              className={deaths === value ? "active" : undefined}
+              onClick={() => {
+                onDeaths(value);
+                setShown(HISTORY_PAGE);
+              }}
+            >
+              {value ? `Tes morts ${fmt(weapon.deaths)}` : `Tes kills ${fmt(weapon.kills)}`}
+            </button>
+          ))}
+        </div>
+      </div>
+      {total === 0 ? (
+        <span className="faint">{deaths ? "Aucune mort subie avec cette arme." : "Aucun kill avec cette arme."}</span>
+      ) : list === null ? (
+        <span className="faint">Recherche dans tes matchs...</span>
+      ) : (
+        <>
+          <ul className="weapon-history" aria-label={deaths ? "Tes morts face à cette arme" : "Tes kills avec cette arme"}>
+            {list.slice(0, shown).map((entry) => (
+              <HistoryRow key={`${entry.matchId}-${entry.roundIndex}-${entry.timeMs}`} entry={entry} deaths={deaths} onOpenRound={onOpenRound} />
+            ))}
+          </ul>
+          {list.length > shown && (
+            <button type="button" className="btn btn-secondary" style={{ alignSelf: "center" }} onClick={() => setShown(shown + HISTORY_PAGE * 2)}>
+              Afficher plus
+            </button>
+          )}
+        </>
+      )}
+    </section>
+  );
+}
+
+function HistoryRow({
+  entry,
+  deaths,
+  onOpenRound,
+}: {
+  entry: WeaponDuel;
+  deaths: boolean;
+  onOpenRound?: (matchId: string, roundIndex: number) => void;
+}) {
+  const round = entry.roundIndex + 1;
+  const map = entry.mapName ?? "Map inconnue";
+  const body = (
+    <>
+      <span className="weapon-history-map">
+        <Art src={mapArt(entry.mapId, "listviewicon")} width={112} height={44} alt="" className="weapon-history-map-art" />
+        <Art src={agentIcon(entry.agentId)} width={30} height={30} alt="" className="weapon-history-agent" />
+      </span>
+      <span className="weapon-history-who">
+        <Art src={agentIcon(entry.opponentAgentId)} width={28} height={28} alt="" className="weapon-history-face" />
+        <span className="stack" style={{ gap: 2, minWidth: 0 }}>
+          <strong className="ellipsis">
+            {deaths ? "Tué par " : ""}
+            {entry.opponent}
+          </strong>
+          <span className="faint ellipsis" style={{ fontSize: 12 }}>
+            {map}, round {round} à {clock(entry.timeMs)}, {fullDate(entry.startedAt)}
+          </span>
+        </span>
+      </span>
+      <span className="weapon-history-dist">{meters(entry.distance)}</span>
+      {entry.roundWon !== null && (
+        <span className={`weapon-history-result ${entry.roundWon ? "is-win" : "is-loss"}`}>
+          {entry.roundWon ? "Round gagné" : "Round perdu"}
+        </span>
+      )}
+    </>
+  );
+  return (
+    <li>
+      {onOpenRound ? (
+        <button
+          type="button"
+          className="weapon-history-row"
+          onClick={() => onOpenRound(entry.matchId, entry.roundIndex)}
+          aria-label={`Ouvrir le round ${round} sur ${map}`}
+        >
+          {body}
+        </button>
+      ) : (
+        <div className="weapon-history-row">{body}</div>
+      )}
+    </li>
   );
 }

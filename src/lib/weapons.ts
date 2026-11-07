@@ -101,3 +101,20 @@ export const RANGES: { id: keyof RangeSplit; label: string; detail: string }[] =
   { id: "medium", label: "Moyenne", detail: "10 à 25 m" },
   { id: "long", label: "Longue", detail: "plus de 25 m" },
 ];
+
+export type WeaponDuel = {
+  matchId: string;
+  mapId: string | null;
+  mapName: string | null;
+  startedAt: string;
+  roundIndex: number;
+  timeMs: number;
+  opponent: string;
+  opponentAgentId: string | null;
+  agentId: string | null;
+  distance: number | null;
+  roundWon: boolean | null;
+};
+
+export const getWeaponHistory = (puuid: string, season: string | null, weapon: string, deaths: boolean) =>
+  invoke<WeaponDuel[]>("get_weapon_history", { puuid, season, weapon, deaths });

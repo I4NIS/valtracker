@@ -558,3 +558,113 @@ button.killer-row.active {
     transition: none;
   }
 }
+
+.weapon-history {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  container-type: inline-size;
+}
+
+.weapon-history-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+}
+
+button.weapon-history-row {
+  cursor: pointer;
+}
+
+button.weapon-history-row:hover {
+  background: var(--raised);
+}
+
+.weapon-history-map {
+  position: relative;
+  flex-shrink: 0;
+  width: 112px;
+  height: 44px;
+}
+
+.weapon-history-map-art {
+  width: 112px;
+  height: 44px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.weapon-history-agent {
+  position: absolute;
+  right: -6px;
+  bottom: -6px;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--panel);
+  box-shadow: 0 0 0 2px var(--app);
+}
+
+.weapon-history-who {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.weapon-history-face {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+}
+
+.weapon-history-dist {
+  flex-shrink: 0;
+  width: 64px;
+  color: var(--muted);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.weapon-history-result {
+  flex-shrink: 0;
+  width: 104px;
+  font-weight: 600;
+  text-align: right;
+}
+
+.weapon-history-result.is-win {
+  color: var(--win);
+}
+
+.weapon-history-result.is-loss {
+  color: var(--bad);
+}
+
+@container (max-width: 560px) {
+  .weapon-history-dist {
+    display: none;
+  }
+}
+
+@container (max-width: 420px) {
+  .weapon-history-map,
+  .weapon-history-result {
+    display: none;
+  }
+}
