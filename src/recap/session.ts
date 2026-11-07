@@ -17,6 +17,7 @@ import {
   dayLabel,
   ensureFonts,
   fillRounded,
+  fitFont,
   fitHeight,
   font,
   footer,
@@ -78,7 +79,7 @@ export function record(ctx: Ctx, x: number, y: number, wins: number, losses: num
   return cx - x;
 }
 
-function card(ctx: Ctx, game: RecapMatch, x: number, y: number, w: number, h: number, art: Art, best: boolean) {
+function card(ctx: Ctx, game: RecapMatch, x: number, y: number, w: number, h: number, art: Art, best: boolean, dated: boolean) {
   const tone = resultColor(game.won, game.draw);
   const map = game.mapImage ? art.get(game.mapImage) : null;
   clipRounded(ctx, x, y, w, h, 16, () => {
@@ -112,7 +113,10 @@ function card(ctx: Ctx, game: RecapMatch, x: number, y: number, w: number, h: nu
   }
   const nameWidth = w - pad * 2 - iconSize - 8;
   text(ctx, game.mapName ?? "Map", x + pad, y + pad + (compact ? 14 : 18), { font: font(700, compact ? 15 : 18), maxWidth: nameWidth });
-  if (!compact) text(ctx, timeLabel(game.startedAt), x + pad, y + pad + 40, { font: font(500, 15), color: C.text2 });
+  if (!compact) {
+    const when = dated ? `${dayLabel(game.startedAt)}, ${timeLabel(game.startedAt)}` : timeLabel(game.startedAt);
+    text(ctx, when, x + pad, y + pad + 40, { font: font(500, 15), color: C.text2, maxWidth: w - pad * 2 });
+  }
   const scoreY = compact ? y + h - 18 : y + h - 64;
   text(ctx, `${game.roundsWon} - ${game.roundsLost}`, x + pad, scoreY, { font: font(800, compact ? 22 : 30), color: tone, spacing: -0.5 });
   if (game.rrChange !== null) {
@@ -134,7 +138,7 @@ function card(ctx: Ctx, game: RecapMatch, x: number, y: number, w: number, h: nu
   }
 }
 
-function strip(ctx: Ctx, recap: SessionRecap, art: Art) {
+function strip(ctx: Ctx, recap: SessionRecap, art: Art, dated: boolean) {
   const games = recap.matches.slice(-MAX_CARDS);
   const top = 584;
   const bottom = H - 116;
@@ -149,7 +153,7 @@ function strip(ctx: Ctx, recap: SessionRecap, art: Art) {
   games.forEach((game, index) => {
     const row = Math.floor(index / perRow);
     const col = index % perRow;
-    card(ctx, game, M + col * (cardW + gap), top + 16 + row * (cardH + gap), cardW, cardH, art, showBest && game.matchId === recap.bestMatchId);
+    card(ctx, game, M + col * (cardW + gap), top + 16 + row * (cardH + gap), cardW, cardH, art, showBest && game.matchId === recap.bestMatchId, dated);
   });
 }
 
@@ -164,7 +168,18 @@ function rankBlock(ctx: Ctx, recap: SessionRecap, art: Art, x: number, y: number
   text(ctx, t(`Avant : ${rankLine(recap.before)}`, `Before: ${rankLine(recap.before)}`), x + 236, y + 80, { font: font(500, 17), color: C.text2 });
 }
 
-export async function renderSessionRecap(recap: SessionRecap, account: Account): Promise<HTMLCanvasElement> {
+export type Heading = { kind: string; title: string; span: string; dated: boolean };
+
+export function renderSessionRecap(recap: SessionRecap, account: Account): Promise<HTMLCanvasElement> {
+  return renderSummaryRecap(recap, account, {
+    kind: t("Récap de session", "Session recap"),
+    title: t(`Session du ${dayLabel(recap.startedAt)}`, `${dayLabel(recap.startedAt)} session`),
+    span: t(`${timeLabel(recap.startedAt)} à ${timeLabel(recap.endedAt)}`, `${timeLabel(recap.startedAt)} to ${timeLabel(recap.endedAt)}`),
+    dated: false,
+  });
+}
+
+export async function renderSummaryRecap(recap: SessionRecap, account: Account, heading: Heading): Promise<HTMLCanvasElement> {
   const games = recap.matches.slice(-MAX_CARDS);
   const mainAgent = recap.agents[0]?.agentId ?? null;
   const counts = new Map<string, number>();
@@ -208,13 +223,14 @@ export async function renderSessionRecap(recap: SessionRecap, account: Account):
   ctx.fillStyle = glow;
   ctx.fillRect(0, 0, W, H);
 
-  header(ctx, t("Récap de session", "Session recap"));
+  header(ctx, heading.kind);
 
-  text(ctx, t(`Session du ${dayLabel(recap.startedAt)}`, `${dayLabel(recap.startedAt)} session`), M, 178, { font: font(800, 58), spacing: -1.4 });
-  const span = t(`${timeLabel(recap.startedAt)} à ${timeLabel(recap.endedAt)}`, `${timeLabel(recap.startedAt)} to ${timeLabel(recap.endedAt)}`);
+  text(ctx, heading.title, M, 178, { font: font(800, fitFont(ctx, heading.title, 800, 58, LEFT_W - M, 40)), spacing: -1.4 });
+  const span = heading.span;
   text(ctx, t(`${span}, ${matchCount(recap.matches.length)}, ${playTime(recap.playedMs)} de jeu`, `${span}, ${matchCount(recap.matches.length)}, ${playTime(recap.playedMs)} played`), M, 220, {
     font: font(500, 22),
     color: C.text2,
+    maxWidth: LEFT_W - M,
   });
 
   const heroY = 270;
@@ -270,7 +286,7 @@ export async function renderSessionRecap(recap: SessionRecap, account: Account):
     if (ax > W - M - 80) break;
   }
 
-  strip(ctx, recap, art);
+  strip(ctx, recap, art, heading.dated);
   footer(ctx, account, today(), base.card, base.own);
   return canvas;
 }

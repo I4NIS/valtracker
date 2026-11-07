@@ -1,64 +1,360 @@
-.recap-toast {
+.export-backdrop {
   position: fixed;
-  right: 24px;
-  bottom: 24px;
-  z-index: 60;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  background: color-mix(in srgb, #05060a 55%, transparent);
+  backdrop-filter: blur(6px);
+  animation: export-fade 140ms ease-out;
+}
+
+.export-dialog {
+  display: flex;
+  flex-direction: column;
+  width: min(1120px, 100%);
+  max-height: min(760px, calc(100vh - 48px));
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--panel);
+  color: var(--text);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
+  animation: export-pop 180ms cubic-bezier(0.2, 0.9, 0.3, 1.1);
+}
+
+.export-dialog:focus-visible {
+  outline: none;
+}
+
+.export-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 22px 24px 0;
+}
+
+.export-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.export-modes {
+  padding: 18px 24px 0;
+  overflow-x: auto;
+}
+
+.export-body {
+  display: grid;
+  grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
+  gap: 24px;
+  flex: 1;
+  min-height: 0;
+  padding: 20px 24px;
+}
+
+.export-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.export-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.export-match {
   display: flex;
   align-items: center;
   gap: 12px;
-  max-width: min(520px, calc(100vw - 48px));
-  padding: 10px 10px 10px 14px;
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  background: var(--raised);
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
   color: var(--text);
-  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.32);
-  animation: rise 220ms ease-out;
+  text-align: left;
+  font-size: 13px;
+  transition: background 0.15s ease;
 }
 
-.recap-toast-icon {
+.export-match:hover {
+  background: var(--raised);
+}
+
+.export-match.checked {
+  background: var(--field);
+}
+
+.export-check {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: 1.5px solid var(--text-3);
+  border-radius: 6px;
+  color: var(--on-accent);
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.export-check.round {
+  border-radius: 999px;
+}
+
+.export-match.checked .export-check {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.export-match-art {
+  position: relative;
+  flex-shrink: 0;
+  width: 72px;
+  height: 34px;
+}
+
+.export-match-map {
+  width: 72px;
+  height: 34px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.export-match-agent {
+  position: absolute;
+  right: -6px;
+  bottom: -6px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--panel);
+  box-shadow: 0 0 0 2px var(--panel);
+}
+
+.export-match-main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding-left: 4px;
+}
+
+.export-match-main .faint,
+.export-match-side .faint {
+  font-size: 12px;
+}
+
+.export-match-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.export-match-side .is-win {
+  color: var(--win);
+}
+
+.export-match-side .is-loss {
+  color: var(--bad);
+}
+
+.export-match-side .is-draw {
+  color: var(--text-2);
+}
+
+.export-more {
+  width: 100%;
+  margin-top: 8px;
+}
+
+.export-link {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.export-link:hover {
+  color: var(--text);
+}
+
+.export-dates {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.export-dates .input {
+  width: 100%;
+  min-width: 0;
+}
+
+.export-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.export-frame {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--field);
+}
+
+.export-frame img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  transition: opacity 0.2s ease;
+}
+
+.export-frame.is-loading img {
+  opacity: 0.35;
+}
+
+.export-frame-note {
+  max-width: 80%;
+  color: var(--text-2);
+  text-align: center;
+  line-height: 1.5;
+}
+
+.export-frame-wait {
+  position: absolute;
+  inset: auto auto 50% 50%;
+  transform: translate(-50%, 50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--text-2);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: var(--shadow);
+}
+
+.export-size {
+  font-size: 12px;
+}
+
+.export-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 24px;
+  border-top: 1px solid var(--line);
+}
+
+.export-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  min-height: 36px;
+}
+
+.export-status-icon {
+  display: inline-flex;
   flex: 0 0 26px;
+  align-items: center;
+  justify-content: center;
   width: 26px;
   height: 26px;
   border-radius: 999px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
   background: color-mix(in srgb, var(--win) 18%, transparent);
   color: var(--win);
 }
 
-.recap-toast.error .recap-toast-icon {
+.export-status-icon.is-error {
   background: color-mix(in srgb, var(--bad) 18%, transparent);
   color: var(--bad);
 }
 
-.recap-toast-text {
+.export-status-text {
   font-weight: 600;
   line-height: 1.35;
 }
 
-.recap-toast-action {
+.export-small {
   min-height: 34px;
   padding: 0 14px;
   font-size: 13px;
   white-space: nowrap;
 }
 
-.recap-toast-close {
-  flex: 0 0 30px;
-  width: 30px;
-  height: 30px;
-  border: 0;
-  border-radius: 999px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  color: var(--text-3);
+.export-foot-actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 8px;
 }
 
-.recap-toast-close:hover {
-  background: var(--field);
-  color: var(--text);
+@keyframes export-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes export-pop {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+  }
+}
+
+@media (max-width: 860px) {
+  .export-body {
+    grid-template-columns: minmax(0, 1fr);
+    overflow-y: auto;
+  }
+
+  .export-controls {
+    overflow: visible;
+  }
+
+  .export-preview {
+    order: -1;
+  }
+
+  .export-foot {
+    flex-wrap: wrap;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .export-backdrop,
+  .export-dialog {
+    animation: none;
+  }
 }

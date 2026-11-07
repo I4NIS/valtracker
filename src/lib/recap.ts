@@ -147,6 +147,9 @@ export type ActRecap = {
 export const recapApi = {
   getSessionRecap: (puuid: string) => invoke<SessionRecap>("get_session_recap", { puuid }),
   getActRecap: (puuid: string, season: string | null) => invoke<ActRecap>("get_act_recap", { puuid, season }),
+  getSelectionRecap: (puuid: string, matchIds: string[]) => invoke<SessionRecap>("get_selection_recap", { puuid, matchIds }),
+  getRangeRecap: (puuid: string, from: number, to: number) => invoke<SessionRecap>("get_range_recap", { puuid, from, to }),
+  getRecapMatches: (puuid: string) => invoke<RecapMatch[]>("get_recap_matches", { puuid }),
   saveImage: async (fileName: string, blob: Blob) =>
     invoke<{ path: string; copied: boolean }>("save_recap_image", new Uint8Array(await blob.arrayBuffer()), {
       headers: { "x-file-name": fileName },

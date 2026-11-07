@@ -1,8 +1,9 @@
 import "../styles/palette.css";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import type { Account, Theme } from "../lib/api";
 import { timeAgo } from "../lib/format";
 import { t } from "../lib/i18n";
+import { ExportDialog } from "./ExportRecap";
 import { Icon, type IconName } from "./Icon";
 import { RankBadge } from "./RankBadge";
 import { TitleBar } from "./TitleBar";
@@ -91,6 +92,7 @@ export function Shell({
   children,
 }: Props) {
   const target = (id: TourTarget) => (tourTarget === id ? " tour-target" : "");
+  const [exporting, setExporting] = useState(false);
 
   return (
     <div className="window">
@@ -169,6 +171,17 @@ export function Shell({
             </span>
             <button
               type="button"
+              className="icon-btn"
+              onClick={() => setExporting(true)}
+              disabled={!account}
+              aria-haspopup="dialog"
+              aria-label={t("Exporter une image", "Export an image")}
+              title={t("Exporter une image", "Export an image")}
+            >
+              <Icon name="image" size={16} strokeWidth={2} />
+            </button>
+            <button
+              type="button"
               className={`icon-btn${target("sync")}`}
               onClick={onSync}
               disabled={sync.running || !account}
@@ -190,6 +203,7 @@ export function Shell({
           {children}
         </main>
       </div>
+      {exporting && account && <ExportDialog account={account} onClose={() => setExporting(false)} />}
     </div>
   );
 }

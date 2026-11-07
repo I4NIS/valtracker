@@ -54,7 +54,8 @@ Les trackers en ligne donnent des chiffres. Valtracker va plus loin sur un point
 - Visuels du jeu partout : armes, portraits d'agents, capacités, maps.
 
 **Images récap**
-- Récap d'un match, de ta dernière session ou d'un acte complet, en image 1600x900.
+- Récap d'un match, de plusieurs matchs choisis, d'une période, de ta dernière session ou d'un acte complet, en image 1600x900.
+- Un menu d'export accessible depuis la barre du haut, avec l'aperçu de l'image avant de l'exporter.
 - Le récap d'acte ajoute des stats insolites : temps de jeu, balles dans les pieds, aces, plus long kill, némésis.
 - Un clic copie l'image, prête à coller sur Discord, et l'enregistre dans Images\Valtracker.
 

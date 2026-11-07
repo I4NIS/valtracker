@@ -474,10 +474,14 @@ fn civil_from_days(days: i64) -> (i64, i64, i64) {
     (year, month, day)
 }
 
+fn no_match() -> AppError {
+    AppError::Invalid(tr("Aucune partie compétitive à récapituler", "No competitive match to recap").into())
+}
+
 pub fn session(conn: &Connection, puuid: &str) -> AppResult<SessionRecap> {
     let all = load_matches(conn, puuid, None)?;
     if all.is_empty() {
-        return Err(AppError::Invalid(tr("Aucune partie compétitive à récapituler", "No competitive match to recap").into()));
+        return Err(no_match());
     }
     let mut start = all.len() - 1;
     while start > 0 {
@@ -488,9 +492,36 @@ pub fn session(conn: &Connection, puuid: &str) -> AppResult<SessionRecap> {
         }
         start -= 1;
     }
+    let picked: Vec<usize> = (start..all.len()).collect();
+    summary(conn, puuid, &all, &picked)
+}
+
+pub fn selection(conn: &Connection, puuid: &str, ids: &[String]) -> AppResult<SessionRecap> {
+    let wanted: HashSet<&str> = ids.iter().map(String::as_str).collect();
+    let all = load_matches(conn, puuid, None)?;
+    let picked: Vec<usize> = all.iter().enumerate().filter(|(_, game)| wanted.contains(game.match_id.as_str())).map(|(index, _)| index).collect();
+    summary(conn, puuid, &all, &picked)
+}
+
+pub fn range(conn: &Connection, puuid: &str, from: i64, to: i64) -> AppResult<SessionRecap> {
+    let all = load_matches(conn, puuid, None)?;
+    let picked: Vec<usize> = all.iter().enumerate().filter(|(_, game)| game.epoch >= from && game.epoch < to).map(|(index, _)| index).collect();
+    summary(conn, puuid, &all, &picked)
+}
+
+pub fn list(conn: &Connection, puuid: &str) -> AppResult<Vec<RecapMatch>> {
+    let mut all = load_matches(conn, puuid, None)?;
+    all.reverse();
+    Ok(all)
+}
+
+fn summary(conn: &Connection, puuid: &str, all: &[RecapMatch], picked: &[usize]) -> AppResult<SessionRecap> {
+    let Some(&start) = picked.first() else {
+        return Err(no_match());
+    };
     let previous = start.checked_sub(1).map(|index| all[index].clone());
-    let mut matches: Vec<RecapMatch> = all.into_iter().skip(start).collect();
-    let limit = matches.len() as i64;
+    let mut matches: Vec<RecapMatch> = picked.iter().map(|&index| all[index].clone()).collect();
+    let limit = (all.len() - start) as i64;
     attach_scores(conn, puuid, None, &mut matches, Some(limit))?;
     let first = &matches[0];
     let last = &matches[matches.len() - 1];
@@ -793,6 +824,24 @@ pub fn get_session_recap(state: State<'_, AppState>, puuid: String) -> AppResult
 }
 
 #[tauri::command(async)]
+pub fn get_selection_recap(state: State<'_, AppState>, puuid: String, match_ids: Vec<String>) -> AppResult<Response> {
+    let mut ids = match_ids;
+    ids.sort();
+    ids.dedup();
+    state.cached(format!("{puuid}|SelectionRecap({})", ids.join(",")), |conn| json(selection(conn, &puuid, &ids)))
+}
+
+#[tauri::command(async)]
+pub fn get_range_recap(state: State<'_, AppState>, puuid: String, from: i64, to: i64) -> AppResult<Response> {
+    state.cached(format!("{puuid}|RangeRecap({from},{to})"), |conn| json(range(conn, &puuid, from, to)))
+}
+
+#[tauri::command(async)]
+pub fn get_recap_matches(state: State<'_, AppState>, puuid: String) -> AppResult<Response> {
+    state.cached(format!("{puuid}|RecapMatches"), |conn| json(list(conn, &puuid)))
+}
+
+#[tauri::command(async)]
 pub fn get_act_recap(state: State<'_, AppState>, puuid: String, season: Option<String>) -> AppResult<Response> {
     state.cached(format!("{puuid}|ActRecap({season:?})"), |conn| json(act(conn, &puuid, season.as_deref())))
 }
@@ -853,4 +902,72 @@ pub fn reveal_recap(app: AppHandle, path: String) -> AppResult<()> {
         return Err(AppError::Invalid(tr("Fichier introuvable", "File not found").into()));
     }
     app.opener().reveal_item_in_dir(&target).map_err(|err| AppError::Invalid(err.to_string()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn insert(conn: &mut Connection, id: &str, started_at: &str, won: bool) {
+        let player = |puuid: &str, team: &str| {
+            json!({
+                "puuid": puuid,
+                "name": puuid,
+                "tag": "0000",
+                "team_id": team,
+                "party_id": puuid,
+                "agent": { "id": "jett", "name": "Jett" },
+                "stats": {
+                    "score": 4000, "kills": 20, "deaths": 10, "assists": 3,
+                    "headshots": 10, "bodyshots": 30, "legshots": 0,
+                    "damage": { "dealt": 3000, "received": 1500 },
+                },
+            })
+        };
+        let value = json!({
+            "metadata": {
+                "match_id": id,
+                "started_at": started_at,
+                "game_length_in_ms": 1_800_000,
+                "map": { "id": "ascent", "name": "Ascent" },
+                "queue": { "id": "competitive" },
+                "season": { "short": "e9a3" },
+            },
+            "players": [player("me", "Red"), player("foe", "Blue")],
+            "teams": [
+                { "team_id": "Red", "won": won, "rounds": { "won": if won { 13 } else { 7 }, "lost": if won { 7 } else { 13 } } },
+                { "team_id": "Blue", "won": !won, "rounds": { "won": if won { 7 } else { 13 }, "lost": if won { 13 } else { 7 } } },
+            ],
+            "rounds": (0..20).map(|_| json!({ "winning_team": "Red" })).collect::<Vec<_>>(),
+        });
+        assert!(crate::repo::insert_match(conn, &value).unwrap());
+    }
+
+    #[test]
+    fn selection_and_range_pick_their_matches() {
+        let path = std::env::temp_dir().join(format!("valtracker-recap-{}.db", std::process::id()));
+        let _ = std::fs::remove_file(&path);
+        let mut conn = crate::db::open(&path).unwrap();
+        insert(&mut conn, "a", "2025-03-01T20:00:00.000Z", true);
+        insert(&mut conn, "b", "2025-03-02T20:00:00.000Z", false);
+        insert(&mut conn, "c", "2025-03-05T20:00:00.000Z", true);
+
+        let picked = selection(&conn, "me", &["c".into(), "a".into()]).unwrap();
+        let ids: Vec<&str> = picked.matches.iter().map(|game| game.match_id.as_str()).collect();
+        assert_eq!(ids, ["a", "c"]);
+        assert_eq!((picked.wins, picked.losses), (2, 0));
+
+        let from = 1_740_787_200;
+        let span = range(&conn, "me", from, from + 2 * 86_400).unwrap();
+        let ids: Vec<&str> = span.matches.iter().map(|game| game.match_id.as_str()).collect();
+        assert_eq!(ids, ["a", "b"]);
+        assert_eq!((span.wins, span.losses), (1, 1));
+
+        assert!(range(&conn, "me", 0, 10).is_err());
+        assert!(selection(&conn, "me", &[]).is_err());
+        assert_eq!(list(&conn, "me").unwrap().first().map(|game| game.match_id.as_str()), Some("c"));
+        drop(conn);
+        let _ = std::fs::remove_file(&path);
+    }
 }
