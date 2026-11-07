@@ -30,6 +30,15 @@ export function tierLabel(name: string | null | undefined): string {
   return [translated, ...rest].join(" ");
 }
 
+const TIER_LADDER = ["Fer", "Bronze", "Argent", "Or", "Platine", "Diamant", "Ascendant", "Immortel"];
+
+export function tierNameById(tier: number | null | undefined): string {
+  if (!tier || tier < 3) return "Non classé";
+  if (tier >= 27) return "Radiant";
+  const index = Math.floor((tier - 3) / 3);
+  return `${TIER_LADDER[index]} ${((tier - 3) % 3) + 1}`;
+}
+
 export function seasonLabel(short: string): string {
   const match = /^e(\d+)a(\d+)$/i.exec(short);
   return match ? `Épisode ${match[1]}, acte ${match[2]}` : short;
