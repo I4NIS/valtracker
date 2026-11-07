@@ -951,6 +951,16 @@ a {
   font-weight: 700;
 }
 
+.timeline .cell {
+  border: 0;
+  font-family: inherit;
+}
+
+.timeline .cell:hover {
+  outline: 2px solid var(--text-3);
+  outline-offset: 1px;
+}
+
 .timeline .cell.won {
   background: var(--win);
   color: var(--on-accent);
@@ -1237,6 +1247,117 @@ a {
   height: 5px;
   border-radius: 50%;
   background: var(--bad);
+}
+
+.round-picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(40px, 1fr));
+  gap: 6px;
+}
+
+.round-picker button {
+  height: 40px;
+  border: 0;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.round-picker button.won {
+  background: color-mix(in srgb, var(--win) 22%, var(--field));
+  color: var(--win);
+}
+
+.round-picker button.lost {
+  background: var(--field);
+  color: var(--text-2);
+}
+
+.round-picker button.active {
+  background: var(--text);
+  color: var(--panel);
+}
+
+.ally-text {
+  color: var(--good);
+}
+
+.enemy-text {
+  color: var(--bad);
+}
+
+.me-text {
+  color: var(--text);
+}
+
+.events {
+  display: flex;
+  flex-direction: column;
+}
+
+.event {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+}
+
+.event + .event {
+  border-top: 1px solid var(--line);
+}
+
+.event.mine {
+  background: var(--raised);
+  border-top-color: transparent;
+}
+
+.event-time {
+  min-width: 36px;
+  font-size: 13px;
+}
+
+.who {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.who img {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  object-fit: cover;
+}
+
+.economy {
+  display: flex;
+  flex-direction: column;
+}
+
+.economy-row {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) auto 80px;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: 10px;
+}
+
+.economy-row + .economy-row {
+  border-top: 1px solid var(--line);
+}
+
+.economy-row.me {
+  background: var(--raised);
+}
+
+.economy-row img {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  object-fit: cover;
 }
 
 .heat-blob {

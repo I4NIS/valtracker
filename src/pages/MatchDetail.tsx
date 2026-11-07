@@ -3,10 +3,17 @@ import { DeathReview } from "../components/DeathReview";
 import { Icon } from "../components/Icon";
 import { api, errorMessage, type Account, type MatchDetail as Detail, type RoundLine } from "../lib/api";
 import { RankBadge } from "../components/RankBadge";
+import { RoundDetail } from "../components/RoundDetail";
 import { agentIcon } from "../lib/assets";
 import { duration, fmt, fullDate, pct, placeLabel, roleLabel, scoreTone, signed } from "../lib/format";
 
-type Tab = "summary" | "review";
+type Tab = "summary" | "rounds" | "review";
+
+const TABS: { id: Tab; label: string }[] = [
+  { id: "summary", label: "Résumé" },
+  { id: "rounds", label: "Rounds" },
+  { id: "review", label: "Revue des morts" },
+];
 
 type Props = {
   account: Account;
@@ -21,6 +28,12 @@ export function MatchDetail({ account, matchId, onBack }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("summary");
   const [allFlaws, setAllFlaws] = useState(false);
+  const [roundIndex, setRoundIndex] = useState(0);
+
+  const openRound = (index: number) => {
+    setRoundIndex(index);
+    setTab("rounds");
+  };
 
   useEffect(() => {
     setDetail(null);
@@ -93,26 +106,32 @@ export function MatchDetail({ account, matchId, onBack }: Props) {
       </div>
 
       <div className="segmented" role="tablist" aria-label="Sections du match" style={{ alignSelf: "flex-start" }}>
-        <button type="button" role="tab" aria-selected={tab === "summary"} className={tab === "summary" ? "active" : undefined} onClick={() => setTab("summary")}>
-          Résumé
-        </button>
-        <button type="button" role="tab" aria-selected={tab === "review"} className={tab === "review" ? "active" : undefined} onClick={() => setTab("review")}>
-          Revue des morts
-        </button>
+        {TABS.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            role="tab"
+            aria-selected={tab === item.id}
+            className={tab === item.id ? "active" : undefined}
+            onClick={() => setTab(item.id)}
+          >
+            {item.label}
+          </button>
+        ))}
       </div>
 
-      {tab === "review" ? (
-        <DeathReview deaths={detail.deathReviews} minimap={detail.minimap} />
-      ) : (
+      {tab === "review" && <DeathReview deaths={detail.deathReviews} minimap={detail.minimap} />}
+      {tab === "rounds" && <RoundDetail rounds={detail.rounds} selected={roundIndex} onSelect={setRoundIndex} />}
+      {tab === "summary" && (
         <>
           <section className="stack" style={{ gap: 14 }}>
             <div className="row between wrap">
               <h2 className="section-title">Rounds</h2>
               <span className="faint" style={{ fontSize: 12 }}>
-                Barres : équipement de ton équipe et en face. Point orange : tu es mort.
+                Barres : équipement de ton équipe et en face. Point orange : tu es mort. Clique sur un round pour son détail.
               </span>
             </div>
-            <Timeline rounds={detail.rounds} />
+            <Timeline rounds={detail.rounds} onSelect={openRound} />
           </section>
 
           <div className="summary-grid">
@@ -208,7 +227,7 @@ function HeadStat({ label, value, sub, tone }: { label: string; value: string; s
   );
 }
 
-function Timeline({ rounds }: { rounds: RoundLine[] }) {
+function Timeline({ rounds, onSelect }: { rounds: RoundLine[]; onSelect: (index: number) => void }) {
   const max = Math.max(1, ...rounds.flatMap((round) => [round.teamLoadout, round.enemyLoadout]));
   const firstDefense = rounds.findIndex((round, i) => i > 0 && round.attack !== rounds[0].attack);
   return (
@@ -221,7 +240,9 @@ function Timeline({ rounds }: { rounds: RoundLine[] }) {
               <span className="mine" style={{ height: `${(round.teamLoadout / max) * 46}px` }} />
               <span className="theirs" style={{ height: `${(round.enemyLoadout / max) * 46}px` }} />
             </div>
-            <div className={`cell${round.won ? " won" : ""}`}>{round.number}</div>
+            <button type="button" className={`cell${round.won ? " won" : ""}`} onClick={() => onSelect(i)} aria-label={`Détail du round ${round.number}`}>
+              {round.number}
+            </button>
             <span className={`death-dot${round.died ? " on" : ""}`} />
           </div>
         ))}
