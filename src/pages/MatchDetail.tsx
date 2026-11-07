@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { DeathReview } from "../components/DeathReview";
+import { ExportRecapButton } from "../components/ExportRecap";
 import { Icon } from "../components/Icon";
 import { NoteEditor } from "../components/NoteEditor";
 import type { Account, RoundLine } from "../lib/api";
@@ -86,6 +87,7 @@ export function MatchDetail({ account, matchId, initialRound, onBack }: Props) {
             <button type="button" className="btn btn-primary" onClick={() => setTab("review")}>
               Revoir mes morts
             </button>
+            <ExportRecapButton kind="match" account={account} matchId={matchId} />
           </div>
         </div>
       </header>

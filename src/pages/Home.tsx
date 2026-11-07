@@ -1,5 +1,6 @@
 import "../styles/home.css";
 import { useEffect, useState } from "react";
+import { ExportRecapButton } from "../components/ExportRecap";
 import { MatchList } from "../components/MatchList";
 import { RankBadge } from "../components/RankBadge";
 import type { Account, RecentMatch } from "../lib/api";
@@ -152,9 +153,12 @@ export function Home({ account, onOpenMatch }: Props) {
         <section className="stack" style={{ gap: 14 }}>
           <div className="row between wrap" style={{ alignItems: "baseline" }}>
             <h2 className="section-title">Forme récente</h2>
-            <span className="faint" style={{ fontSize: 13 }}>
-              {recentWins} V {timeline.length - recentWins} D sur les {timeline.length} derniers
-            </span>
+            <div className="row wrap" style={{ gap: 14, alignItems: "center" }}>
+              <span className="faint" style={{ fontSize: 13 }}>
+                {recentWins} V {timeline.length - recentWins} D sur les {timeline.length} derniers
+              </span>
+              <ExportRecapButton kind="session" account={account} label="Exporter ma dernière session" />
+            </div>
           </div>
           <ul className="home-form" aria-label="Résultats des derniers matchs, du plus ancien au plus récent">
             {timeline.map((game) => {
