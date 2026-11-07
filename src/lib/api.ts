@@ -141,6 +141,8 @@ export type PlayerLine = {
   place: number;
   badge: string | null;
   isMe: boolean;
+  riotScore?: number;
+  riotGrade?: string;
 };
 
 export type TeamBlock = {
@@ -261,6 +263,14 @@ export type MatchDetail = {
   rounds: RoundLine[];
   deathReviews: Death[];
   flaws: Flaw[];
+  riot?: RiotPerformance;
+};
+
+export type RiotPerformance = {
+  score: number | null;
+  grade: string | null;
+  breakdown: { key: string; label: string; value: number }[];
+  ratings: { key: string; group: "combat" | "utility"; label: string; trend: string }[];
 };
 
 export type HeatPoint = {
@@ -323,6 +333,8 @@ export type GameSummary = {
   isolated: number;
   rrChange?: number | null;
   lengthMs?: number | null;
+  riotScore?: number;
+  riotGrade?: string;
 };
 
 export type Progression = {

@@ -28,6 +28,7 @@ mod ranked;
 mod recap;
 mod reports;
 mod rotation;
+mod riot;
 mod scan;
 mod repo;
 mod state;

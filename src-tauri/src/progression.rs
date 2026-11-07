@@ -43,6 +43,10 @@ pub struct GameSummary {
     pub isolated: i64,
     pub rr_change: Option<i64>,
     pub length_ms: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub riot_score: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub riot_grade: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -140,7 +144,8 @@ pub fn games(conn: &Connection, puuid: &str, season: Option<&str>, limit: Option
     let thresholds = Thresholds::load(conn)?;
     let mut stmt = conn.prepare(
         "SELECT m.match_id, m.started_at, m.map_name, p.agent_id, p.won, m.rounds, p.kills, p.deaths, p.assists,
-                p.score, p.headshots, p.headshots + p.bodyshots + p.legshots, h.last_change, m.game_length_ms
+                p.score, p.headshots, p.headshots + p.bodyshots + p.legshots, h.last_change, m.game_length_ms,
+                p.riot_score, p.riot_grade
          FROM match_players p JOIN matches m ON m.match_id = p.match_id
          LEFT JOIN mmr_history h ON h.puuid = p.puuid AND h.match_id = p.match_id
          WHERE p.puuid = ?1 AND m.queue = ?2 AND (?3 IS NULL OR m.season_short = ?3)
@@ -164,13 +169,15 @@ pub fn games(conn: &Connection, puuid: &str, season: Option<&str>, limit: Option
                 row.get::<_, i64>(11)?,
                 row.get::<_, Option<i64>>(12)?,
                 row.get::<_, Option<i64>>(13)?,
+                row.get::<_, Option<f64>>(14)?,
+                row.get::<_, Option<String>>(15)?,
             ))
         })?
         .collect::<Result<Vec<_>, _>>()?;
     drop(stmt);
 
     let mut games = Vec::with_capacity(rows.len());
-    for (match_id, started_at, map_name, agent_id, won, rounds, kills, deaths, assists, score, headshots, shots, rr_change, length_ms) in rows {
+    for (match_id, started_at, map_name, agent_id, won, rounds, kills, deaths, assists, score, headshots, shots, rr_change, length_ms, riot_score, riot_grade) in rows {
         let analysis = summary(conn, &roles, &thresholds, puuid, &match_id)?;
         games.push(GameSummary {
             started_at,
@@ -190,6 +197,8 @@ pub fn games(conn: &Connection, puuid: &str, season: Option<&str>, limit: Option
             isolated: analysis.as_ref().map_or(0, |s| s.isolated),
             rr_change,
             length_ms,
+            riot_score,
+            riot_grade,
             match_id,
         });
     }

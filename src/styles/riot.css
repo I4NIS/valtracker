@@ -1,0 +1,191 @@
+.grade-badge {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--field);
+  color: var(--text-2);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 16px;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+.grade-badge.gold {
+  background: color-mix(in srgb, var(--gold) 18%, var(--field));
+  color: var(--gold);
+}
+
+.grade-badge.good {
+  background: color-mix(in srgb, var(--good) 16%, var(--field));
+  color: var(--good);
+}
+
+.grade-badge.large {
+  padding: 4px 12px;
+  font-size: 15px;
+  line-height: 20px;
+}
+
+.name-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.match-riot {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 24px 32px;
+  align-items: start;
+}
+
+.riot-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.riot-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px 18px;
+  border-radius: 14px;
+  background: var(--raised);
+}
+
+.riot-head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.riot-score {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+.riot-figures {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+  gap: 10px 16px;
+}
+
+.riot-figures > span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.riot-figures strong {
+  font-size: 16px;
+}
+
+.riot-trends {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+}
+
+.riot-trends > .label {
+  flex: 0 0 82px;
+}
+
+.riot-trend {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--text-2);
+  font-size: 13px;
+}
+
+.trend-glyph {
+  flex: none;
+  fill: none;
+  stroke: var(--text-3);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.trend-glyph.up {
+  stroke: var(--win);
+}
+
+.trend-glyph.down {
+  stroke: var(--bad);
+}
+
+.riot-facts {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 16px 18px;
+  border-radius: 14px;
+  background: var(--raised);
+  list-style: none;
+}
+
+.riot-facts li {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  color: var(--text-2);
+  line-height: 1.45;
+}
+
+.riot-facts li strong {
+  color: var(--text);
+}
+
+.riot-facts li::before {
+  content: "";
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-3);
+  transform: translateY(-2px);
+}
+
+.riot-facts li.bad::before {
+  background: var(--bad);
+}
+
+.riot-facts li.gold::before {
+  background: var(--gold);
+}
+
+.riot-chart .bars-chart span {
+  background: var(--field);
+}
+
+.riot-chart .bars-chart span.gold {
+  background: var(--gold);
+}
+
+.riot-chart .bars-chart span.good {
+  background: var(--good);
+}
+
+.riot-chart .bars-chart span.muted {
+  background: var(--text-3);
+}
+
+.riot-grades {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  font-size: 12px;
+}

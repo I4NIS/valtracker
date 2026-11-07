@@ -310,6 +310,9 @@ CREATE TABLE warmup_matches (
     damage_received INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY (puuid, match_id)
 ) WITHOUT ROWID;
+", "
+ALTER TABLE match_players ADD COLUMN riot_score REAL;
+ALTER TABLE match_players ADD COLUMN riot_grade TEXT;
 "];
 
 const REBUILT_AT: i64 = 10;

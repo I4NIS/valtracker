@@ -12,6 +12,7 @@ import { useQuery } from "../lib/query";
 import { defaultSeason, queries } from "../lib/queries";
 import { Acts } from "./ProgressionActs";
 import { Comparison, Habits, InsightsSkeleton } from "./ProgressionInsights";
+import { RiotTrend } from "./ProgressionFacts";
 
 const loadWarmup = () => import("./ProgressionWarmup");
 const Warmup = lazy(() => loadWarmup().then((module) => ({ default: module.Warmup })));
@@ -222,6 +223,7 @@ export function Progression({ account }: Props) {
                 `Share of your deaths traded ${tradeWindowText(tradeWindow)}, compared to your average`,
               )}
             />
+            <RiotTrend games={games} />
           </div>
         </>
       )}

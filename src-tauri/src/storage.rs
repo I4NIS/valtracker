@@ -78,6 +78,7 @@ fn player(player: &mut Value) -> Value {
         ("stats", take(player, "stats")),
         ("ability_casts", take(player, "ability_casts")),
         ("customization", pick(player.get_mut("customization"), &["card"])),
+        ("performance", take(player, "performance")),
     ])
 }
 
@@ -299,6 +300,7 @@ mod tests {
                     "stats": player["stats"],
                     "ability_casts": player["ability_casts"],
                     "customization": pick(&player["customization"], &["card"]),
+                    "performance": player["performance"],
                 })),
                 "teams": each(&game["teams"], |team| pick(team, &["team_id", "won", "rounds"])),
                 "rounds": each(&game["rounds"], |round| json!({
@@ -351,7 +353,7 @@ mod tests {
         same_slim(&json!({ "metadata": "x", "players": {}, "rounds": [1, null, {}], "kills": [null, "k", { "killer": 3 }] }));
         same_slim(&json!({
             "metadata": { "match_id": "m", "map": { "id": "a" }, "queue": null, "extra": 1 },
-            "players": [{ "puuid": "p", "agent": null, "tier": { "id": 3, "name": null }, "stats": { "score": 1 }, "customization": { "card": "c", "title": "t" } }],
+            "players": [{ "puuid": "p", "agent": null, "tier": { "id": 3, "name": null }, "stats": { "score": 1 }, "customization": { "card": "c", "title": "t" }, "performance": 5 }],
             "teams": [{ "team_id": "Red", "won": true, "rounds": { "won": 13 }, "premier": null }],
             "rounds": [{
                 "winning_team": "Red",
@@ -366,6 +368,36 @@ mod tests {
                         "weapon": { "id": "w", "name": "Vandal", "type": "Weapon", "assets": {} },
                         "player_locations": [{ "player": { "puuid": "p" }, "location": { "x": 1, "y": 2 }, "view_radians": 0.5 }, null] }],
         }));
+    }
+
+    fn recent_match() -> Value {
+        json!({
+            "metadata": { "match_id": "m", "queue": { "id": "competitive" }, "premier": null },
+            "players": [{
+                "puuid": "p",
+                "team_id": "Red",
+                "account_level": 80,
+                "performance": {
+                    "score": 812.5,
+                    "breakdown": { "adjusted_kills": 14.2, "adjusted_deaths": -1.5 },
+                    "ratings": { "grade": "merit", "combat": { "kill_impact": "up" }, "utility": null },
+                },
+            }],
+            "teams": [{ "team_id": "Red", "won": true }],
+            "rounds": [{ "winning_team": "Red", "stats": [{ "player": { "puuid": "p" } }] }],
+            "kills": [],
+        })
+    }
+
+    #[test]
+    fn slim_keeps_the_fields_added_for_riot_details() {
+        let game = recent_match();
+        same_slim(&game);
+        let slim = slim(game);
+        assert_eq!(slim.pointer("/players/0/performance/ratings/grade"), Some(&json!("merit")));
+        assert_eq!(slim.pointer("/players/0/performance/breakdown/adjusted_deaths"), Some(&json!(-1.5)));
+        assert!(slim.pointer("/players/0/account_level").is_none());
+        assert!(slim.pointer("/metadata/premier").is_none());
     }
 
     #[test]

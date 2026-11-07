@@ -9,6 +9,7 @@ import { NoteEditor } from "../components/NoteEditor";
 import { MatchAccolades } from "../components/RiotRecords";
 import type { Account, RoundLine } from "../lib/api";
 import { RankBadge } from "../components/RankBadge";
+import { GradeBadge, MatchRiot } from "../components/RiotFacts";
 import { RoundDetail } from "../components/RoundDetail";
 import { repeat, SkeletonBlock, SkeletonGroup, SkeletonLine } from "../components/Skeleton";
 import { agentIcon } from "../lib/assets";
@@ -230,6 +231,7 @@ export function MatchDetail({ account, matchId, initialRound, initialDeath, back
 
           <MatchRrDetail detail={detail.rrDetail} />
           <MatchAccolades accolades={detail.accolades} />
+          <MatchRiot detail={detail} />
 
           <section className="stack" style={{ gap: 10 }}>
             <div className="section-head">
@@ -274,7 +276,10 @@ export function MatchDetail({ account, matchId, initialRound, initialDeath, back
                       <div className={`score-row${player.isMe ? " me" : ""}`} key={player.puuid}>
                         {agentIcon(player.agentId) ? <img src={agentIcon(player.agentId)} alt={player.agentName ?? ""} width={36} height={36} loading="lazy" decoding="async" {...fadeIn} /> : <span />}
                         <span className="stack" style={{ gap: 0, minWidth: 0 }}>
-                          <strong className="ellipsis">{player.name}</strong>
+                          <span className="name-line">
+                            <strong className="ellipsis">{player.name}</strong>
+                            <GradeBadge grade={player.riotGrade} />
+                          </span>
                           <span className="faint ellipsis" style={{ fontSize: 12 }}>
                             {player.badge ?? roleLabel(player.role)}
                           </span>

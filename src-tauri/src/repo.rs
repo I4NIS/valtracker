@@ -246,6 +246,8 @@ struct PlayerRow {
     won: bool,
     rounds_won: i64,
     rounds_lost: i64,
+    riot_score: Option<f64>,
+    riot_grade: Option<String>,
 }
 
 pub struct PreparedMatch {
@@ -314,6 +316,8 @@ pub fn prepare_match(game: Value) -> AppResult<Option<PreparedMatch>> {
                 won: team.and_then(|team| team.pointer("/won")).and_then(Value::as_bool).unwrap_or(false),
                 rounds_won: team.map_or(0, |team| int(team, "/rounds/won")),
                 rounds_lost: team.map_or(0, |team| int(team, "/rounds/lost")),
+                riot_score: player.pointer("/performance/score").and_then(Value::as_f64),
+                riot_grade: owned(player, "/performance/ratings/grade"),
             }
         })
         .collect();
@@ -363,8 +367,8 @@ pub fn insert_prepared(conn: &Connection, game: &PreparedMatch) -> AppResult<boo
     let mut stmt = conn.prepare_cached(
         "INSERT OR REPLACE INTO match_players
             (match_id, puuid, name, tag, team, agent_id, agent_name, tier, score, kills, deaths, assists,
-             headshots, bodyshots, legshots, damage_dealt, damage_received, won, rounds_won, rounds_lost)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20)",
+             headshots, bodyshots, legshots, damage_dealt, damage_received, won, rounds_won, rounds_lost, riot_score, riot_grade)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22)",
     )?;
     for player in &game.players {
         let [score, kills, deaths, assists, headshots, bodyshots, legshots, dealt, received] = player.stats;
@@ -389,6 +393,8 @@ pub fn insert_prepared(conn: &Connection, game: &PreparedMatch) -> AppResult<boo
             player.won,
             player.rounds_won,
             player.rounds_lost,
+            player.riot_score,
+            player.riot_grade,
         ])?;
     }
     Ok(true)

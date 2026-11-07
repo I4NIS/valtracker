@@ -4,6 +4,7 @@ use std::collections::HashMap;
 
 use crate::assets::MapData;
 use crate::i18n::{english, tr};
+use crate::riot;
 use crate::thresholds::Thresholds;
 use crate::weapon_stats::{held_weapon_id, kill_weapon_id};
 
@@ -45,6 +46,10 @@ pub struct PlayerLine {
     pub place: usize,
     pub badge: Option<String>,
     pub is_me: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub riot_score: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub riot_grade: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -213,6 +218,8 @@ pub struct MatchDetail {
     pub rounds: Vec<RoundLine>,
     pub death_reviews: Vec<Death>,
     pub flaws: Vec<Flaw>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub riot: Option<riot::RiotPerformance>,
 }
 
 pub fn text<'a>(value: &'a Value, pointer: &str) -> Option<&'a str> {
@@ -362,6 +369,8 @@ pub fn analyze(
                 place: 0,
                 badge: None,
                 is_me: id == puuid,
+                riot_score: riot::score(player),
+                riot_grade: riot::grade(player),
             }
         })
         .collect();
@@ -751,6 +760,7 @@ pub fn analyze(
         rounds: round_lines,
         death_reviews: deaths,
         flaws,
+        riot: riot::performance(me),
     })
 }
 
