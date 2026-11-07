@@ -4,12 +4,13 @@ import { TitleBar } from "./components/TitleBar";
 import { Tour } from "./components/Tour";
 import { api, errorMessage, onSyncProgress, type Account, type Bootstrap, type Theme } from "./lib/api";
 import { Home } from "./pages/Home";
+import { MatchDetail } from "./pages/MatchDetail";
+import { Matches } from "./pages/Matches";
 import { Onboarding } from "./pages/Onboarding";
 import { Settings } from "./pages/Settings";
 import { Soon } from "./pages/Soon";
 
 const SOON: Partial<Record<Page, { title: string; text: string }>> = {
-  matches: { title: "Matchs", text: "Le détail de chaque match, le score des dix joueurs et les défauts détectés." },
   progress: { title: "Progression", text: "Ta courbe de RR, ta forme, ta projection et la détection du tilt." },
   agents: { title: "Agents", text: "Tes statistiques agent par agent." },
   maps: { title: "Maps", text: "Tes statistiques map par map, en attaque et en défense." },
@@ -26,6 +27,7 @@ export default function App() {
   const [fatal, setFatal] = useState<string | null>(null);
   const [theme, setTheme] = useState<Theme>("dark");
   const [page, setPage] = useState<Page>("home");
+  const [openMatch, setOpenMatch] = useState<string | null>(null);
   const [sync, setSync] = useState<SyncView>(IDLE);
   const [refreshKey, setRefreshKey] = useState(0);
   const [tourOpen, setTourOpen] = useState(false);
@@ -46,6 +48,20 @@ export default function App() {
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
   }, [theme]);
+
+  useEffect(() => {
+    document.querySelector(".main")?.scrollTo({ top: 0 });
+  }, [page, openMatch]);
+
+  const navigate = (next: Page) => {
+    setOpenMatch(null);
+    setPage(next);
+  };
+
+  const showMatch = (matchId: string) => {
+    setPage("matches");
+    setOpenMatch(matchId);
+  };
 
   useEffect(() => {
     let stop: (() => void) | undefined;
@@ -133,7 +149,7 @@ export default function App() {
     <>
       <Shell
         page={page}
-        onNavigate={setPage}
+        onNavigate={navigate}
         account={account}
         theme={theme}
         onToggleTheme={() => changeTheme(theme === "dark" ? "light" : "dark")}
@@ -141,7 +157,11 @@ export default function App() {
         onSync={runSync}
         tourTarget={tourOpen ? tourTarget : null}
       >
-        {page === "home" && account && <Home account={account} refreshKey={refreshKey} />}
+        {page === "home" && account && <Home account={account} refreshKey={refreshKey} onOpenMatch={showMatch} />}
+        {page === "matches" && account && !openMatch && <Matches account={account} refreshKey={refreshKey} onOpen={showMatch} />}
+        {page === "matches" && account && openMatch && (
+          <MatchDetail account={account} matchId={openMatch} onBack={() => setOpenMatch(null)} />
+        )}
         {page === "settings" && (
           <Settings
             accounts={boot.accounts}
