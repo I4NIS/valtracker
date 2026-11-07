@@ -21,6 +21,8 @@ rusqlite = { version = "0.41.1", features = ["bundled"] }
 reqwest = { version = "0.13.5", features = ["json"] }
 tokio = { version = "1.54.1", features = ["time", "sync"] }
 thiserror = "2.0.21"
+tauri-plugin-updater = "2.14.1"
+tauri-plugin-process = "2.4.0"
 
 [profile.release]
 codegen-units = 1
