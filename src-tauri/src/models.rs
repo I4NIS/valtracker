@@ -17,6 +17,7 @@ pub struct Account {
     pub peak_tier_name: Option<String>,
     pub peak_season: Option<String>,
     pub last_sync_at: Option<String>,
+    pub rank_state: Option<crate::ranked::RankState>,
 }
 
 #[derive(Debug, Clone, Serialize)]

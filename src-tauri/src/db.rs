@@ -233,6 +233,7 @@ ALTER TABLE mmr_history ADD COLUMN is_placement_match INTEGER;
 ALTER TABLE mmr_history ADD COLUMN match_length INTEGER;
 ALTER TABLE mmr_history ADD COLUMN competitive_movement TEXT;
 ALTER TABLE mmr_history ADD COLUMN queue_id TEXT;
+ALTER TABLE accounts ADD COLUMN rank_state TEXT;
 "];
 
 const REBUILT_AT: i64 = 10;

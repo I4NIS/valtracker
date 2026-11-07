@@ -1,7 +1,41 @@
 use rusqlite::{Connection, OptionalExtension, params};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 use crate::error::AppResult;
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RankState {
+    pub shields: Option<i64>,
+    pub protection_status: Option<String>,
+    pub protected_tier: Option<bool>,
+    pub games_needed_for_rating: Option<i64>,
+    pub games_needed_for_leaderboard: Option<i64>,
+    pub leaderboard_rank: Option<i64>,
+    pub last_derank_protected: Option<bool>,
+    pub last_protection_replenished: Option<bool>,
+    pub last_placement: Option<bool>,
+}
+
+impl RankState {
+    pub fn from_mmr(mmr: &Value) -> Option<Self> {
+        let current = mmr.get("current")?;
+        let latest = mmr.get("latest_update").filter(|value| value.is_object());
+        let flag = |pointer: &str| latest.and_then(|value| value.pointer(pointer)).and_then(Value::as_bool);
+        Some(Self {
+            shields: current.get("rank_protection_shields").and_then(Value::as_i64),
+            protection_status: current.get("rank_protection_status").and_then(Value::as_str).map(str::to_string),
+            protected_tier: current.get("is_at_rank_protected_tier").and_then(Value::as_bool),
+            games_needed_for_rating: current.get("games_needed_for_rating").and_then(Value::as_i64),
+            games_needed_for_leaderboard: current.get("games_needed_for_leaderboard").and_then(Value::as_i64),
+            leaderboard_rank: current.pointer("/leaderboard_placement/rank").and_then(Value::as_i64),
+            last_derank_protected: flag("/was_derank_protected"),
+            last_protection_replenished: flag("/was_derank_protection_replenished"),
+            last_placement: flag("/is_placement_match"),
+        })
+    }
+}
 
 #[derive(Debug, Clone, Default, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -150,6 +184,23 @@ mod tests {
             }
         }
         base
+    }
+
+    #[test]
+    fn reads_the_rank_protection_state() {
+        let mmr = json!({
+            "current": {"tier": {"id": 14, "name": "Gold 3"}, "rr": 10, "rank_protection_shields": 2, "is_at_rank_protected_tier": true,
+                        "games_needed_for_rating": 0, "games_needed_for_leaderboard": 40, "leaderboard_placement": null},
+            "latest_update": {"was_derank_protected": true, "is_placement_match": null}
+        });
+        let state = RankState::from_mmr(&mmr).unwrap();
+        assert_eq!(state.shields, Some(2));
+        assert_eq!(state.protected_tier, Some(true));
+        assert_eq!(state.games_needed_for_rating, Some(0));
+        assert_eq!(state.leaderboard_rank, None);
+        assert_eq!(state.last_derank_protected, Some(true));
+        assert_eq!(state.last_placement, None);
+        assert!(RankState::from_mmr(&json!({})).is_none());
     }
 
     #[test]

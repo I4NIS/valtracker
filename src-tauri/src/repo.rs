@@ -6,7 +6,7 @@ use crate::error::AppResult;
 use crate::models::Account;
 use crate::storage;
 
-const ACCOUNT_COLUMNS: &str = "puuid, name, tag, region, platform, account_level, card_id, tier, tier_name, rr, peak_tier, peak_tier_name, peak_season, last_sync_at";
+const ACCOUNT_COLUMNS: &str = "puuid, name, tag, region, platform, account_level, card_id, tier, tier_name, rr, peak_tier, peak_tier_name, peak_season, last_sync_at, rank_state";
 
 fn text<'a>(value: &'a Value, pointer: &str) -> Option<&'a str> {
     value.pointer(pointer).and_then(Value::as_str)
@@ -32,6 +32,7 @@ fn account_from_row(row: &Row) -> rusqlite::Result<Account> {
         peak_tier_name: row.get(11)?,
         peak_season: row.get(12)?,
         last_sync_at: row.get(13)?,
+        rank_state: row.get::<_, Option<String>>(14)?.and_then(|json| serde_json::from_str(&json).ok()),
     })
 }
 
@@ -84,7 +85,7 @@ pub fn delete_account(conn: &Connection, puuid: &str) -> AppResult<()> {
 pub fn update_rank(conn: &Connection, puuid: &str, mmr: &Value) -> AppResult<()> {
     conn.execute(
         "UPDATE accounts SET tier = ?2, tier_name = ?3, rr = ?4, elo = ?5,
-            peak_tier = ?6, peak_tier_name = ?7, peak_season = ?8
+            peak_tier = ?6, peak_tier_name = ?7, peak_season = ?8, rank_state = ?9
          WHERE puuid = ?1",
         params![
             puuid,
@@ -95,6 +96,7 @@ pub fn update_rank(conn: &Connection, puuid: &str, mmr: &Value) -> AppResult<()>
             mmr.pointer("/peak/tier/id").and_then(Value::as_i64),
             text(mmr, "/peak/tier/name"),
             text(mmr, "/peak/season/short"),
+            crate::ranked::RankState::from_mmr(mmr).and_then(|state| serde_json::to_string(&state).ok()),
         ],
     )?;
     Ok(())

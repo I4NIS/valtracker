@@ -4,6 +4,7 @@ import { ExportRecapButton } from "../components/ExportRecap";
 import { type ExtraFilters, hasExtra, MatchFilters, NO_EXTRA } from "../components/MatchFilters";
 import { MatchList, MatchListSkeleton } from "../components/MatchList";
 import { RankBadge } from "../components/RankBadge";
+import { RankProtection } from "../components/RankProtection";
 import { SeasonPicker } from "../components/SeasonPicker";
 import { repeat, SkeletonBlock, SkeletonGroup, SkeletonLine } from "../components/Skeleton";
 import type { Account, RecentMatch } from "../lib/api";
@@ -182,6 +183,7 @@ export function Home({ account, accounts, onOpenMatch }: Props) {
                   {tierLabel(account.peakTierName)}
                 </span>
               )}
+              <RankProtection state={account.rankState} />
             </div>
           </div>
         )}

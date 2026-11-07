@@ -19,6 +19,31 @@ export type RrDetail = {
   placement: boolean | null;
 };
 
+export type RankState = {
+  shields: number | null;
+  protectionStatus: string | null;
+  protectedTier: boolean | null;
+  gamesNeededForRating: number | null;
+  gamesNeededForLeaderboard: number | null;
+  leaderboardRank: number | null;
+  lastDerankProtected: boolean | null;
+  lastProtectionReplenished: boolean | null;
+  lastPlacement: boolean | null;
+};
+
+export function rankStateFacts(state: RankState | null | undefined): string[] {
+  if (!state) return [];
+  const facts: string[] = [];
+  const needed = state.gamesNeededForRating ?? 0;
+  if (needed > 0)
+    facts.push(t(`${needed} ${needed > 1 ? "matchs" : "match"} avant d'être classé`, `${needed} ${needed === 1 ? "match" : "matches"} before getting ranked`));
+  if (state.protectedTier) facts.push(t("Rang protégé", "Protected rank"));
+  if (state.leaderboardRank) facts.push(t(`${state.leaderboardRank}e au classement`, `#${state.leaderboardRank} on the leaderboard`));
+  if (state.lastDerankProtected) facts.push(t("Protection utilisée au dernier match", "Protection used in the last match"));
+  else if (state.lastProtectionReplenished) facts.push(t("Protection rechargée au dernier match", "Protection replenished in the last match"));
+  return facts;
+}
+
 export type RrSum = { total: number; matches: number };
 
 export type RrBreakdown = {

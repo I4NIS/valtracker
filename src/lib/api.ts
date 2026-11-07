@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { t } from "./i18n";
-import type { RrBreakdown, RrDetail } from "./ranked";
+import type { RankState, RrBreakdown, RrDetail } from "./ranked";
 
 export type Theme = "dark" | "light";
 
@@ -20,6 +20,7 @@ export type Account = {
   peakTierName: string | null;
   peakSeason: string | null;
   lastSyncAt: string | null;
+  rankState?: RankState | null;
 };
 
 export type Bootstrap = {

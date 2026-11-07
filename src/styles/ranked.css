@@ -51,6 +51,40 @@
   font-weight: 700;
 }
 
+.rank-protection {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  font-size: 13px;
+}
+
+.rank-shields {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.rank-shield {
+  fill: var(--good);
+}
+
+.rank-protection-fact {
+  color: var(--text-2);
+}
+
+.rank-protection-fact + .rank-protection-fact::before,
+.rank-shields + .rank-protection-fact::before {
+  content: "";
+  display: inline-block;
+  width: 3px;
+  height: 3px;
+  margin: 0 10px 3px 0;
+  border-radius: 50%;
+  background: var(--text-3);
+  vertical-align: middle;
+}
+
 .rr-breakdown {
   display: flex;
   flex-direction: column;
