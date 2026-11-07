@@ -359,8 +359,8 @@ export const api = {
   syncAccount: (puuid: string) => invoke<SyncReport>("sync_account", { puuid }),
   getOverview: (puuid: string, filters: OverviewFilters) => invoke<Overview>("get_overview", { puuid, filters }),
   getFilterOptions: (puuid: string) => invoke<FilterOptions>("get_filter_options", { puuid }),
-  getRecentMatches: (puuid: string, limit = 10, offset = 0) =>
-    invoke<RecentMatch[]>("get_recent_matches", { puuid, limit, offset }),
+  getRecentMatches: (puuid: string, limit = 10, offset = 0, filters?: OverviewFilters) =>
+    invoke<RecentMatch[]>("get_recent_matches", { puuid, limit, offset, filters }),
   getMatch: (puuid: string, matchId: string) => invoke<MatchDetail>("get_match", { puuid, matchId }),
   getHeatmap: (puuid: string, filters: HeatmapFilters) => invoke<Heatmap>("get_heatmap", { puuid, ...filters }),
   getProgression: (puuid: string, season: string | null) => invoke<Progression>("get_progression", { puuid, season }),

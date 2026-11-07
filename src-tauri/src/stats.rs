@@ -259,7 +259,8 @@ pub fn filter_options(conn: &Connection, puuid: &str) -> AppResult<FilterOptions
     })
 }
 
-pub fn recent_matches(conn: &Connection, puuid: &str, limit: i64, offset: i64) -> AppResult<Vec<RecentMatch>> {
+pub fn recent_matches(conn: &Connection, puuid: &str, filters: &Filters, limit: i64, offset: i64) -> AppResult<Vec<RecentMatch>> {
+    let (sql_limit, sql_offset) = if filters.party.is_some() { (-1, 0) } else { (limit, offset) };
     let mut stmt = conn.prepare(
         "SELECT m.match_id, m.started_at, m.map_name, m.queue, p.agent_id, p.agent_name,
                 p.kills, p.deaths, p.assists, p.score * 1.0 / m.rounds, p.won, p.rounds_won, p.rounds_lost,
@@ -267,31 +268,58 @@ pub fn recent_matches(conn: &Connection, puuid: &str, limit: i64, offset: i64) -
                 p.puuid
          FROM match_players p JOIN matches m ON m.match_id = p.match_id
          WHERE p.puuid IN (SELECT ?1 UNION ALL SELECT puuid FROM accounts WHERE ?1 = 'all') AND m.queue = ?4
+           AND (?5 IS NULL OR m.season_short = ?5)
+           AND (?6 IS NULL OR m.map_id = ?6)
+           AND (?7 IS NULL OR p.agent_id = ?7)
+           AND (?8 IS NULL OR p.agent_id IN (SELECT uuid FROM agents WHERE role = ?8))
+           AND (?9 IS NULL OR julianday(m.started_at) >= julianday('now', printf('-%d days', ?9)))
          ORDER BY m.started_at DESC
          LIMIT ?2 OFFSET ?3",
     )?;
     let rows = stmt
-        .query_map(params![puuid, limit, offset, COMPETITIVE], |row| {
-            Ok(RecentMatch {
-                match_id: row.get(0)?,
-                started_at: row.get(1)?,
-                map_name: row.get(2)?,
-                queue: row.get(3)?,
-                agent_id: row.get(4)?,
-                agent_name: row.get(5)?,
-                kills: row.get(6)?,
-                deaths: row.get(7)?,
-                assists: row.get(8)?,
-                acs: row.get(9)?,
-                won: row.get(10)?,
-                rounds_won: row.get(11)?,
-                rounds_lost: row.get(12)?,
-                place: row.get(13)?,
-                puuid: row.get(14)?,
-            })
-        })?
+        .query_map(
+            params![
+                puuid,
+                sql_limit,
+                sql_offset,
+                COMPETITIVE,
+                filters.season,
+                filters.map_id,
+                filters.agent_id,
+                filters.role,
+                filters.days
+            ],
+            |row| {
+                Ok(RecentMatch {
+                    match_id: row.get(0)?,
+                    started_at: row.get(1)?,
+                    map_name: row.get(2)?,
+                    queue: row.get(3)?,
+                    agent_id: row.get(4)?,
+                    agent_name: row.get(5)?,
+                    kills: row.get(6)?,
+                    deaths: row.get(7)?,
+                    assists: row.get(8)?,
+                    acs: row.get(9)?,
+                    won: row.get(10)?,
+                    rounds_won: row.get(11)?,
+                    rounds_lost: row.get(12)?,
+                    place: row.get(13)?,
+                    puuid: row.get(14)?,
+                })
+            },
+        )?
         .collect::<Result<Vec<_>, _>>()?;
-    Ok(rows)
+    let Some(party) = filters.party else {
+        return Ok(rows);
+    };
+    let grouped = party == Party::Group;
+    Ok(rows
+        .into_iter()
+        .filter(|game| in_group(conn, &game.match_id, &game.puuid) == grouped)
+        .skip(offset.max(0) as usize)
+        .take(limit.max(0) as usize)
+        .collect())
 }
 
 pub fn seasons(conn: &Connection, puuid: &str) -> AppResult<Vec<Season>> {
@@ -469,12 +497,35 @@ mod tests {
         assert_eq!(count_for(&conn, ALL_ACCOUNTS, Filters { party: Some(Party::Group), ..Filters::default() }), 1);
         assert_eq!(count_for(&conn, ALL_ACCOUNTS, Filters { party: Some(Party::Solo), ..Filters::default() }), 3);
         assert_eq!(count_for(&conn, ALL_ACCOUNTS, Filters { agent_id: Some("sova".into()), ..Filters::default() }), 1);
-        let recent = recent_matches(&conn, ALL_ACCOUNTS, 10, 0).unwrap();
+        let recent = recent_matches(&conn, ALL_ACCOUNTS, &Filters::default(), 10, 0).unwrap();
         assert_eq!(recent.len(), 4);
         assert_eq!(recent[0].puuid, ME);
         assert_eq!(recent.iter().filter(|game| game.puuid == "b-mate").count(), 1);
         let seasons = seasons(&conn, ALL_ACCOUNTS).unwrap();
         assert_eq!(seasons.iter().map(|season| season.matches).collect::<Vec<_>>(), [3, 1]);
+        drop(conn);
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn filters_recent_matches() {
+        let (conn, path) = database();
+        let ids = |filters: Filters, limit: i64, offset: i64| {
+            recent_matches(&conn, ME, &filters, limit, offset)
+                .unwrap()
+                .into_iter()
+                .map(|game| game.match_id)
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(ids(Filters::default(), 10, 0), ["a", "b", "c"]);
+        assert_eq!(ids(Filters::default(), 1, 1), ["b"]);
+        assert_eq!(ids(Filters::season(Some("e9a2")), 10, 0), ["c"]);
+        assert_eq!(ids(Filters { map_id: Some("ascent".into()), ..Filters::default() }, 10, 0), ["a", "c"]);
+        assert_eq!(ids(Filters { role: Some("Controller".into()), ..Filters::default() }, 10, 0), ["c"]);
+        assert_eq!(ids(Filters { days: Some(7), ..Filters::default() }, 10, 0), ["a"]);
+        assert_eq!(ids(Filters { party: Some(Party::Solo), ..Filters::default() }, 10, 0), ["b", "c"]);
+        assert_eq!(ids(Filters { party: Some(Party::Solo), ..Filters::default() }, 1, 1), ["c"]);
+        assert_eq!(ids(Filters { party: Some(Party::Group), ..Filters::default() }, 10, 0), ["a"]);
         drop(conn);
         let _ = std::fs::remove_file(path);
     }

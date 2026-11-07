@@ -1,14 +1,13 @@
 import "../styles/home.css";
 import { useEffect, useState } from "react";
 import { ExportRecapButton } from "../components/ExportRecap";
-import { FilterPill, type PillOption } from "../components/FilterPill";
-import { Icon } from "../components/Icon";
+import { type ExtraFilters, hasExtra, MatchFilters, NO_EXTRA } from "../components/MatchFilters";
 import { MatchList } from "../components/MatchList";
 import { RankBadge } from "../components/RankBadge";
 import { SeasonPicker } from "../components/SeasonPicker";
-import type { Account, OverviewFilters, Party, RecentMatch } from "../lib/api";
-import { agentIcon, seasonLabel, tierLabel } from "../lib/assets";
-import { fmt, greeting, pct, roleLabel, signed, timeAgo, tradeWindowText } from "../lib/format";
+import type { Account, RecentMatch } from "../lib/api";
+import { seasonLabel, tierLabel } from "../lib/assets";
+import { fmt, greeting, pct, signed, timeAgo, tradeWindowText } from "../lib/format";
 import { t } from "../lib/i18n";
 import { useQuery } from "../lib/query";
 import { ALL_ACCOUNTS, defaultSeason, queries } from "../lib/queries";
@@ -20,21 +19,7 @@ type Props = {
   onOpenMatch: (matchId: string, round?: number, puuid?: string) => void;
 };
 
-type Extra = Omit<OverviewFilters, "season">;
-
-const NO_EXTRA: Extra = { mapId: null, agentId: null, role: null, days: null, party: null };
-
-const PERIODS = (): PillOption<number>[] => [
-  { value: 7, label: t("7 derniers jours", "Last 7 days") },
-  { value: 30, label: t("30 derniers jours", "Last 30 days") },
-];
-
-const PARTIES = (): PillOption<Party>[] => [
-  { value: "solo", label: t("Solo", "Solo") },
-  { value: "group", label: t("En groupe", "In a group") },
-];
-
-let remembered: { puuid: string; extra: Extra } | null = null;
+let remembered: { puuid: string; extra: ExtraFilters } | null = null;
 
 type BigStat = {
   label: string;
@@ -53,13 +38,12 @@ export function Home({ account, accounts, onOpenMatch }: Props) {
   const [season, setSeason] = useState<string | null | undefined>(() => defaultSeason(puuid));
   const seasonsQuery = useQuery(queries.seasons(puuid));
   const [scope, setScope] = useState(puuid);
-  const [extra, setExtra] = useState<Extra>(() => (remembered?.puuid === puuid ? remembered.extra : NO_EXTRA));
+  const [extra, setExtra] = useState<ExtraFilters>(() => (remembered?.puuid === puuid ? remembered.extra : NO_EXTRA));
   if (scope !== puuid) {
     setScope(puuid);
     setSeason(defaultSeason(puuid));
     setExtra(NO_EXTRA);
   }
-  const options = useQuery(queries.filterOptions(puuid)).data ?? null;
   const overviewQuery = useQuery(season === undefined ? null : queries.overview(puuid, { ...extra, season }));
   const recent = useQuery(queries.recent(puuid, 10)).data ?? [];
   const flaws = useQuery(accounts ? null : queries.flaws(puuid)).data ?? null;
@@ -71,7 +55,7 @@ export function Home({ account, accounts, onOpenMatch }: Props) {
     remembered = { puuid, extra };
   }, [puuid, extra]);
 
-  const filtered = Object.values(extra).some((value) => value !== null);
+  const filtered = hasExtra(extra);
   const rr = account.rr ?? 0;
   const stats: BigStat[] = overview
     ? [
@@ -246,60 +230,7 @@ export function Home({ account, accounts, onOpenMatch }: Props) {
       <section className="stack" style={{ gap: 20 }}>
         <div className="filter-bar">
           <SeasonPicker puuid={puuid} value={season} onChange={setSeason} />
-          <div className="chips" role="group" aria-label={t("Filtres", "Filters")}>
-            {(options?.maps.length ?? 0) > 1 && (
-              <FilterPill
-                label={t("Map", "Map")}
-                allLabel={t("Toutes les maps", "All maps")}
-                value={extra.mapId}
-                options={options!.maps.map((map) => ({ value: map.id, label: map.name, count: map.matches }))}
-                onChange={(mapId) => setExtra({ ...extra, mapId })}
-              />
-            )}
-            {(options?.agents.length ?? 0) > 1 && (
-              <FilterPill
-                label={t("Agent", "Agent")}
-                allLabel={t("Tous les agents", "All agents")}
-                value={extra.agentId}
-                options={options!.agents.map((agent) => ({
-                  value: agent.id,
-                  label: agent.name,
-                  count: agent.matches,
-                  image: agentIcon(agent.id),
-                }))}
-                onChange={(agentId) => setExtra({ ...extra, agentId })}
-              />
-            )}
-            {(options?.roles.length ?? 0) > 1 && (
-              <FilterPill
-                label={t("Rôle", "Role")}
-                allLabel={t("Tous les rôles", "All roles")}
-                value={extra.role}
-                options={options!.roles.map((role) => ({ value: role.id, label: roleLabel(role.id), count: role.matches }))}
-                onChange={(role) => setExtra({ ...extra, role })}
-              />
-            )}
-            <FilterPill
-              label={t("Période", "Period")}
-              allLabel={t("Tout", "All")}
-              value={extra.days}
-              options={PERIODS()}
-              onChange={(days) => setExtra({ ...extra, days })}
-            />
-            <FilterPill
-              label={t("Solo ou en groupe", "Solo or group")}
-              allLabel={t("Solo et en groupe", "Solo and group")}
-              value={extra.party}
-              options={PARTIES()}
-              onChange={(party) => setExtra({ ...extra, party })}
-            />
-            {filtered && (
-              <button type="button" className="chip filter-reset" onClick={() => setExtra(NO_EXTRA)}>
-                <Icon name="close" size={14} strokeWidth={2} />
-                {t("Réinitialiser", "Reset")}
-              </button>
-            )}
-          </div>
+          <MatchFilters puuid={puuid} value={extra} onChange={setExtra} />
         </div>
 
         {overview && overview.matches > 0 ? (

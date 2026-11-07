@@ -26,9 +26,9 @@ export const queries = {
     fetch: () => api.getOverview(puuid, filters),
   }),
   filterOptions: (puuid: string) => ({ key: `filterOptions|${puuid}`, fetch: () => api.getFilterOptions(puuid) }),
-  recent: (puuid: string, limit: number, offset = 0) => ({
-    key: `recent|${puuid}|${limit}|${offset}`,
-    fetch: () => api.getRecentMatches(puuid, limit, offset),
+  recent: (puuid: string, limit: number, offset = 0, filters: OverviewFilters = NO_FILTERS) => ({
+    key: `recent|${puuid}|${filterKey(filters)}|${limit}|${offset}`,
+    fetch: () => api.getRecentMatches(puuid, limit, offset, filters),
   }),
   match: (puuid: string, matchId: string) => ({ key: `match|${puuid}|${matchId}`, fetch: () => api.getMatch(puuid, matchId) }),
   flaws: (puuid: string) => ({ key: `flaws|${puuid}`, fetch: () => api.getRecentFlaws(puuid) }),

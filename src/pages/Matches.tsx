@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
+import { type ExtraFilters, hasExtra, MatchFilters, NO_EXTRA } from "../components/MatchFilters";
 import { MatchList } from "../components/MatchList";
+import { SeasonPicker } from "../components/SeasonPicker";
 import type { Account } from "../lib/api";
 import { t } from "../lib/i18n";
 import { useQuery } from "../lib/query";
@@ -14,21 +16,29 @@ type Props = {
   onOpen: (matchId: string, round?: number, puuid?: string) => void;
 };
 
-let shown = PAGE;
+type View = { puuid: string; season: string | null; extra: ExtraFilters; count: number };
+
+const fresh = (puuid: string): View => ({ puuid, season: null, extra: NO_EXTRA, count: PAGE });
+
+let remembered: View | null = null;
 
 export function Matches({ account, accounts, onOpen }: Props) {
-  const [count, setCount] = useState(shown);
-  const query = useQuery(queries.recent(accounts ? ALL_ACCOUNTS : account.puuid, count));
+  const puuid = accounts ? ALL_ACCOUNTS : account.puuid;
+  const [view, setView] = useState<View>(() => (remembered?.puuid === puuid ? remembered : fresh(puuid)));
+  if (view.puuid !== puuid) setView(fresh(puuid));
+  const { season, extra, count } = view;
+  const query = useQuery(queries.recent(puuid, count, 0, { ...extra, season }));
   const matches = query.data ?? [];
   const loading = query.pending;
   const error = query.error;
   const done = !loading && matches.length < count;
+  const filtered = season !== null || hasExtra(extra);
 
   useEffect(() => {
-    shown = count;
-  }, [count]);
+    remembered = view;
+  }, [view]);
 
-  const more = () => setCount((current) => current + PAGE);
+  const more = () => setView({ ...view, count: count + PAGE });
 
   return (
     <div className="content">
@@ -41,9 +51,17 @@ export function Matches({ account, accounts, onOpen }: Props) {
           {t("Clique sur un match pour voir son détail et revoir tes morts.", "Click a match to see its details and review your deaths.")}
         </p>
       </div>
+      <div className="filter-bar">
+        <SeasonPicker puuid={puuid} value={season} onChange={(next) => setView({ ...view, season: next, count: PAGE })} />
+        <MatchFilters puuid={puuid} value={extra} onChange={(next) => setView({ ...view, extra: next, count: PAGE })} />
+      </div>
       {error && <p className="form-error">{error}</p>}
       {matches.length === 0 && !loading ? (
-        <div className="empty">{t("Aucun match synchronisé pour l'instant.", "No matches synced yet.")}</div>
+        <div className="empty">
+          {filtered
+            ? t("Aucun match ne correspond à ces filtres.", "No matches fit these filters.")
+            : t("Aucun match synchronisé pour l'instant.", "No matches synced yet.")}
+        </div>
       ) : (
         <section className="stack" style={{ gap: 16 }}>
           <MatchList matches={matches} accounts={accounts} onOpen={(matchId, owner) => onOpen(matchId, undefined, owner)} />

@@ -11,7 +11,7 @@ use crate::{agent_stats, db, duels, favorites, journal, map_stats, progression, 
 pub enum Report {
     Overview(Filters),
     FilterOptions,
-    Recent(i64, i64),
+    Recent(Filters, i64, i64),
     Flaws,
     Progression(Option<String>),
     Agents(Option<String>),
@@ -40,7 +40,7 @@ impl Report {
         match self {
             Report::Overview(filters) => json(stats::overview(conn, puuid, filters)),
             Report::FilterOptions => json(stats::filter_options(conn, puuid)),
-            Report::Recent(limit, offset) => json(stats::recent_matches(conn, puuid, *limit, *offset)),
+            Report::Recent(filters, limit, offset) => json(stats::recent_matches(conn, puuid, filters, *limit, *offset)),
             Report::Flaws => json(progression::recent_flaws(conn, puuid)),
             Report::Progression(season) => json(progression::progression(conn, puuid, season.as_deref())),
             Report::Agents(season) => json(agent_stats::agent_stats(conn, puuid, season.as_deref())),
@@ -67,8 +67,8 @@ pub fn warm(app: &AppHandle, puuid: String) {
         let mut list = vec![
             Report::Overview(Filters::season(current.as_deref())),
             Report::FilterOptions,
-            Report::Recent(10, 0),
-            Report::Recent(20, 0),
+            Report::Recent(Filters::default(), 10, 0),
+            Report::Recent(Filters::default(), 20, 0),
             Report::Flaws,
             Report::Progression(current.clone()),
             Report::Notes,
