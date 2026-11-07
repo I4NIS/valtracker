@@ -1,10 +1,11 @@
-import { Fragment, useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { CommandPalette, useCommandPaletteShortcut } from "./components/CommandPalette";
+import { loadExportDialog } from "./components/ExportRecap";
 import { PickAccount } from "./components/PickAccount";
 import { Shell, type Page, type TourTarget } from "./components/Shell";
 import { TitleBar } from "./components/TitleBar";
-import { Tour } from "./components/Tour";
 import { UpdateBanner } from "./components/UpdateBanner";
+import { whenIdle } from "./lib/idle";
 import { listen } from "@tauri-apps/api/event";
 import { asLang, setLang, type Lang } from "./lib/i18n";
 import { api, errorMessage, onSyncProgress, type Account, type Bootstrap, type Theme } from "./lib/api";
@@ -20,9 +21,20 @@ import { Maps } from "./pages/Maps";
 import { Progression } from "./pages/Progression";
 import { MatchDetail } from "./pages/MatchDetail";
 import { Matches } from "./pages/Matches";
-import { Onboarding } from "./pages/Onboarding";
-import { Settings } from "./pages/Settings";
 import { Weapons } from "./pages/Weapons";
+
+const loadOnboarding = () => import("./pages/Onboarding");
+const loadSettings = () => import("./pages/Settings");
+const loadTour = () => import("./components/Tour");
+
+const Onboarding = lazy(() => loadOnboarding().then((module) => ({ default: module.Onboarding })));
+const Settings = lazy(() => loadSettings().then((module) => ({ default: module.Settings })));
+const Tour = lazy(() => loadTour().then((module) => ({ default: module.Tour })));
+
+function preloadRareScreens() {
+  const steps: (() => Promise<unknown>)[] = [loadSettings, loadExportDialog, loadTour, loadOnboarding];
+  steps.reduce<Promise<unknown>>((chain, step) => chain.then(() => whenIdle()).then(step).catch(() => undefined), Promise.resolve());
+}
 
 const SINGLE_ACCOUNT_PAGES: Page[] = ["progress", "agents", "maps", "weapons", "duels", "heatmaps", "journal"];
 
@@ -75,6 +87,10 @@ export default function App() {
   useEffect(() => {
     load().catch((err) => setFatal(errorMessage(err)));
   }, [load]);
+
+  useEffect(() => {
+    preloadRareScreens();
+  }, []);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -207,7 +223,13 @@ export default function App() {
 
   if (!boot) return null;
 
-  if (needsSetup) return <Onboarding hasApiKey={boot.hasApiKey} onDone={finishSetup} />;
+  if (needsSetup) {
+    return (
+      <Suspense fallback={null}>
+        <Onboarding hasApiKey={boot.hasApiKey} onDone={finishSetup} />
+      </Suspense>
+    );
+  }
 
   return (
     <Fragment key={language}>
@@ -240,23 +262,29 @@ export default function App() {
           <MatchDetail account={matchAccount} matchId={openMatch} initialRound={openRound} initialDeath={openDeath} onBack={() => setOpenMatch(null)} />
         )}
         {page === "settings" && (
-          <Settings
-            accounts={boot.accounts}
-            activePuuid={boot.activePuuid}
-            combined={combined !== null}
-            theme={theme}
-            onTheme={changeTheme}
-            language={language}
-            onLanguage={changeLanguage}
-            notifyMatches={boot.notifyMatches}
-            onNotifyMatches={changeNotify}
-            onAccountsChanged={accountsChanged}
-            onCombined={showCombined}
-            onReplayTour={replayTour}
-          />
+          <Suspense fallback={null}>
+            <Settings
+              accounts={boot.accounts}
+              activePuuid={boot.activePuuid}
+              combined={combined !== null}
+              theme={theme}
+              onTheme={changeTheme}
+              language={language}
+              onLanguage={changeLanguage}
+              notifyMatches={boot.notifyMatches}
+              onNotifyMatches={changeNotify}
+              onAccountsChanged={accountsChanged}
+              onCombined={showCombined}
+              onReplayTour={replayTour}
+            />
+          </Suspense>
         )}
       </Shell>
-      {tourOpen && <Tour onTarget={setTourTarget} onClose={closeTour} />}
+      {tourOpen && (
+        <Suspense fallback={null}>
+          <Tour onTarget={setTourTarget} onClose={closeTour} />
+        </Suspense>
+      )}
       <CommandPalette
         open={paletteOpen}
         onClose={closePalette}
