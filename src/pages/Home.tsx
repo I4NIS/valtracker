@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
+import { MatchList } from "../components/MatchList";
 import { api, errorMessage, type Account, type Overview, type RecentMatch, type Season } from "../lib/api";
-import { agentIcon, seasonLabel, tierIcon, tierLabel } from "../lib/assets";
-import { fmt, greeting, pct, placeLabel, signed, timeAgo } from "../lib/format";
+import { seasonLabel, tierIcon, tierLabel } from "../lib/assets";
+import { fmt, greeting, pct, signed, timeAgo } from "../lib/format";
 
 type Props = {
   account: Account;
   refreshKey: number;
+  onOpenMatch: (matchId: string) => void;
 };
 
 type BigStat = {
@@ -17,7 +19,7 @@ type BigStat = {
   reference: string;
 };
 
-export function Home({ account, refreshKey }: Props) {
+export function Home({ account, refreshKey, onOpenMatch }: Props) {
   const [seasons, setSeasons] = useState<Season[]>([]);
   const [season, setSeason] = useState<string | null | undefined>(undefined);
   const [overview, setOverview] = useState<Overview | null>(null);
@@ -158,43 +160,11 @@ export function Home({ account, refreshKey }: Props) {
 
       <section className="stack" style={{ gap: 10 }}>
         <h2 className="section-title">Derniers matchs</h2>
+        {recent.length > 0 && <span className="faint" style={{ fontSize: 13 }}>Clique sur un match pour voir son détail.</span>}
         {recent.length === 0 ? (
           <div className="empty">Tes matchs apparaîtront ici dès la fin de la synchro.</div>
         ) : (
-          <div className="list-scroll">
-            <div>
-              <div className="track head">
-                <span>#</span>
-                <span />
-                <span>Map</span>
-                <span>Résultat</span>
-                <span>K / D / A</span>
-                <span>ACS</span>
-                <span style={{ textAlign: "right" }}>Place</span>
-              </div>
-              {recent.map((game, index) => (
-                <div className="track" key={game.matchId}>
-                  <span className="faint">{index + 1}</span>
-                  {agentIcon(game.agentId) ? <img src={agentIcon(game.agentId)} alt={game.agentName ?? ""} /> : <span />}
-                  <span className="stack" style={{ gap: 0 }}>
-                    <strong>{game.mapName ?? "Map inconnue"}</strong>
-                    <span className="faint" style={{ fontSize: 12 }}>
-                      {game.queue === "premier" ? "Premier, " : ""}
-                      {timeAgo(game.startedAt)}
-                    </span>
-                  </span>
-                  <strong className={game.won ? "good" : "bad"}>
-                    {game.won ? "Victoire" : "Défaite"} {game.roundsWon}-{game.roundsLost}
-                  </strong>
-                  <span className="muted">
-                    {game.kills} / {game.deaths} / {game.assists}
-                  </span>
-                  <span className="muted">{fmt(game.acs)}</span>
-                  <strong style={{ textAlign: "right" }}>{placeLabel(game.place)}</strong>
-                </div>
-              ))}
-            </div>
-          </div>
+          <MatchList matches={recent} onOpen={onOpenMatch} />
         )}
       </section>
     </div>
