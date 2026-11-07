@@ -45,5 +45,5 @@ export function trendLabel(trend: string): string {
 }
 
 export function notAvailable(): string {
-  return t("Non disponible pour les matchs synchronisés avant la version 0.2", "Not available for matches synced before version 0.2");
+  return t("Non disponible pour les matchs synchronisés avant la version 1.0", "Not available for matches synced before version 1.0");
 }
