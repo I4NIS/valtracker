@@ -3,6 +3,7 @@ name = "valtracker"
 version = "1.0.0"
 description = "Suivi de performances Valorant"
 authors = ["I4NIS"]
+license = "MIT"
 edition = "2024"
 
 [lib]

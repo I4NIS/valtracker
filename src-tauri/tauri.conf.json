@@ -44,6 +44,8 @@
     "targets": ["nsis"],
     "createUpdaterArtifacts": true,
     "publisher": "I4NIS",
+    "copyright": "Copyright (c) 2026 I4NIS",
+    "license": "MIT",
     "shortDescription": "Suivi de performances Valorant",
     "icon": [
       "icons/32x32.png",
