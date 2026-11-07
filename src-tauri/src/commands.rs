@@ -220,9 +220,20 @@ pub fn get_seasons(state: State<'_, AppState>, puuid: String) -> AppResult<Vec<S
 }
 
 #[tauri::command]
-pub fn set_preference(state: State<'_, AppState>, key: String, value: String) -> AppResult<()> {
+pub fn set_preference(app: AppHandle, state: State<'_, AppState>, key: String, value: String) -> AppResult<()> {
     if !PREFERENCES.contains(&key.as_str()) {
-        return Err(AppError::Invalid("Préférence inconnue".into()));
+        return Err(AppError::Invalid(crate::i18n::tr("Préférence inconnue", "Unknown preference").into()));
     }
-    db::set_setting(&*state.conn()?, &key, &value)
+    let conn = state.conn()?;
+    db::set_setting(&conn, &key, &value)?;
+    if key == crate::i18n::LANGUAGE_SETTING {
+        crate::i18n::set(&value);
+        let active = db::get_setting(&conn, ACTIVE_ACCOUNT_SETTING)?;
+        drop(conn);
+        state.invalidate();
+        if let Some(puuid) = active {
+            crate::reports::warm(&app, puuid);
+        }
+    }
+    Ok(())
 }

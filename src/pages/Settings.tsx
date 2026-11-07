@@ -4,6 +4,7 @@ import { useRef, useState, type FormEvent } from "react";
 import { Icon } from "../components/Icon";
 import { api, errorMessage, type Account, type ImportCandidate, type Theme, type Thresholds } from "../lib/api";
 import { fmt } from "../lib/format";
+import type { Lang } from "../lib/i18n";
 import { setQueryData, useQuery } from "../lib/query";
 import { queries } from "../lib/queries";
 import { RankBadge } from "../components/RankBadge";
@@ -15,6 +16,8 @@ type Props = {
   combined: boolean;
   theme: Theme;
   onTheme: (theme: Theme) => void;
+  language: Lang;
+  onLanguage: (language: Lang) => void;
   notifyMatches: boolean;
   onNotifyMatches: (enabled: boolean) => void;
   onAccountsChanged: (activePuuid?: string) => void;
@@ -28,6 +31,8 @@ export function Settings({
   combined,
   theme,
   onTheme,
+  language,
+  onLanguage,
   notifyMatches,
   onNotifyMatches,
   onAccountsChanged,
@@ -89,6 +94,18 @@ export function Settings({
           </button>
           <button type="button" className={theme === "light" ? "active" : undefined} onClick={() => onTheme("light")}>
             Clair
+          </button>
+        </div>
+      </section>
+
+      <section className="stack" style={{ gap: 14 }}>
+        <h2 className="section-title">Langue</h2>
+        <div className="segmented" role="group" aria-label="Langue">
+          <button type="button" className={language === "fr" ? "active" : undefined} onClick={() => onLanguage("fr")}>
+            Français
+          </button>
+          <button type="button" className={language === "en" ? "active" : undefined} onClick={() => onLanguage("en")}>
+            English
           </button>
         </div>
       </section>

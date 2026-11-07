@@ -1,3 +1,4 @@
+mod i18n;
 mod journal;
 mod map_stats;
 mod weapon_stats;
@@ -44,6 +45,7 @@ pub fn run() {
             std::fs::create_dir_all(&dir)?;
             let path = dir.join("valtracker.db");
             let conn = db::open(&path)?;
+            i18n::load(&conn);
             app.manage(AppState::new(conn, path));
             let handle = app.handle().clone();
             tauri::async_runtime::spawn_blocking(move || {

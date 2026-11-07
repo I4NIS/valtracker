@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { CommandPalette, useCommandPaletteShortcut } from "./components/CommandPalette";
 import { PickAccount } from "./components/PickAccount";
 import { Shell, type Page, type SyncView, type TourTarget } from "./components/Shell";
@@ -6,6 +6,7 @@ import { TitleBar } from "./components/TitleBar";
 import { Tour } from "./components/Tour";
 import { UpdateBanner } from "./components/UpdateBanner";
 import { listen } from "@tauri-apps/api/event";
+import { asLang, setLang, type Lang } from "./lib/i18n";
 import { api, errorMessage, onSyncProgress, type Account, type Bootstrap, type Theme } from "./lib/api";
 import { ALL_ACCOUNTS, prefetchAccount } from "./lib/queries";
 import { invalidate } from "./lib/query";
@@ -30,6 +31,7 @@ export default function App() {
   const [boot, setBoot] = useState<Bootstrap | null>(null);
   const [fatal, setFatal] = useState<string | null>(null);
   const [theme, setTheme] = useState<Theme>("dark");
+  const [language, setLanguage] = useState<Lang>("fr");
   const [page, setPage] = useState<Page>("home");
   const [openMatch, setOpenMatch] = useState<string | null>(null);
   const [openMatchOwner, setOpenMatchOwner] = useState<string | null>(null);
@@ -46,6 +48,9 @@ export default function App() {
 
   const load = useCallback(async () => {
     const data = await api.bootstrap();
+    const nextLang = asLang(data.language);
+    setLang(nextLang);
+    setLanguage(nextLang);
     setBoot(data);
     setTheme(data.theme);
     return data;
@@ -129,6 +134,13 @@ export default function App() {
     runSync();
   }, [boot, needsSetup, account, runSync]);
 
+  const changeLanguage = (next: Lang) => {
+    setLang(next);
+    setLanguage(next);
+    invalidate();
+    api.setPreference("language", next).catch(() => undefined);
+  };
+
   const changeTheme = (next: Theme) => {
     setTheme(next);
     api.setPreference("theme", next).catch(() => undefined);
@@ -184,7 +196,7 @@ export default function App() {
   if (needsSetup) return <Onboarding hasApiKey={boot.hasApiKey} onDone={finishSetup} />;
 
   return (
-    <>
+    <Fragment key={language}>
       <Shell
         page={page}
         onNavigate={navigate}
@@ -221,6 +233,8 @@ export default function App() {
             combined={combined !== null}
             theme={theme}
             onTheme={changeTheme}
+            language={language}
+            onLanguage={changeLanguage}
             notifyMatches={boot.notifyMatches}
             onNotifyMatches={changeNotify}
             onAccountsChanged={accountsChanged}
@@ -243,6 +257,6 @@ export default function App() {
         onReplayTour={() => setTourOpen(true)}
       />
       <UpdateBanner />
-    </>
+    </Fragment>
   );
 }
