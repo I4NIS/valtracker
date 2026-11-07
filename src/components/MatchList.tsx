@@ -1,5 +1,6 @@
+import { Fragment } from "react";
 import type { Account, RecentMatch } from "../lib/api";
-import { agentIcon, tierIcon, tierNameById } from "../lib/assets";
+import { agentIcon, seasonLabel, tierIcon, tierNameById } from "../lib/assets";
 import { fmt, placeLabel, signed, timeAgo } from "../lib/format";
 import { t } from "../lib/i18n";
 import { Art } from "./GameArt";
@@ -26,25 +27,32 @@ export function MatchList({ matches, onOpen, startIndex = 0, accounts }: Props) 
           <span style={{ textAlign: "right" }}>{t("Place", "Place")}</span>
         </div>
         {matches.map((game, index) => (
-          <button type="button" className="track clickable" key={`${game.matchId}|${game.puuid}`} onClick={() => onOpen(game.matchId, game.puuid)}>
-            <span className="faint">{startIndex + index + 1}</span>
-            <Art src={agentIcon(game.agentId)} width={40} height={40} alt={game.agentName ?? ""} />
-            <span className="stack" style={{ gap: 0 }}>
-              <strong>{game.mapName ?? t("Map inconnue", "Unknown map")}</strong>
-              <span className="faint" style={{ fontSize: 12 }}>
-                {accounts ? `${accountName(accounts, game.puuid)}, ${timeAgo(game.startedAt)}` : timeAgo(game.startedAt)}
+          <Fragment key={`${game.matchId}|${game.puuid}`}>
+            {game.seasonShort && index > 0 && game.seasonShort !== matches[index - 1].seasonShort && (
+              <div className="match-act" role="separator">
+                <span>{seasonLabel(game.seasonShort)}</span>
+              </div>
+            )}
+            <button type="button" className="track clickable" onClick={() => onOpen(game.matchId, game.puuid)}>
+              <span className="faint">{startIndex + index + 1}</span>
+              <Art src={agentIcon(game.agentId)} width={40} height={40} alt={game.agentName ?? ""} />
+              <span className="stack" style={{ gap: 0 }}>
+                <strong>{game.mapName ?? t("Map inconnue", "Unknown map")}</strong>
+                <span className="faint" style={{ fontSize: 12 }}>
+                  {accounts ? `${accountName(accounts, game.puuid)}, ${timeAgo(game.startedAt)}` : timeAgo(game.startedAt)}
+                </span>
               </span>
-            </span>
-            <strong className={game.won ? "win" : "bad"}>
-              {game.won ? t("Victoire", "Victory") : t("Défaite", "Defeat")} {game.roundsWon}-{game.roundsLost}
-            </strong>
-            <MatchRank tier={game.tier} change={game.rrChange} />
-            <span className="muted">
-              {game.kills} / {game.deaths} / {game.assists}
-            </span>
-            <span className="muted">{fmt(game.acs)}</span>
-            <strong style={{ textAlign: "right" }}>{placeLabel(game.place)}</strong>
-          </button>
+              <strong className={game.won ? "win" : "bad"}>
+                {game.won ? t("Victoire", "Victory") : t("Défaite", "Defeat")} {game.roundsWon}-{game.roundsLost}
+              </strong>
+              <MatchRank tier={game.tier} change={game.rrChange} />
+              <span className="muted">
+                {game.kills} / {game.deaths} / {game.assists}
+              </span>
+              <span className="muted">{fmt(game.acs)}</span>
+              <strong style={{ textAlign: "right" }}>{placeLabel(game.place)}</strong>
+            </button>
+          </Fragment>
         ))}
       </div>
     </div>

@@ -679,6 +679,23 @@ a {
   font-variant-numeric: tabular-nums;
 }
 
+.match-act {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 12px 6px;
+  color: var(--text-3);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.match-act::after {
+  content: "";
+  flex-grow: 1;
+  height: 1px;
+  background: var(--line);
+}
+
 .track .match-rank img {
   width: 28px;
   height: 28px;

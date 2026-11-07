@@ -71,6 +71,7 @@ pub struct RecentMatch {
     pub match_id: String,
     pub puuid: String,
     pub started_at: String,
+    pub season_short: Option<String>,
     pub map_name: Option<String>,
     pub queue: Option<String>,
     pub agent_id: Option<String>,

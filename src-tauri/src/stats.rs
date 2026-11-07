@@ -265,7 +265,7 @@ pub fn recent_matches(conn: &Connection, puuid: &str, filters: &Filters, limit: 
         "SELECT m.match_id, m.started_at, m.map_name, m.queue, p.agent_id, p.agent_name,
                 p.kills, p.deaths, p.assists, p.score * 1.0 / m.rounds, p.won, p.rounds_won, p.rounds_lost,
                 (SELECT COUNT(*) + 1 FROM match_players q WHERE q.match_id = p.match_id AND q.score > p.score),
-                p.puuid, p.tier, h.last_change
+                p.puuid, p.tier, h.last_change, m.season_short
          FROM match_players p JOIN matches m ON m.match_id = p.match_id
          LEFT JOIN mmr_history h ON h.puuid = p.puuid AND h.match_id = p.match_id
          WHERE p.puuid IN (SELECT ?1 UNION ALL SELECT puuid FROM accounts WHERE ?1 = 'all') AND m.queue = ?4
@@ -309,6 +309,7 @@ pub fn recent_matches(conn: &Connection, puuid: &str, filters: &Filters, limit: 
                     puuid: row.get(14)?,
                     tier: row.get(15)?,
                     rr_change: row.get(16)?,
+                    season_short: row.get(17)?,
                 })
             },
         )?
@@ -523,6 +524,12 @@ mod tests {
         assert_eq!(ids(Filters::default(), 10, 0), ["a", "b", "c"]);
         assert_eq!(ids(Filters::default(), 1, 1), ["b"]);
         assert_eq!(ids(Filters::season(Some("e9a2")), 10, 0), ["c"]);
+        let seasons = recent_matches(&conn, ME, &Filters::default(), 10, 0)
+            .unwrap()
+            .into_iter()
+            .map(|game| game.season_short.unwrap_or_default())
+            .collect::<Vec<_>>();
+        assert_eq!(seasons, ["e9a3", "e9a3", "e9a2"]);
         assert_eq!(ids(Filters { map_id: Some("ascent".into()), ..Filters::default() }, 10, 0), ["a", "c"]);
         assert_eq!(ids(Filters { role: Some("Controller".into()), ..Filters::default() }, 10, 0), ["c"]);
         assert_eq!(ids(Filters { days: Some(7), ..Filters::default() }, 10, 0), ["a"]);

@@ -80,6 +80,7 @@ export type RecentMatch = {
   matchId: string;
   puuid: string;
   startedAt: string;
+  seasonShort: string | null;
   mapName: string | null;
   queue: string | null;
   agentId: string | null;
