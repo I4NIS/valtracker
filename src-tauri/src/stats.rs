@@ -8,6 +8,7 @@ use crate::models::{LobbyAverages, Overview, RecentMatch, Season};
 use crate::storage;
 
 const COMPETITIVE: &str = "competitive";
+pub const ALL_ACCOUNTS: &str = "all";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -102,6 +103,7 @@ pub fn in_group(conn: &Connection, match_id: &str, puuid: &str) -> bool {
 
 struct Line {
     match_id: String,
+    puuid: String,
     won: bool,
     rounds: i64,
     kills: i64,
@@ -128,11 +130,12 @@ fn lines(conn: &Connection, puuid: &str, filters: &Filters) -> AppResult<Vec<Lin
                 COALESCE(SUM(o.score * 1.0 / m.rounds), 0),
                 COALESCE(SUM(o.damage_dealt * 1.0 / m.rounds), 0),
                 COALESCE(SUM(o.kills), 0), COALESCE(SUM(o.deaths), 0),
-                COALESCE(SUM(o.headshots), 0), COALESCE(SUM(o.headshots + o.bodyshots + o.legshots), 0)
+                COALESCE(SUM(o.headshots), 0), COALESCE(SUM(o.headshots + o.bodyshots + o.legshots), 0),
+                p.puuid
          FROM match_players p
          JOIN matches m ON m.match_id = p.match_id
          LEFT JOIN match_players o ON o.match_id = p.match_id AND o.puuid <> p.puuid
-         WHERE p.puuid = ?1 AND m.queue = ?2
+         WHERE p.puuid IN (SELECT ?1 UNION ALL SELECT puuid FROM accounts WHERE ?1 = 'all') AND m.queue = ?2
            AND (?3 IS NULL OR m.season_short = ?3)
            AND (?4 IS NULL OR m.map_id = ?4)
            AND (?5 IS NULL OR p.agent_id = ?5)
@@ -146,6 +149,7 @@ fn lines(conn: &Connection, puuid: &str, filters: &Filters) -> AppResult<Vec<Lin
             |row| {
                 Ok(Line {
                     match_id: row.get(0)?,
+                    puuid: row.get(17)?,
                     won: row.get(1)?,
                     rounds: row.get(2)?,
                     kills: row.get(3)?,
@@ -171,7 +175,7 @@ fn lines(conn: &Connection, puuid: &str, filters: &Filters) -> AppResult<Vec<Lin
     };
     let mut kept = Vec::with_capacity(rows.len());
     for line in rows {
-        if in_group(conn, &line.match_id, puuid) == (party == Party::Group) {
+        if in_group(conn, &line.match_id, &line.puuid) == (party == Party::Group) {
             kept.push(line);
         }
     }
@@ -232,7 +236,7 @@ pub fn filter_options(conn: &Connection, puuid: &str) -> AppResult<FilterOptions
             conn,
             "SELECT m.map_id, COALESCE(MAX(m.map_name), m.map_id), COUNT(*)
              FROM match_players p JOIN matches m ON m.match_id = p.match_id
-             WHERE p.puuid = ?1 AND m.queue = ?2 AND m.map_id IS NOT NULL
+             WHERE p.puuid IN (SELECT ?1 UNION ALL SELECT puuid FROM accounts WHERE ?1 = 'all') AND m.queue = ?2 AND m.map_id IS NOT NULL
              GROUP BY m.map_id ORDER BY 2",
             puuid,
         )?,
@@ -240,7 +244,7 @@ pub fn filter_options(conn: &Connection, puuid: &str) -> AppResult<FilterOptions
             conn,
             "SELECT p.agent_id, COALESCE(MAX(p.agent_name), p.agent_id), COUNT(*)
              FROM match_players p JOIN matches m ON m.match_id = p.match_id
-             WHERE p.puuid = ?1 AND m.queue = ?2 AND p.agent_id IS NOT NULL
+             WHERE p.puuid IN (SELECT ?1 UNION ALL SELECT puuid FROM accounts WHERE ?1 = 'all') AND m.queue = ?2 AND p.agent_id IS NOT NULL
              GROUP BY p.agent_id ORDER BY 3 DESC, 2",
             puuid,
         )?,
@@ -248,7 +252,7 @@ pub fn filter_options(conn: &Connection, puuid: &str) -> AppResult<FilterOptions
             conn,
             "SELECT a.role, a.role, COUNT(*)
              FROM match_players p JOIN matches m ON m.match_id = p.match_id JOIN agents a ON a.uuid = p.agent_id
-             WHERE p.puuid = ?1 AND m.queue = ?2 AND a.role IS NOT NULL
+             WHERE p.puuid IN (SELECT ?1 UNION ALL SELECT puuid FROM accounts WHERE ?1 = 'all') AND m.queue = ?2 AND a.role IS NOT NULL
              GROUP BY a.role ORDER BY 3 DESC",
             puuid,
         )?,
@@ -259,9 +263,10 @@ pub fn recent_matches(conn: &Connection, puuid: &str, limit: i64, offset: i64) -
     let mut stmt = conn.prepare(
         "SELECT m.match_id, m.started_at, m.map_name, m.queue, p.agent_id, p.agent_name,
                 p.kills, p.deaths, p.assists, p.score * 1.0 / m.rounds, p.won, p.rounds_won, p.rounds_lost,
-                (SELECT COUNT(*) + 1 FROM match_players q WHERE q.match_id = p.match_id AND q.score > p.score)
+                (SELECT COUNT(*) + 1 FROM match_players q WHERE q.match_id = p.match_id AND q.score > p.score),
+                p.puuid
          FROM match_players p JOIN matches m ON m.match_id = p.match_id
-         WHERE p.puuid = ?1 AND m.queue = ?4
+         WHERE p.puuid IN (SELECT ?1 UNION ALL SELECT puuid FROM accounts WHERE ?1 = 'all') AND m.queue = ?4
          ORDER BY m.started_at DESC
          LIMIT ?2 OFFSET ?3",
     )?;
@@ -282,6 +287,7 @@ pub fn recent_matches(conn: &Connection, puuid: &str, limit: i64, offset: i64) -
                 rounds_won: row.get(11)?,
                 rounds_lost: row.get(12)?,
                 place: row.get(13)?,
+                puuid: row.get(14)?,
             })
         })?
         .collect::<Result<Vec<_>, _>>()?;
@@ -292,7 +298,7 @@ pub fn seasons(conn: &Connection, puuid: &str) -> AppResult<Vec<Season>> {
     let mut stmt = conn.prepare(
         "SELECT m.season_short, COUNT(*)
          FROM match_players p JOIN matches m ON m.match_id = p.match_id
-         WHERE p.puuid = ?1 AND m.queue = ?2 AND m.season_short IS NOT NULL
+         WHERE p.puuid IN (SELECT ?1 UNION ALL SELECT puuid FROM accounts WHERE ?1 = 'all') AND m.queue = ?2 AND m.season_short IS NOT NULL
          GROUP BY m.season_short
          ORDER BY MAX(m.started_at) DESC",
     )?;
@@ -398,7 +404,11 @@ mod tests {
     }
 
     fn count(conn: &Connection, filters: Filters) -> i64 {
-        overview(conn, ME, &filters).unwrap().matches
+        count_for(conn, ME, filters)
+    }
+
+    fn count_for(conn: &Connection, puuid: &str, filters: Filters) -> i64 {
+        overview(conn, puuid, &filters).unwrap().matches
     }
 
     #[test]
@@ -441,6 +451,30 @@ mod tests {
         let none = overview(&conn, ME, &Filters { map_id: Some("haven".into()), ..Filters::default() }).unwrap();
         assert_eq!(none.matches, 0);
         assert_eq!(none.acs, 0.0);
+        drop(conn);
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn combines_accounts() {
+        let (conn, path) = database();
+        assert_eq!(count_for(&conn, ALL_ACCOUNTS, Filters::default()), 0);
+        conn.execute_batch(
+            "INSERT INTO accounts (puuid, name, tag, region) VALUES ('me', 'me', '0000', 'eu'), ('b-mate', 'alt', '0000', 'eu');",
+        )
+        .unwrap();
+        let all = overview(&conn, ALL_ACCOUNTS, &Filters::default()).unwrap();
+        assert_eq!((all.matches, all.wins, all.kills), (4, 2, 55));
+        assert_eq!(count_for(&conn, ME, Filters::default()), 3);
+        assert_eq!(count_for(&conn, ALL_ACCOUNTS, Filters { party: Some(Party::Group), ..Filters::default() }), 1);
+        assert_eq!(count_for(&conn, ALL_ACCOUNTS, Filters { party: Some(Party::Solo), ..Filters::default() }), 3);
+        assert_eq!(count_for(&conn, ALL_ACCOUNTS, Filters { agent_id: Some("sova".into()), ..Filters::default() }), 1);
+        let recent = recent_matches(&conn, ALL_ACCOUNTS, 10, 0).unwrap();
+        assert_eq!(recent.len(), 4);
+        assert_eq!(recent[0].puuid, ME);
+        assert_eq!(recent.iter().filter(|game| game.puuid == "b-mate").count(), 1);
+        let seasons = seasons(&conn, ALL_ACCOUNTS).unwrap();
+        assert_eq!(seasons.iter().map(|season| season.matches).collect::<Vec<_>>(), [3, 1]);
         drop(conn);
         let _ = std::fs::remove_file(path);
     }

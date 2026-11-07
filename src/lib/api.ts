@@ -27,6 +27,7 @@ export type Bootstrap = {
   theme: Theme;
   language: string;
   tutorialDone: boolean;
+  combined: boolean;
 };
 
 export type LobbyAverages = {
@@ -75,6 +76,7 @@ export type FilterOptions = {
 
 export type RecentMatch = {
   matchId: string;
+  puuid: string;
   startedAt: string;
   mapName: string | null;
   queue: string | null;
@@ -343,6 +345,7 @@ export const api = {
   hasApiKey: () => invoke<boolean>("has_api_key"),
   addAccount: (riotId: string, region: string) => invoke<Account>("add_account", { riotId, region }),
   setActiveAccount: (puuid: string) => invoke<void>("set_active_account", { puuid }),
+  setCombinedView: (enabled: boolean) => invoke<void>("set_combined_view", { enabled }),
   removeAccount: (puuid: string) => invoke<void>("remove_account", { puuid }),
   listAccounts: () => invoke<Account[]>("list_accounts"),
   syncAccount: (puuid: string) => invoke<SyncReport>("sync_account", { puuid }),

@@ -12,13 +12,24 @@ import { HENRIK_DASHBOARD, REGIONS, tierLabel } from "../lib/assets";
 type Props = {
   accounts: Account[];
   activePuuid: string | null;
+  combined: boolean;
   theme: Theme;
   onTheme: (theme: Theme) => void;
   onAccountsChanged: (activePuuid?: string) => void;
+  onCombined: () => void;
   onReplayTour: () => void;
 };
 
-export function Settings({ accounts, activePuuid, theme, onTheme, onAccountsChanged, onReplayTour }: Props) {
+export function Settings({
+  accounts,
+  activePuuid,
+  combined,
+  theme,
+  onTheme,
+  onAccountsChanged,
+  onCombined,
+  onReplayTour,
+}: Props) {
   const [key, setKey] = useState("");
   const [keyMessage, setKeyMessage] = useState<string | null>(null);
   const [riotId, setRiotId] = useState("");
@@ -111,6 +122,29 @@ export function Settings({ accounts, activePuuid, theme, onTheme, onAccountsChan
       <section className="stack" style={{ gap: 14 }}>
         <h2 className="section-title">Comptes</h2>
         <div className="panel settings-list">
+          {accounts.length > 1 && (
+            <div>
+              <span className="settings-all" aria-hidden="true">
+                <Icon name="agents" size={20} />
+              </span>
+              <span className="stack" style={{ gap: 0, flexGrow: 1 }}>
+                <strong>Tous les comptes</strong>
+                <span className="faint" style={{ fontSize: 13 }}>
+                  Accueil et matchs de tes {accounts.length} comptes réunis
+                </span>
+              </span>
+              {combined ? (
+                <span className="faint" style={{ fontSize: 13 }}>
+                  Vue active
+                </span>
+              ) : (
+                <button type="button" className="btn btn-secondary" onClick={onCombined}>
+                  Utiliser
+                </button>
+              )}
+              <span className="settings-spacer" aria-hidden="true" />
+            </div>
+          )}
           {accounts.map((account) => (
             <div key={account.puuid}>
               <RankBadge tier={account.tier} size={40} label={tierLabel(account.tierName)} />
@@ -122,7 +156,7 @@ export function Settings({ accounts, activePuuid, theme, onTheme, onAccountsChan
                   {tierLabel(account.tierName)}, {REGIONS.find((item) => item.id === account.region)?.label ?? account.region}
                 </span>
               </span>
-              {account.puuid === activePuuid ? (
+              {!combined && account.puuid === activePuuid ? (
                 <span className="faint" style={{ fontSize: 13 }}>
                   Compte actif
                 </span>

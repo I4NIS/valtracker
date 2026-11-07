@@ -9,12 +9,13 @@ import type { Account, OverviewFilters, Party, RecentMatch } from "../lib/api";
 import { agentIcon, seasonLabel, tierLabel } from "../lib/assets";
 import { fmt, greeting, pct, roleLabel, signed, timeAgo, tradeWindowText } from "../lib/format";
 import { useQuery } from "../lib/query";
-import { defaultSeason, queries } from "../lib/queries";
+import { ALL_ACCOUNTS, defaultSeason, queries } from "../lib/queries";
 
 type Props = {
   account: Account;
   refreshKey: number;
-  onOpenMatch: (matchId: string) => void;
+  accounts: Account[] | null;
+  onOpenMatch: (matchId: string, round?: number, puuid?: string) => void;
 };
 
 type Extra = Omit<OverviewFilters, "season">;
@@ -45,27 +46,29 @@ type BigStat = {
   lobbyText: string;
 };
 
-export function Home({ account, onOpenMatch }: Props) {
-  const [season, setSeason] = useState<string | null | undefined>(() => defaultSeason(account.puuid));
-  const seasonsQuery = useQuery(queries.seasons(account.puuid));
+export function Home({ account, accounts, onOpenMatch }: Props) {
+  const puuid = accounts ? ALL_ACCOUNTS : account.puuid;
+  const [season, setSeason] = useState<string | null | undefined>(() => defaultSeason(puuid));
+  const seasonsQuery = useQuery(queries.seasons(puuid));
   const seasons = seasonsQuery.data ?? [];
-  const [scope, setScope] = useState(account.puuid);
-  const [extra, setExtra] = useState<Extra>(() => (remembered?.puuid === account.puuid ? remembered.extra : NO_EXTRA));
-  if (scope !== account.puuid) {
-    setScope(account.puuid);
+  const [scope, setScope] = useState(puuid);
+  const [extra, setExtra] = useState<Extra>(() => (remembered?.puuid === puuid ? remembered.extra : NO_EXTRA));
+  if (scope !== puuid) {
+    setScope(puuid);
+    setSeason(defaultSeason(puuid));
     setExtra(NO_EXTRA);
   }
-  const options = useQuery(queries.filterOptions(account.puuid)).data ?? null;
-  const overviewQuery = useQuery(season === undefined ? null : queries.overview(account.puuid, { ...extra, season }));
-  const recent = useQuery(queries.recent(account.puuid, 10)).data ?? [];
-  const flaws = useQuery(queries.flaws(account.puuid)).data ?? null;
+  const options = useQuery(queries.filterOptions(puuid)).data ?? null;
+  const overviewQuery = useQuery(season === undefined ? null : queries.overview(puuid, { ...extra, season }));
+  const recent = useQuery(queries.recent(puuid, 10)).data ?? [];
+  const flaws = useQuery(accounts ? null : queries.flaws(puuid)).data ?? null;
   const thresholds = useQuery(queries.thresholds()).data?.values;
   const overview = overviewQuery.data ?? null;
   const error = overviewQuery.error ?? seasonsQuery.error;
 
   useEffect(() => {
-    remembered = { puuid: account.puuid, extra };
-  }, [account.puuid, extra]);
+    remembered = { puuid, extra };
+  }, [puuid, extra]);
 
   useEffect(() => {
     if (season === undefined && seasonsQuery.data) setSeason(seasonsQuery.data[0]?.short ?? null);
@@ -128,37 +131,60 @@ export function Home({ account, onOpenMatch }: Props) {
     <div className="content">
       <div className="stack">
         <h1 className="title">
-          {greeting()}, {account.name}
+          {accounts ? "Tous les comptes" : `${greeting()}, ${account.name}`}
         </h1>
         <p className="muted">
-          {account.lastSyncAt ? `Dernière synchro ${timeAgo(account.lastSyncAt)}.` : "Première synchro en cours."}
+          {accounts
+            ? `Stats cumulées de tes ${accounts.length} comptes.`
+            : account.lastSyncAt
+              ? `Dernière synchro ${timeAgo(account.lastSyncAt)}.`
+              : "Première synchro en cours."}
         </p>
       </div>
 
       {error && <p className="form-error">{error}</p>}
 
       <div className="hero">
-        <div className="rank">
-          <RankBadge tier={account.tier} size={104} label={tierLabel(account.tierName)} />
-          <div className="stack" style={{ gap: 10, flexGrow: 1 }}>
-            <span className="rank-name">{tierLabel(account.tierName)}</span>
-            {account.tier ? (
-              <div className="row" style={{ maxWidth: 300 }}>
-                <div className="bar" style={{ flexGrow: 1 }}>
-                  <span style={{ width: `${Math.min(rr, 100)}%` }} />
+        {accounts ? (
+          <ul className="home-accounts" aria-label="Comptes">
+            {accounts.map((item) => (
+              <li key={item.puuid}>
+                <RankBadge tier={item.tier} size={44} label={tierLabel(item.tierName)} />
+                <span className="stack" style={{ gap: 0 }}>
+                  <strong>
+                    {item.name} <span className="faint">#{item.tag}</span>
+                  </strong>
+                  <span className="faint" style={{ fontSize: 13 }}>
+                    {tierLabel(item.tierName)}
+                    {item.tier ? `, ${item.rr ?? 0} RR` : ""}
+                  </span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <div className="rank">
+            <RankBadge tier={account.tier} size={104} label={tierLabel(account.tierName)} />
+            <div className="stack" style={{ gap: 10, flexGrow: 1 }}>
+              <span className="rank-name">{tierLabel(account.tierName)}</span>
+              {account.tier ? (
+                <div className="row" style={{ maxWidth: 300 }}>
+                  <div className="bar" style={{ flexGrow: 1 }}>
+                    <span style={{ width: `${Math.min(rr, 100)}%` }} />
+                  </div>
+                  <strong>{rr} RR</strong>
                 </div>
-                <strong>{rr} RR</strong>
-              </div>
-            ) : null}
-            {account.peakTierName && (
-              <span className="row muted" style={{ gap: 6, fontSize: 13 }}>
-                Peak
-                <RankBadge tier={account.peakTier} size={24} label={tierLabel(account.peakTierName)} />
-                {tierLabel(account.peakTierName)}
-              </span>
-            )}
+              ) : null}
+              {account.peakTierName && (
+                <span className="row muted" style={{ gap: 6, fontSize: 13 }}>
+                  Peak
+                  <RankBadge tier={account.peakTier} size={24} label={tierLabel(account.peakTierName)} />
+                  {tierLabel(account.peakTierName)}
+                </span>
+              )}
+            </div>
           </div>
-        </div>
+        )}
         {overview && overview.matches > 0 && (
           <div className="home-record">
             <WinRing wins={overview.wins} losses={overview.losses} winPct={overview.winPct} />
@@ -191,20 +217,20 @@ export function Home({ account, onOpenMatch }: Props) {
               <span className="faint" style={{ fontSize: 13 }}>
                 {recentWins} V {timeline.length - recentWins} D sur les {timeline.length} derniers
               </span>
-              <ExportRecapButton kind="session" account={account} label="Exporter ma dernière session" />
+              {!accounts && <ExportRecapButton kind="session" account={account} label="Exporter ma dernière session" />}
             </div>
           </div>
           <ul className="home-form" aria-label="Résultats des derniers matchs, du plus ancien au plus récent">
             {timeline.map((game) => {
               const text = matchText(game);
               return (
-                <li key={game.matchId}>
+                <li key={`${game.matchId}|${game.puuid}`}>
                   <button
                     type="button"
                     className={`home-form-cell ${game.won ? "is-win" : "is-loss"}`}
                     title={text}
                     aria-label={`${text}. Ouvrir le match`}
-                    onClick={() => onOpenMatch(game.matchId)}
+                    onClick={() => onOpenMatch(game.matchId, undefined, game.puuid)}
                   >
                     {game.won ? "V" : "D"}
                   </button>
@@ -366,7 +392,7 @@ export function Home({ account, onOpenMatch }: Props) {
         {recent.length === 0 ? (
           <div className="empty">Tes matchs apparaîtront ici dès la fin de la synchro.</div>
         ) : (
-          <MatchList matches={recent} onOpen={onOpenMatch} />
+          <MatchList matches={recent} accounts={accounts} onOpen={(matchId, owner) => onOpenMatch(matchId, undefined, owner)} />
         )}
       </section>
     </div>

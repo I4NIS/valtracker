@@ -224,6 +224,22 @@
   background: var(--bad);
 }
 
+.home-accounts {
+  display: flex;
+  flex: 1 1 360px;
+  flex-direction: column;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.home-accounts li {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
 .home-filters {
   display: flex;
   flex-direction: column;

@@ -57,6 +57,7 @@ type Props = {
   page: Page;
   onNavigate: (page: Page) => void;
   account: Account | null;
+  combinedCount?: number;
   theme: Theme;
   onToggleTheme: () => void;
   sync: SyncView;
@@ -75,7 +76,19 @@ function syncText(sync: SyncView): string {
   return `Synchronisé ${timeAgo(sync.lastSyncAt)}`;
 }
 
-export function Shell({ page, onNavigate, account, theme, onToggleTheme, sync, onSync, tourTarget, onSearch, children }: Props) {
+export function Shell({
+  page,
+  onNavigate,
+  account,
+  combinedCount = 0,
+  theme,
+  onToggleTheme,
+  sync,
+  onSync,
+  tourTarget,
+  onSearch,
+  children,
+}: Props) {
   const target = (id: TourTarget) => (tourTarget === id ? " tour-target" : "");
 
   return (
@@ -109,8 +122,10 @@ export function Shell({ page, onNavigate, account, theme, onToggleTheme, sync, o
           >
             <RankBadge tier={account?.tier} size={36} />
             <span className="names">
-              <strong>{account?.name ?? "Aucun compte"}</strong>
-              <span className="faint">{account ? `#${account.tag}` : "Ajoute un compte"}</span>
+              <strong>{combinedCount > 1 ? "Tous les comptes" : (account?.name ?? "Aucun compte")}</strong>
+              <span className="faint">
+                {combinedCount > 1 ? `${combinedCount} comptes` : account ? `#${account.tag}` : "Ajoute un compte"}
+              </span>
             </span>
             <Icon name="settings" />
           </button>

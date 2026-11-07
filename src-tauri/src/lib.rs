@@ -57,6 +57,7 @@ pub fn run() {
             commands::has_api_key,
             commands::add_account,
             commands::set_active_account,
+            commands::set_combined_view,
             commands::remove_account,
             commands::list_accounts,
             commands::sync_account,

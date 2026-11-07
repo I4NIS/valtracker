@@ -10,6 +10,8 @@ type Season = string | null;
 
 const s = (season: Season) => season ?? "all";
 
+export const ALL_ACCOUNTS = "all";
+
 export const NO_FILTERS: OverviewFilters = { season: null, mapId: null, agentId: null, role: null, days: null, party: null };
 
 const filterKey = (filters: OverviewFilters) =>
@@ -63,6 +65,13 @@ export async function prefetchAccount(puuid: string) {
     queries.filterOptions(puuid),
     queries.recent(puuid, 10),
     queries.recent(puuid, 20),
+    ...(puuid === ALL_ACCOUNTS ? [] : accountOnly(puuid, current)),
+  ];
+  for (const task of tasks) await prefetch(task);
+}
+
+function accountOnly(puuid: string, current: Season): Query<unknown>[] {
+  return [
     queries.flaws(puuid),
     queries.progression(puuid, current),
     queries.notes(puuid),
@@ -72,5 +81,4 @@ export async function prefetchAccount(puuid: string) {
     queries.weapons(puuid, current),
     queries.duels(puuid, current),
   ];
-  for (const task of tasks) await prefetch(task);
 }
