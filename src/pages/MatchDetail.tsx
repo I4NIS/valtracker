@@ -7,7 +7,7 @@ import { Icon } from "../components/Icon";
 import { MatchRrDetail } from "../components/MatchRrDetail";
 import { NoteEditor } from "../components/NoteEditor";
 import { MatchAccolades } from "../components/RiotRecords";
-import type { Account, RoundLine } from "../lib/api";
+import type { Account, MatchDetail as MatchDetailData, PlayerLine, RoundLine } from "../lib/api";
 import { RankBadge } from "../components/RankBadge";
 import { GradeBadge, MatchRiot, MvpBadge } from "../components/RiotFacts";
 import { RoundDetail } from "../components/RoundDetail";
@@ -90,8 +90,8 @@ export function MatchDetail({ account, matchId, initialRound, initialDeath, back
           </div>
         </header>
         <SkeletonBlock width={380} height={36} radius={999} />
-        <div className="stat-grid match-stats">
-          {repeat(4, (index) => (
+        <div className="match-stats">
+          {repeat(6, (index) => (
             <div className="stack" key={index}>
               <SkeletonLine width="44%" size={13} />
               <SkeletonLine width="38%" size={24} />
@@ -204,34 +204,9 @@ export function MatchDetail({ account, matchId, initialRound, initialDeath, back
       )}
       {tab === "summary" && (
         <>
-          <div className="stat-grid match-stats">
-            <HeadStat
-              label={t("Ton score", "Your score")}
-              value={String(detail.score)}
-              tone={scoreTone(detail.score)}
-              sub={t(`sur 100, ${placeLabel(detail.place)} sur 10`, `out of 100, ${placeLabel(detail.place)} of 10`)}
-            />
-            <HeadStat
-              label={t("Ton équipe", "Your team")}
-              value={detail.teamLevel}
-              sub={t(`ACS moyen ${fmt(detail.teamAcs)} contre ${fmt(detail.enemyAcs)}`, `Avg ACS ${fmt(detail.teamAcs)} vs ${fmt(detail.enemyAcs)}`)}
-            />
-            {detail.rrChange !== null ? (
-              <HeadStat
-                label="RR"
-                value={signed(detail.rrChange)}
-                tone={detail.rrChange >= 0 ? "good" : "bad"}
-                sub={detail.rrAfter !== null ? t(`${detail.rrAfter} RR après le match`, `${detail.rrAfter} RR after the match`) : ""}
-              />
-            ) : (
-              <HeadStat label="K / D / A" value={`${detail.kills} / ${detail.deaths} / ${detail.assists}`} sub="" />
-            )}
-            <HeadStat label="ACS" value={fmt(detail.acs)} sub={t(`${fmt(detail.adr)} dégâts par round`, `${fmt(detail.adr)} damage per round`)} />
-          </div>
+          <KeyStats detail={detail} />
 
           <MatchRrDetail detail={detail.rrDetail} />
-          <MatchAccolades accolades={detail.accolades} />
-          <MatchRiot detail={detail} />
 
           <section className="stack" style={{ gap: 10 }}>
             <div className="section-head">
@@ -254,8 +229,9 @@ export function MatchDetail({ account, matchId, initialRound, initialDeath, back
                 <div className="section-head">
                   <h2 className="section-title">{team.mine ? t("Ton équipe", "Your team") : t("Adversaires", "Opponents")}</h2>
                   <span className="faint" style={{ fontSize: 13 }}>
+                    {team.mine ? `${detail.teamLevel}, ` : ""}
                     {t(
-                      `${team.roundsWon} rounds, ACS moyen ${fmt(team.avgAcs)}`,
+                      `${team.roundsWon} ${team.roundsWon > 1 ? "rounds" : "round"}, ACS moyen ${fmt(team.avgAcs)}`,
                       `${team.roundsWon} ${team.roundsWon === 1 ? "round" : "rounds"}, avg ACS ${fmt(team.avgAcs)}`,
                     )}
                   </span>
@@ -327,8 +303,52 @@ export function MatchDetail({ account, matchId, initialRound, initialDeath, back
               </div>
             )}
           </section>
+
+          <MatchRiot detail={detail} />
+          <MatchAccolades accolades={detail.accolades} />
         </>
       )}
+    </div>
+  );
+}
+
+function KeyStats({ detail }: { detail: MatchDetailData }) {
+  const players = detail.teams.flatMap((team) => team.players);
+  const me = players.find((player) => player.isMe);
+  const others = players.filter((player) => !player.isMe);
+  const lobby = (pick: (player: PlayerLine) => number) => (others.length ? others.reduce((sum, player) => sum + pick(player), 0) / others.length : null);
+  const versus = (value: number, average: number | null, format: (value: number) => string) =>
+    average === null
+      ? { sub: "", tone: undefined }
+      : { sub: t(`lobby ${format(average)}`, `lobby ${format(average)}`), tone: value >= average ? "good" : "bad" };
+  const hs = me ? versus(me.hsPct, lobby((player) => player.hsPct), (value) => pct(value, 0)) : null;
+  const adr = versus(detail.adr, lobby((player) => player.adr), (value) => fmt(value));
+  const acs = versus(detail.acs, lobby((player) => player.acs), (value) => fmt(value));
+  const rr = detail.rrDetail;
+  const bonus = rr?.performanceBonus ? t(`, dont ${signed(rr.performanceBonus)} de bonus`, `, ${signed(rr.performanceBonus)} bonus`) : "";
+  const rrSub =
+    rr?.rrBefore != null && detail.rrAfter !== null
+      ? `${rr.rrBefore} → ${detail.rrAfter} RR${bonus}`
+      : detail.rrAfter !== null
+        ? t(`${detail.rrAfter} RR après le match${bonus}`, `${detail.rrAfter} RR after the match${bonus}`)
+        : "";
+  return (
+    <div className="match-stats">
+      <HeadStat
+        label="K / D / A"
+        value={`${detail.kills} / ${detail.deaths} / ${detail.assists}`}
+        sub={`K/D ${fmt(detail.kills / Math.max(detail.deaths, 1), 2)}`}
+      />
+      {me && hs && <HeadStat label={t("Headshots", "Headshots")} value={pct(me.hsPct, 0)} tone={hs.tone} sub={hs.sub} />}
+      <HeadStat label="ADR" value={fmt(detail.adr)} tone={adr.tone} sub={adr.sub} />
+      <HeadStat label="ACS" value={fmt(detail.acs)} tone={acs.tone} sub={acs.sub} />
+      {detail.rrChange !== null && <HeadStat label="RR" value={signed(detail.rrChange)} tone={detail.rrChange >= 0 ? "good" : "bad"} sub={rrSub} />}
+      <HeadStat
+        label={t("Score", "Score")}
+        value={String(detail.score)}
+        tone={scoreTone(detail.score)}
+        sub={t(`sur 100, ${placeLabel(detail.place)} sur 10`, `out of 100, ${placeLabel(detail.place)} of 10`)}
+      />
     </div>
   );
 }

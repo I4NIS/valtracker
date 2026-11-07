@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { fmt, signed } from "./format";
+import { fmt } from "./format";
 import { t } from "./i18n";
 
 export type TierRef = { id: number | null; name: string | null };
@@ -117,17 +117,6 @@ const rr = (value: number) => {
 const shown = (value: number | null | undefined) => value != null && Math.abs(value) >= 0.05;
 
 const matchWord = (count: number) => t(count > 1 ? "matchs" : "match", count === 1 ? "match" : "matches");
-
-export function rrSummary(detail: RrDetail): string | null {
-  const parts: string[] = [];
-  if (detail.rrBefore !== null) parts.push(t(`RR avant ${detail.rrBefore}`, `RR before ${detail.rrBefore}`));
-  if (detail.change !== null) {
-    const bonus = detail.performanceBonus ?? 0;
-    const change = `${signed(detail.change)} RR`;
-    parts.push(bonus ? t(`${change} (dont ${signed(bonus)} de bonus de performance)`, `${change} (including ${signed(bonus)} performance bonus)`) : change);
-  }
-  return parts.length ? parts.join(", ") : null;
-}
 
 export function rrFacts(detail: RrDetail): RrFact[] {
   const facts: RrFact[] = [];

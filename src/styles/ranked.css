@@ -22,11 +22,6 @@
   font-size: 13px;
 }
 
-.rr-detail-summary {
-  font-size: 14px;
-  font-weight: 600;
-}
-
 .rr-facts {
   display: flex;
   flex-wrap: wrap;

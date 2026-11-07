@@ -1,7 +1,7 @@
 import "../styles/ranked.css";
 import { tierLabel } from "../lib/assets";
 import { t } from "../lib/i18n";
-import { rrFacts, rrSummary, tierFromName, type RrDetail, type RrFact } from "../lib/ranked";
+import { rrFacts, tierFromName, type RrDetail, type RrFact } from "../lib/ranked";
 import { RankBadge } from "./RankBadge";
 
 export function FactList({ facts, label }: { facts: RrFact[]; label: string }) {
@@ -20,23 +20,21 @@ export function FactList({ facts, label }: { facts: RrFact[]; label: string }) {
 
 export function MatchRrDetail({ detail }: { detail: RrDetail | null }) {
   if (!detail) return null;
-  const summary = rrSummary(detail);
   const facts = rrFacts(detail);
   const tierChanged = detail.tierBefore !== null && detail.tierAfter !== null && detail.tierBefore !== detail.tierAfter;
-  if (!summary && facts.length === 0 && !tierChanged) return null;
+  if (facts.length === 0 && !tierChanged) return null;
   return (
     <section className="rr-detail" aria-label={t("Détail du RR", "RR breakdown")}>
-      <div className="rr-detail-head">
-        {tierChanged && (
+      {tierChanged && (
+        <div className="rr-detail-head">
           <span className="rr-detail-tiers">
             <RankBadge tier={tierFromName(detail.tierBeforeName) ?? detail.tierBefore} size={28} label={tierLabel(detail.tierBeforeName)} />
             <span className="faint">{t("vers", "to")}</span>
             <RankBadge tier={tierFromName(detail.tierAfterName) ?? detail.tierAfter} size={28} label={tierLabel(detail.tierAfterName)} />
             <strong>{tierLabel(detail.tierAfterName)}</strong>
           </span>
-        )}
-        {summary && <span className="rr-detail-summary">{summary}</span>}
-      </div>
+        </div>
+      )}
       <FactList facts={facts} label={t("Ajustements de RR", "RR adjustments")} />
     </section>
   );
