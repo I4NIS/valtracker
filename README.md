@@ -51,7 +51,7 @@ Les trackers en ligne donnent des chiffres. Valtracker va plus loin sur un point
 
 **Confort**
 - Premier lancement guidé en trois étapes, puis une visite de l'application, relançable depuis les paramètres.
-- Synchronisation automatique au lancement puis toutes les 10 minutes.
+- Synchronisation automatique au lancement puis toutes les 10 minutes, en remontant le plus loin possible dans ton historique compétitif.
 - Plusieurs comptes Riot, thème sombre et clair.
 - Mises à jour proposées au lancement et installées en un clic.
 
