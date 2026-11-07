@@ -55,6 +55,7 @@ pub fn slim(game: &Value) -> Value {
             "tier": pick(&player["tier"], &["id", "name"]),
             "stats": player["stats"],
             "ability_casts": player["ability_casts"],
+            "customization": pick(&player["customization"], &["card"]),
         })),
         "teams": each(&game["teams"], |team| pick(team, &["team_id", "won", "rounds"])),
         "rounds": each(&game["rounds"], |round| json!({
@@ -70,7 +71,7 @@ pub fn slim(game: &Value) -> Value {
                 "economy": {
                     "loadout_value": stat["economy"]["loadout_value"],
                     "remaining": stat["economy"]["remaining"],
-                    "weapon": pick(&stat["economy"]["weapon"], &["name"]),
+                    "weapon": pick(&stat["economy"]["weapon"], &["id", "name"]),
                     "armor": pick(&stat["economy"]["armor"], &["name"]),
                 },
                 "stats": pick(&stat["stats"], &["score", "kills", "headshots", "bodyshots", "legshots"]),
@@ -84,7 +85,7 @@ pub fn slim(game: &Value) -> Value {
             "victim": person(&kill["victim"]),
             "assistants": each(&kill["assistants"], |assistant| pick(assistant, &["puuid", "team"])),
             "location": kill["location"],
-            "weapon": pick(&kill["weapon"], &["name", "type"]),
+            "weapon": pick(&kill["weapon"], &["id", "name", "type"]),
             "player_locations": each(&kill["player_locations"], |entry| json!({
                 "player": pick(&entry["player"], &["puuid", "team"]),
                 "location": entry["location"],

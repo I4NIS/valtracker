@@ -3,6 +3,7 @@ use serde_json::Value;
 use std::collections::HashMap;
 
 use crate::assets::MapData;
+use crate::weapon_stats::{held_weapon_id, kill_weapon_id};
 
 const TRADE_WINDOW_MS: i64 = 3000;
 pub const ISOLATION_METERS: f64 = 15.0;
@@ -73,6 +74,8 @@ pub struct RoundEvent {
     pub target_ally: bool,
     pub target_me: bool,
     pub weapon: Option<String>,
+    pub weapon_id: Option<String>,
+    pub weapon_kind: Option<String>,
     pub site: Option<String>,
 }
 
@@ -86,6 +89,7 @@ pub struct EconomyLine {
     pub loadout: i64,
     pub remaining: i64,
     pub weapon: Option<String>,
+    pub weapon_id: Option<String>,
     pub armor: Option<String>,
     pub kills: i64,
     pub damage: i64,
@@ -151,6 +155,8 @@ pub struct Death {
     pub killer_agent: Option<String>,
     pub killer_agent_id: Option<String>,
     pub weapon: Option<String>,
+    pub weapon_id: Option<String>,
+    pub weapon_kind: Option<String>,
     pub distance_m: Option<f64>,
     pub nearest_ally_m: Option<f64>,
     pub traded: bool,
@@ -218,6 +224,10 @@ pub fn int(value: &Value, pointer: &str) -> i64 {
 pub fn point(value: &Value, pointer: &str) -> Option<(f64, f64)> {
     let location = value.pointer(pointer)?;
     Some((location["x"].as_f64()?, location["y"].as_f64()?))
+}
+
+fn weapon_kind(kill: &Value) -> Option<String> {
+    text(kill, "/weapon/type").filter(|kind| !kind.is_empty()).map(str::to_lowercase)
 }
 
 fn distance(a: (f64, f64), b: (f64, f64)) -> f64 {
@@ -427,6 +437,8 @@ pub fn analyze(game: &Value, puuid: &str, map: Option<&MapData>, roles: &HashMap
                         target_ally,
                         target_me,
                         weapon: text(kill, "/weapon/name").map(str::to_string),
+                        weapon_id: kill_weapon_id(kill),
+                        weapon_kind: weapon_kind(kill),
                         site: None,
                     }
                 })
@@ -449,6 +461,8 @@ pub fn analyze(game: &Value, puuid: &str, map: Option<&MapData>, roles: &HashMap
                     target_ally: false,
                     target_me: false,
                     weapon: None,
+                    weapon_id: None,
+                    weapon_kind: None,
                     site: text(action, "/site").map(str::to_string),
                 });
             }
@@ -466,6 +480,7 @@ pub fn analyze(game: &Value, puuid: &str, map: Option<&MapData>, roles: &HashMap
                         loadout: int(stat, "/economy/loadout_value"),
                         remaining: int(stat, "/economy/remaining"),
                         weapon: text(stat, "/economy/weapon/name").map(str::to_string),
+                        weapon_id: held_weapon_id(stat),
                         armor: text(stat, "/economy/armor/name").map(str::to_string),
                         kills: int(stat, "/stats/kills"),
                         damage: stat
@@ -549,6 +564,8 @@ pub fn analyze(game: &Value, puuid: &str, map: Option<&MapData>, roles: &HashMap
                 killer_agent: killer.and_then(|line| line.agent_name.clone()),
                 killer_agent_id: killer.and_then(|line| line.agent_id.clone()),
                 weapon: text(kill, "/weapon/name").map(str::to_string),
+                weapon_id: kill_weapon_id(kill),
+                weapon_kind: weapon_kind(kill),
                 distance_m: victim.zip(killer_location).map(|(a, b)| distance(a, b)),
                 nearest_ally_m,
                 traded,

@@ -1,6 +1,7 @@
 import type { RecentMatch } from "../lib/api";
 import { agentIcon } from "../lib/assets";
 import { fmt, placeLabel, timeAgo } from "../lib/format";
+import { Art } from "./GameArt";
 
 type Props = {
   matches: RecentMatch[];
@@ -24,7 +25,7 @@ export function MatchList({ matches, onOpen, startIndex = 0 }: Props) {
         {matches.map((game, index) => (
           <button type="button" className="track clickable" key={game.matchId} onClick={() => onOpen(game.matchId)}>
             <span className="faint">{startIndex + index + 1}</span>
-            {agentIcon(game.agentId) ? <img src={agentIcon(game.agentId)} alt={game.agentName ?? ""} /> : <span />}
+            <Art src={agentIcon(game.agentId)} width={40} height={40} alt={game.agentName ?? ""} />
             <span className="stack" style={{ gap: 0 }}>
               <strong>{game.mapName ?? "Map inconnue"}</strong>
               <span className="faint" style={{ fontSize: 12 }}>

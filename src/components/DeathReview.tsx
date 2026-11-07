@@ -1,7 +1,11 @@
+import "../styles/rounds.css";
 import { useEffect, useMemo, useState } from "react";
 import type { Death } from "../lib/api";
+import { agentIcon } from "../lib/assets";
 import { fmt } from "../lib/format";
+import { findAbility, useAgentCatalog } from "../lib/gameAssets";
 import { rotatePoint, rotationStyle } from "../lib/minimap";
+import { Art, KillMeans, meansLabel } from "./GameArt";
 import { Icon } from "./Icon";
 
 type Order = "gravity" | "chrono";
@@ -17,6 +21,7 @@ const pctOf = (value: number) => `${value * 100}%`;
 export function DeathReview({ deaths, minimap, rotation }: Props) {
   const [order, setOrder] = useState<Order>("gravity");
   const [index, setIndex] = useState(0);
+  const catalog = useAgentCatalog();
 
   const list = useMemo(
     () => (order === "gravity" ? [...deaths].sort((a, b) => b.flaws.length - a.flaws.length || a.round - b.round) : deaths),
@@ -40,8 +45,6 @@ export function DeathReview({ deaths, minimap, rotation }: Props) {
   const others = death.others.map((marker) => ({ ally: marker.ally, ...rotatePoint(marker, rotation) }));
 
   const facts: [string, string][] = [
-    ["Tué par", `${death.killerName}${death.killerAgent ? `, ${death.killerAgent}` : ""}`],
-    ["Arme", death.weapon ?? "Inconnue"],
     ["Distance", death.distanceM !== null ? `${fmt(death.distanceM)} m` : "Inconnue"],
     ["Coéquipier le plus proche", death.nearestAllyM !== null ? `${fmt(death.nearestAllyM)} m` : "Aucun en vie"],
     ["Ton équipement", `${fmt(death.loadout)} crédits`],
@@ -122,6 +125,32 @@ export function DeathReview({ deaths, minimap, rotation }: Props) {
             </span>
             <span className="muted">
               {death.zone ?? "Zone inconnue"}, à {fmt(death.timeS, 1)} s, {death.roundWon ? "round gagné" : "round perdu"}
+            </span>
+          </div>
+          <div className="review-killer">
+            <Art src={agentIcon(death.killerAgentId)} width={44} height={44} alt="" className="review-killer-agent" />
+            <span className="stack" style={{ gap: 0, minWidth: 0 }}>
+              <span className="faint" style={{ fontSize: 12 }}>
+                Tué par
+              </span>
+              <strong className="ellipsis">
+                {death.killerName}
+                {death.killerAgent ? <span className="faint">, {death.killerAgent}</span> : null}
+              </strong>
+            </span>
+            <span className="review-killer-weapon">
+              <KillMeans
+                weaponId={death.weaponId}
+                weaponName={death.weapon}
+                weaponKind={death.weaponKind}
+                agentId={death.killerAgentId}
+                catalog={catalog}
+                height={26}
+                bare
+              />
+              <span className="faint ellipsis" style={{ fontSize: 12 }}>
+                {(death.weaponKind === "ability" ? findAbility(catalog, death.weapon, death.killerAgentId)?.label : null) ?? meansLabel(death.weapon, death.weaponKind)}
+              </span>
             </span>
           </div>
           <div className="facts">

@@ -1,6 +1,9 @@
+import "../styles/rounds.css";
 import type { RoundEvent, RoundLine } from "../lib/api";
 import { agentIcon } from "../lib/assets";
 import { fmt } from "../lib/format";
+import { useAgentCatalog, weaponArt, type Catalog } from "../lib/gameAssets";
+import { Art, KillMeans, SpikeGlyph } from "./GameArt";
 
 const ARMOR: Record<string, string> = {
   "Heavy Armor": "Bouclier lourd",
@@ -21,6 +24,7 @@ type Props = {
 
 export function RoundDetail({ rounds, selected, onSelect }: Props) {
   const round = rounds[Math.min(selected, rounds.length - 1)];
+  const catalog = useAgentCatalog();
   if (!round) return <div className="empty">Aucun round à afficher.</div>;
 
   return (
@@ -54,25 +58,28 @@ export function RoundDetail({ rounds, selected, onSelect }: Props) {
         <section className="stack" style={{ gap: 10 }}>
           <h2 className="section-title">Actions</h2>
           {round.events.length === 0 && <span className="faint">Aucune action enregistrée.</span>}
-          <div className="events">
+          <div className="events round-feed">
             {round.events.map((event, i) => (
-              <EventRow key={i} event={event} />
+              <EventRow key={i} event={event} catalog={catalog} />
             ))}
           </div>
         </section>
 
         <section className="stack" style={{ gap: 10 }}>
           <h2 className="section-title">Économie</h2>
-          <div className="economy">
+          <div className="economy round-economy">
             {round.economy.map((line) => (
               <div key={line.name} className={`economy-row${line.me ? " me" : ""}`}>
-                {agentIcon(line.agentId) ? <img src={agentIcon(line.agentId)} alt="" /> : <span />}
+                <Art src={agentIcon(line.agentId)} width={32} height={32} alt="" />
                 <span className="stack" style={{ gap: 0, minWidth: 0 }}>
                   <strong className={`ellipsis ${line.ally ? "ally-text" : "enemy-text"}`}>{line.name}</strong>
                   <span className="faint ellipsis" style={{ fontSize: 12 }}>
                     {line.weapon ?? "Arme de base"}
                     {line.armor ? `, ${ARMOR[line.armor] ?? line.armor}` : ""}
                   </span>
+                </span>
+                <span className="round-economy-weapon">
+                  {line.weaponId && <Art src={weaponArt(line.weaponId, "killstreamicon")} width={72} height={24} alt={line.weapon ?? ""} mono />}
                 </span>
                 <span className="stack" style={{ gap: 0, textAlign: "right" }}>
                   <strong>{fmt(line.loadout)}</strong>
@@ -98,27 +105,42 @@ export function RoundDetail({ rounds, selected, onSelect }: Props) {
 function Who({ name, agentId, ally, me }: { name: string; agentId: string | null; ally: boolean; me: boolean }) {
   return (
     <span className="who">
-      {agentIcon(agentId) && <img src={agentIcon(agentId)} alt="" />}
-      <strong className={me ? "me-text" : ally ? "ally-text" : "enemy-text"}>{me ? "Toi" : name}</strong>
+      <Art src={agentIcon(agentId)} width={24} height={24} alt="" />
+      <strong className={`ellipsis ${me ? "me-text" : ally ? "ally-text" : "enemy-text"}`}>{me ? "Toi" : name}</strong>
     </span>
   );
 }
 
-function EventRow({ event }: { event: RoundEvent }) {
-  return (
-    <div className={`event${event.actorMe || event.targetMe ? " mine" : ""}`}>
-      <span className="faint event-time">{clock(event.timeS)}</span>
-      <Who name={event.actor} agentId={event.actorAgentId} ally={event.actorAlly} me={event.actorMe} />
-      {event.kind === "kill" && event.target ? (
-        <>
-          <span className="faint">{event.weapon ?? "tue"}</span>
-          <Who name={event.target} agentId={event.targetAgentId} ally={event.targetAlly} me={event.targetMe} />
-        </>
-      ) : (
-        <span className="muted">
-          {event.kind === "plant" ? `pose le spike${event.site ? ` sur ${event.site}` : ""}` : "désamorce le spike"}
+function EventRow({ event, catalog }: { event: RoundEvent; catalog: Catalog | null }) {
+  const mine = event.actorMe || event.targetMe;
+  if (event.kind === "kill" && event.target) {
+    return (
+      <div className={`event round-kill${mine ? " mine" : ""}`}>
+        <span className="faint event-time">{clock(event.timeS)}</span>
+        <span className="round-kill-actor">
+          <Who name={event.actor} agentId={event.actorAgentId} ally={event.actorAlly} me={event.actorMe} />
         </span>
-      )}
+        <KillMeans
+          weaponId={event.weaponId}
+          weaponName={event.weapon}
+          weaponKind={event.weaponKind}
+          agentId={event.actorAgentId}
+          catalog={catalog}
+        />
+        <span className="round-kill-target">
+          <Who name={event.target} agentId={event.targetAgentId} ally={event.targetAlly} me={event.targetMe} />
+        </span>
+      </div>
+    );
+  }
+  return (
+    <div className={`event round-spike${mine ? " mine" : ""}`}>
+      <span className="faint event-time">{clock(event.timeS)}</span>
+      <SpikeGlyph size={20} className={event.kind === "defuse" ? "round-spike-defuse" : undefined} />
+      <Who name={event.actor} agentId={event.actorAgentId} ally={event.actorAlly} me={event.actorMe} />
+      <span className="muted">
+        {event.kind === "plant" ? `pose le spike${event.site ? ` sur ${event.site}` : ""}` : "désamorce le spike"}
+      </span>
     </div>
   );
 }

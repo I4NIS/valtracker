@@ -1,10 +1,15 @@
 import "../styles/maps.css";
-import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { useMemo, useRef, useState, type RefObject } from "react";
+import { Art } from "../components/GameArt";
 import { SeasonPicker } from "../components/SeasonPicker";
-import { errorMessage, type Account } from "../lib/api";
+import type { Account } from "../lib/api";
 import { agentIcon, seasonLabel } from "../lib/assets";
 import { fmt, pct, signed } from "../lib/format";
-import { getMapStats, type MapStat } from "../lib/mapStats";
+import { mapArt } from "../lib/gameAssets";
+import type { MapStat } from "../lib/mapStats";
+import { rotatePoint, rotationStyle } from "../lib/minimap";
+import { useQuery } from "../lib/query";
+import { defaultSeason, queries } from "../lib/queries";
 
 const MIN_RANKED = 3;
 const RANK_SIZE = 3;
@@ -26,28 +31,13 @@ function record(map: MapStat) {
   return parts.join(", ");
 }
 
-export function Maps({ account, refreshKey }: Props) {
-  const [season, setSeason] = useState<string | null | undefined>(undefined);
-  const [maps, setMaps] = useState<MapStat[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
+export function Maps({ account }: Props) {
+  const [season, setSeason] = useState<string | null | undefined>(() => defaultSeason(account.puuid));
+  const query = useQuery(season === undefined ? null : queries.maps(account.puuid, season));
+  const maps = query.data ?? null;
+  const error = query.error;
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const detailRef = useRef<HTMLElement | null>(null);
-
-  useEffect(() => {
-    if (season === undefined) return;
-    setError(null);
-    let active = true;
-    getMapStats(account.puuid, season)
-      .then((list) => {
-        if (active) setMaps(list);
-      })
-      .catch((err) => {
-        if (active) setError(errorMessage(err));
-      });
-    return () => {
-      active = false;
-    };
-  }, [account.puuid, season, refreshKey]);
 
   const selected = useMemo(
     () => maps?.find((map) => map.mapId === selectedId) ?? maps?.[0] ?? null,
@@ -76,7 +66,7 @@ export function Maps({ account, refreshKey }: Props) {
 
       <SeasonPicker puuid={account.puuid} value={season} onChange={setSeason} />
 
-      {error && <p className="form-error">{error}</p>}
+      {error && !maps && <p className="form-error">{error}</p>}
 
       {!maps ? (
         <div className="empty">Chargement de tes maps...</div>
@@ -93,7 +83,7 @@ export function Maps({ account, refreshKey }: Props) {
                 aria-pressed={selected?.mapId === map.mapId}
                 onClick={() => choose(map.mapId)}
               >
-                {map.splash && <img src={map.splash} alt="" loading="lazy" />}
+                <Art src={map.splash ?? mapArt(map.mapId, "splash")} width={380} height={256} alt="" className="mapstat-card-art" />
                 {map.rrMatches > 0 && (
                   <span className={`mapstat-card-rr ${rrTone(map.rrNet)}`}>{signed(map.rrNet)} RR</span>
                 )}
@@ -142,7 +132,7 @@ function MapDetail({ map, sectionRef }: { map: MapStat; sectionRef: RefObject<HT
   return (
     <section className="mapstat-detail" ref={sectionRef} aria-label={`Statistiques sur ${map.name}`}>
       <header className="mapstat-hero">
-        {map.splash && <img src={map.splash} alt="" />}
+        <Art key={map.mapId} src={map.splash ?? mapArt(map.mapId, "splash")} width={1280} height={720} alt="" className="mapstat-hero-art" eager />
         <div className="mapstat-hero-text">
           <span className="mapstat-hero-eyebrow">{matchCount(map.matches)}, {record(map)}</span>
           <h2 className="mapstat-hero-title">{map.name}</h2>
@@ -183,17 +173,20 @@ function MapDetail({ map, sectionRef }: { map: MapStat; sectionRef: RefObject<HT
           {map.plantSites.length === 0 ? (
             <span className="faint">Aucun plant enregistré sur cette map.</span>
           ) : (
-            <div className="mapstat-sites" role="img" aria-label="Répartition des plants par site">
-              {map.plantSites.map((site) => (
-                <div className="mapstat-site" key={site.site}>
-                  <span className="mapstat-site-count">{site.plants}</span>
-                  <span className="mapstat-site-track">
-                    <span style={{ height: `${(site.plants / topSite) * 100}%` }} />
-                  </span>
-                  <strong className="mapstat-site-name">{site.site}</strong>
-                  <span className="faint mapstat-site-share">{pct(rate(site.plants, sitePlants), 0)}</span>
-                </div>
-              ))}
+            <div className="mapstat-plants">
+              <div className="mapstat-sites" role="img" aria-label="Répartition des plants par site">
+                {map.plantSites.map((site) => (
+                  <div className="mapstat-site" key={site.site}>
+                    <span className="mapstat-site-count">{site.plants}</span>
+                    <span className="mapstat-site-track">
+                      <span style={{ height: `${(site.plants / topSite) * 100}%` }} />
+                    </span>
+                    <strong className="mapstat-site-name">{site.site}</strong>
+                    <span className="faint mapstat-site-share">{pct(rate(site.plants, sitePlants), 0)}</span>
+                  </div>
+                ))}
+              </div>
+              {map.minimap && map.plantSpots.length > 0 && <PlantMap map={map} />}
             </div>
           )}
         </div>
@@ -230,7 +223,7 @@ function MapDetail({ map, sectionRef }: { map: MapStat; sectionRef: RefObject<HT
           <h3 className="mapstat-panel-title">Agent le plus joué</h3>
           {map.agentId ? (
             <div className="row" style={{ gap: 16 }}>
-              {icon && <img src={icon} alt="" className="mapstat-agent-icon" />}
+              <Art src={icon} width={64} height={64} alt={map.agentName ?? ""} className="mapstat-agent-icon" />
               <div className="stack" style={{ gap: 2, minWidth: 0 }}>
                 <strong className="mapstat-agent-name">{map.agentName ?? "Agent inconnu"}</strong>
                 <span className="muted">
@@ -247,6 +240,39 @@ function MapDetail({ map, sectionRef }: { map: MapStat; sectionRef: RefObject<HT
         </div>
       </div>
     </section>
+  );
+}
+
+function PlantMap({ map }: { map: MapStat }) {
+  const won = map.plantSpots.filter((spot) => spot.won).length;
+  return (
+    <figure className="mapstat-plantmap">
+      <div className="mapstat-minimap">
+        <span className="mapstat-minimap-turn" style={rotationStyle(map.rotation)}>
+          <Art src={map.minimap ?? undefined} width={240} height={240} alt={`Minimap de ${map.name}`} className="mapstat-minimap-art" />
+        </span>
+        {map.plantSpots.map((spot, index) => {
+          const point = rotatePoint(spot, map.rotation);
+          return (
+            <i
+              key={index}
+              className={`mapstat-plant-dot ${spot.won ? "win" : "bad"}`}
+              style={{ left: `${point.x * 100}%`, top: `${point.y * 100}%` }}
+            />
+          );
+        })}
+      </div>
+      <figcaption className="mapstat-plant-legend">
+        <span>
+          <i className="mapstat-plant-dot win" />
+          {won} gagnés
+        </span>
+        <span>
+          <i className="mapstat-plant-dot bad" />
+          {map.plantSpots.length - won} perdus
+        </span>
+      </figcaption>
+    </figure>
   );
 }
 
@@ -284,7 +310,7 @@ function RankList({ title, maps, onSelect }: { title: string; maps: MapStat[]; o
       <span className="label">{title}</span>
       {maps.map((map) => (
         <button key={map.mapId} type="button" className="mapstat-rank" onClick={() => onSelect(map.mapId)}>
-          {map.splash ? <img src={map.splash} alt="" loading="lazy" /> : <span className="mapstat-rank-thumb" />}
+          <Art src={map.listIcon ?? mapArt(map.mapId, "listviewicon")} width={120} height={40} alt="" className="mapstat-rank-thumb" />
           <span className="stack" style={{ gap: 2, minWidth: 0 }}>
             <strong className="ellipsis">{map.name}</strong>
             <span className="faint">

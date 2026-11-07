@@ -135,6 +135,8 @@ export type RoundEvent = {
   targetAlly: boolean;
   targetMe: boolean;
   weapon: string | null;
+  weaponId?: string | null;
+  weaponKind?: string | null;
   site: string | null;
 };
 
@@ -146,6 +148,7 @@ export type EconomyLine = {
   loadout: number;
   remaining: number;
   weapon: string | null;
+  weaponId?: string | null;
   armor: string | null;
   kills: number;
   damage: number;
@@ -176,6 +179,8 @@ export type Death = {
   killerAgent: string | null;
   killerAgentId: string | null;
   weapon: string | null;
+  weaponId?: string | null;
+  weaponKind?: string | null;
   distanceM: number | null;
   nearestAllyM: number | null;
   traded: boolean;
