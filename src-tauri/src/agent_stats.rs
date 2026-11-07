@@ -1,10 +1,12 @@
 use rusqlite::{Connection, params};
-use serde::Serialize;
+use serde::de::IgnoredAny;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 use crate::assets;
 use crate::error::AppResult;
-use crate::game::{self, Game, Kill, Person};
+use crate::game::{Game, Int, Kill, List, Person, Text};
+use crate::storage;
 use crate::i18n::tr;
 use crate::progression;
 use crate::state::AppState;
@@ -120,21 +122,71 @@ fn stored_first_kills(conn: &Connection, match_id: &str, puuid: &str) -> AppResu
     let Some(row) = rows.next()? else {
         return Ok(None);
     };
-    Ok(game::with_game(row.get_ref(0)?.as_bytes().map_err(rusqlite::Error::from)?, |game| first_kills(game, puuid)))
+    let json = storage::inflate(row.get_ref(0)?.as_bytes().map_err(rusqlite::Error::from)?);
+    let game = json.as_deref().and_then(|json| serde_json::from_slice::<Timeline>(json).ok());
+    Ok(game.map(|game| count(game.kills.iter().map(|kill| (kill.round.value(), kill.time_in_round_in_ms.value(), &kill.killer, &kill.victim)), game.rounds.len(), puuid)))
+}
+
+#[derive(Default, Deserialize)]
+#[serde(default)]
+struct Who<'a> {
+    #[serde(borrow)]
+    puuid: Text<'a>,
+}
+
+#[derive(Default, Deserialize)]
+#[serde(default)]
+struct Timing<'a> {
+    round: Int,
+    time_in_round_in_ms: Int,
+    #[serde(borrow)]
+    killer: Who<'a>,
+    #[serde(borrow)]
+    victim: Who<'a>,
+}
+
+#[derive(Default, Deserialize)]
+#[serde(default)]
+struct Timeline<'a> {
+    rounds: List<IgnoredAny>,
+    #[serde(borrow)]
+    kills: List<Timing<'a>>,
+}
+
+fn count<'k, P: 'k>(kills: impl Iterator<Item = (i64, i64, &'k P, &'k P)>, rounds: usize, puuid: &str) -> FirstKills
+where
+    P: PuuidOf,
+{
+    let mut first: HashMap<i64, (i64, &P, &P)> = HashMap::new();
+    for (round, time, killer, victim) in kills {
+        let entry = first.entry(round).or_insert((time, killer, victim));
+        if time < entry.0 {
+            *entry = (time, killer, victim);
+        }
+    }
+    let bloods = first.values().filter(|(_, killer, _)| killer.puuid() == Some(puuid)).count() as i64;
+    let deaths = first.values().filter(|(_, _, victim)| victim.puuid() == Some(puuid)).count() as i64;
+    (bloods, deaths, rounds as i64)
+}
+
+trait PuuidOf {
+    fn puuid(&self) -> Option<&str>;
+}
+
+impl PuuidOf for Who<'_> {
+    fn puuid(&self) -> Option<&str> {
+        self.puuid.get()
+    }
+}
+
+impl PuuidOf for Person<'_> {
+    fn puuid(&self) -> Option<&str> {
+        self.puuid.get()
+    }
 }
 
 pub fn first_kills(game: &Game, puuid: &str) -> FirstKills {
-    let mut first: HashMap<i64, &Kill> = HashMap::new();
-    for kill in game.kills.iter() {
-        let entry = first.entry(kill.round()).or_insert(kill);
-        if kill.time() < entry.time() {
-            *entry = kill;
-        }
-    }
-    let is_me = |person: &Person| person.puuid.get() == Some(puuid);
-    let bloods = first.values().filter(|kill| is_me(&kill.killer)).count() as i64;
-    let deaths = first.values().filter(|kill| is_me(&kill.victim)).count() as i64;
-    (bloods, deaths, game.rounds.len() as i64)
+    count(game.kills.iter().map(|kill: &Kill| (kill.round(), kill.time(), &kill.killer, &kill.victim)), game.rounds.len(), puuid)
 }
 
 pub fn agent_stats(conn: &Connection, puuid: &str, season: Option<&str>) -> AppResult<Vec<AgentStat>> {
