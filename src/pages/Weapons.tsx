@@ -361,38 +361,68 @@ export function Weapons({ account, onOpenRound }: Props) {
   );
 }
 
+const MIRROR = "matrix(-1 0 0 1 120 0)";
+const BODY_HEAD = "M60 6C67.6 6 73 12.6 73 21.4C73 31 67.4 38 60 38S47 31 47 21.4C47 12.6 52.4 6 60 6Z";
+const BODY_TORSO =
+  "M55 41C55 43.5 54.5 45.2 53 46.5C48.5 49.5 42 50.5 36 52C30 54 27 58 27 64C27 69 30 72 33 74C34.5 86 37.5 99 41.5 110C42.5 116 41.5 124 40.5 130C40 133 40.5 135.5 41 137H79C79.5 135.5 80 133 79.5 130C78.5 124 77.5 116 78.5 110C82.5 99 85.5 86 87 74C90 72 93 69 93 64C93 58 90 54 84 52C78 50.5 71.5 49.5 67 46.5C65.5 45.2 65 43.5 65 41Z";
+const BODY_ARM = "M23 70C20 84 18 100 17 114C16 124 15 132 15.5 140C15.8 145 21.5 145.5 22 141C23 132 25 123 27 114C29 104 30 92 30 80C30 75 27 70 23 70Z";
+const BODY_LEG =
+  "M41 141H58.5C58.6 154 57.8 168 56.8 184C56.3 194 55.8 201 55.9 207C56.2 216 56.4 224 55.6 231C55.2 235.5 52 237 49 236.5C46.6 236 45.6 234.2 45.7 231C45.9 226 44.2 220 43.2 213C42.2 206 42.6 198 41.6 190C40.2 176 39 158 41 141Z";
+const BODY_LABEL_X = 142;
+
 function BodySplit({ report }: { report: WeaponReport }) {
-  const parts = [
-    { id: "head", label: t("Tête", "Head"), value: report.hsPct, count: report.headshots },
-    { id: "torso", label: t("Corps", "Body"), value: report.bodyPct, count: report.bodyshots },
-    { id: "legs", label: t("Jambes", "Legs"), value: report.legPct, count: report.legshots },
-  ];
-  const top = Math.max(1, ...parts.map((part) => part.value));
-  const tone = (value: number) => `color-mix(in srgb, var(--accent) ${Math.round(18 + (value / top) * 82)}%, var(--field))`;
   const total = report.headshots + report.bodyshots + report.legshots;
+  const zones = [
+    { id: "head", label: t("Tête", "Head"), value: report.hsPct, count: report.headshots, y: 22, from: 77, paths: [{ d: BODY_HEAD }] },
+    {
+      id: "body",
+      label: t("Corps", "Body"),
+      value: report.bodyPct,
+      count: report.bodyshots,
+      y: 100,
+      from: 106,
+      paths: [{ d: BODY_TORSO }, { d: BODY_ARM }, { d: BODY_ARM, mirror: true }],
+    },
+    {
+      id: "legs",
+      label: t("Jambes", "Legs"),
+      value: report.legPct,
+      count: report.legshots,
+      y: 186,
+      from: 84,
+      paths: [{ d: BODY_LEG }, { d: BODY_LEG, mirror: true }],
+    },
+  ];
+  const top = Math.max(1, ...zones.map((zone) => zone.value));
+  const tone = (value: number) =>
+    total > 0 ? `color-mix(in srgb, var(--accent) ${Math.round(22 + (value / top) * 78)}%, var(--field))` : "var(--field)";
+  const shots = (count: number) => t(plural(count, "tir", "tirs"), plural(count, "hit", "hits"));
+  const summary = zones.map((zone) => `${zone.label} ${total > 0 ? pct(zone.value) : "-"}`).join(", ");
 
   return (
-    <div className="body-split" aria-label={t("Répartition des tirs touchés", "Hit shots breakdown")}>
-      {parts.map((part) => (
-        <div className={`body-line body-${part.id}`} key={part.id}>
-          <span className="body-slot" aria-hidden="true">
-            {part.id === "legs" ? (
-              <span className="body-legs-pair">
-                <span className="body-part" style={{ background: tone(part.value) }} />
-                <span className="body-part" style={{ background: tone(part.value) }} />
-              </span>
-            ) : (
-              <span className="body-part" style={{ background: tone(part.value) }} />
-            )}
-          </span>
-          <span className="stack" style={{ gap: 0 }}>
-            <span className="body-value">{total > 0 ? pct(part.value) : "-"}</span>
-            <span className="faint body-label">
-              {part.label}, {t(plural(part.count, "tir", "tirs"), plural(part.count, "hit", "hits"))}
-            </span>
-          </span>
-        </div>
-      ))}
+    <div className="body-split">
+      <svg className="body-figure" width="292" height="240" viewBox="0 0 292 240" role="img" aria-label={t(`Répartition des tirs touchés : ${summary}`, `Hit shots breakdown: ${summary}`)}>
+        {zones.map((zone) => (
+          <g key={zone.id} className="body-zone" style={{ fill: tone(zone.value) }}>
+            <title>{`${zone.label}, ${total > 0 ? pct(zone.value) : "-"}, ${shots(zone.count)}`}</title>
+            {zone.paths.map((path, index) => (
+              <path key={index} d={path.d} transform={"mirror" in path && path.mirror ? MIRROR : undefined} />
+            ))}
+          </g>
+        ))}
+        {zones.map((zone) => (
+          <g key={`${zone.id}-label`} aria-hidden="true">
+            <line className="body-leader" x1={zone.from} y1={zone.y} x2={BODY_LABEL_X - 10} y2={zone.y} />
+            <circle className="body-anchor" cx={zone.from} cy={zone.y} r={2.5} />
+            <text className="body-value" x={BODY_LABEL_X} y={zone.y + 8}>
+              {total > 0 ? pct(zone.value) : "-"}
+            </text>
+            <text className="body-label" x={BODY_LABEL_X} y={zone.y + 25}>
+              {`${zone.label}, ${shots(zone.count)}`}
+            </text>
+          </g>
+        ))}
+      </svg>
     </div>
   );
 }
