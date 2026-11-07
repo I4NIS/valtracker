@@ -91,10 +91,11 @@ export function MapHistoryView({ history, mapName, season, onOpenRound }: Props)
   }, [history.games]);
 
   const [kind, setKind] = useState<Kind>("death");
-  const [filters, setFilters] = useState<Filters>(() => ({
-    ...NO_FILTERS,
-    act: season && history.games.some((game) => game.season === season) ? season : null,
-  }));
+  const initial = useMemo<Filters>(
+    () => ({ ...NO_FILTERS, act: season && history.games.some((game) => game.season === season) ? season : null }),
+    [season, history.games],
+  );
+  const [filters, setFilters] = useState<Filters>(initial);
   const [visible, setVisible] = useState(PAGE);
   const [open, setOpen] = useState<number | null>(null);
   const pageVisible = usePageVisible();
@@ -165,7 +166,7 @@ export function MapHistoryView({ history, mapName, season, onOpenRound }: Props)
 
   const zoneOptions: PillOption<string>[] = ranked.map((name) => ({ value: name, label: name, count: countOf(name) }));
   if (filters.zone !== null && !ranked.includes(filters.zone)) zoneOptions.push({ value: filters.zone, label: filters.zone, count: 0 });
-  const filtered = Object.values(filters).some((value) => value !== null);
+  const filtered = (Object.keys(filters) as (keyof Filters)[]).some((key) => filters[key] !== initial[key]);
   const toggleZone = (name: string) => update({ zone: filters.zone === name ? null : name });
   const shown = list.slice(0, visible);
   const current = open === null ? null : (list[open] ?? null);
@@ -261,7 +262,7 @@ export function MapHistoryView({ history, mapName, season, onOpenRound }: Props)
             <FilterPill label={t("Acte", "Act")} allLabel={t("Tous les actes", "All acts")} value={filters.act} options={acts} onChange={(act) => update({ act })} />
           )}
           {filtered && (
-            <button type="button" className="chip filter-reset" onClick={() => update(NO_FILTERS)}>
+            <button type="button" className="chip filter-reset" onClick={() => update(initial)}>
               <Icon name="close" size={14} strokeWidth={2} />
               {t("Réinitialiser", "Reset")}
             </button>
