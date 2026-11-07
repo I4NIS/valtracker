@@ -10,7 +10,7 @@ use crate::state::AppState;
 
 const MAPS_URL: &str = "https://valorant-api.com/v1/maps";
 const AGENTS_URL: &str = "https://valorant-api.com/v1/agents?isPlayableCharacter=true";
-const REFRESHED_SETTING: &str = "assets_refreshed_at";
+pub const REFRESHED_SETTING: &str = "assets_refreshed_at";
 const REFRESH_EVERY_SECS: i64 = 3 * 24 * 3600;
 
 pub struct Callout {
