@@ -30,6 +30,7 @@ export default function App() {
   const [page, setPage] = useState<Page>("home");
   const [openMatch, setOpenMatch] = useState<string | null>(null);
   const [openRound, setOpenRound] = useState<number | undefined>(undefined);
+  const [openDeath, setOpenDeath] = useState(false);
   const [sync, setSync] = useState<SyncView>(IDLE);
   const [refreshKey, setRefreshKey] = useState(0);
   const [tourOpen, setTourOpen] = useState(false);
@@ -63,10 +64,11 @@ export default function App() {
     setPage(next);
   };
 
-  const showMatch = (matchId: string, round?: number) => {
+  const showMatch = (matchId: string, round?: number, death = false) => {
     setPage("matches");
     setOpenMatch(matchId);
     setOpenRound(round);
+    setOpenDeath(death);
   };
 
   useEffect(() => {
@@ -188,7 +190,7 @@ export default function App() {
         {page === "duels" && account && <Duels account={account} refreshKey={refreshKey} onOpenRound={showMatch} />}
         {page === "journal" && account && <Journal account={account} refreshKey={refreshKey} onOpenMatch={showMatch} />}
         {page === "matches" && account && openMatch && (
-          <MatchDetail account={account} matchId={openMatch} initialRound={openRound} onBack={() => setOpenMatch(null)} />
+          <MatchDetail account={account} matchId={openMatch} initialRound={openRound} initialDeath={openDeath} onBack={() => setOpenMatch(null)} />
         )}
         {page === "settings" && (
           <Settings

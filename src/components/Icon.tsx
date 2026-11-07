@@ -18,6 +18,7 @@ const PATHS = {
   external: "M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5",
   close: "M6 6l12 12M18 6 6 18",
   arrowRight: "M5 12h14M13 6l6 6-6 6",
+  star: "M12 3.5l2.6 5.3 5.9.9-4.25 4.1 1 5.8L12 16.85l-5.25 2.75 1-5.8L3.5 9.7l5.9-.9z",
   image: "M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2zM4 16l4.5-4.5 3.5 3.5 2.5-2.5L20 18M14 9a1.5 1.5 0 1 0 3 0a1.5 1.5 0 1 0-3 0",
 };
 
@@ -28,15 +29,16 @@ type Props = {
   size?: number;
   strokeWidth?: number;
   className?: string;
+  filled?: boolean;
 };
 
-export function Icon({ name, size = 18, strokeWidth = 1.9, className }: Props) {
+export function Icon({ name, size = 18, strokeWidth = 1.9, className, filled }: Props) {
   return (
     <svg
       width={size}
       height={size}
       viewBox="0 0 24 24"
-      fill="none"
+      fill={filled ? "currentColor" : "none"}
       stroke="currentColor"
       strokeWidth={strokeWidth}
       strokeLinecap="round"

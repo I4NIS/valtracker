@@ -728,6 +728,15 @@ a {
   gap: 20px;
 }
 
+.fav-btn {
+  flex-shrink: 0;
+}
+
+.fav-btn.active,
+.fav-btn.active:hover {
+  color: var(--gold);
+}
+
 .switch {
   position: relative;
   flex-shrink: 0;

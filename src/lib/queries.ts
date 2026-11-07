@@ -1,6 +1,7 @@
 import { getAgentStats } from "./agents";
 import { api, type HeatmapFilters } from "./api";
 import { getDuels } from "./duels";
+import { favorites } from "./favorites";
 import { journal } from "./journal";
 import { getMapStats } from "./mapStats";
 import { peek, prefetch, type Query } from "./query";
@@ -38,6 +39,7 @@ export const queries = {
   notes: (puuid: string) => ({ key: `journal|notes|${puuid}`, fetch: () => journal.listNotes(puuid) }),
   tags: (puuid: string) => ({ key: `journal|tags|${puuid}`, fetch: () => journal.listTags(puuid) }),
   note: (puuid: string, matchId: string) => ({ key: `journal|note|${puuid}|${matchId}`, fetch: () => journal.getNote(puuid, matchId) }),
+  favorites: (puuid: string) => ({ key: `journal|favorites|${puuid}`, fetch: () => favorites.list(puuid) }),
 } satisfies Record<string, (...args: never[]) => Query<unknown>>;
 
 export function defaultSeason(puuid: string): Season | undefined {
@@ -56,6 +58,7 @@ export async function prefetchAccount(puuid: string) {
     queries.progression(puuid, current),
     queries.notes(puuid),
     queries.tags(puuid),
+    queries.favorites(puuid),
     queries.agents(puuid, current),
     queries.maps(puuid, current),
     queries.weapons(puuid, current),

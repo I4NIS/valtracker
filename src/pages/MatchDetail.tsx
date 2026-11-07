@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { DeathReview } from "../components/DeathReview";
 import { ExportRecapButton } from "../components/ExportRecap";
+import { FavoriteButton } from "../components/FavoriteButton";
 import { Icon } from "../components/Icon";
 import { NoteEditor } from "../components/NoteEditor";
 import type { Account, RoundLine } from "../lib/api";
@@ -24,23 +25,29 @@ type Props = {
   account: Account;
   matchId: string;
   initialRound?: number;
+  initialDeath?: boolean;
   onBack: () => void;
 };
 
+function startTab(initialRound: number | undefined, initialDeath: boolean | undefined): Tab {
+  if (initialRound === undefined) return "summary";
+  return initialDeath ? "review" : "rounds";
+}
+
 const VISIBLE_FLAWS = 3;
 
-export function MatchDetail({ account, matchId, initialRound, onBack }: Props) {
+export function MatchDetail({ account, matchId, initialRound, initialDeath, onBack }: Props) {
   const query = useQuery(queries.match(account.puuid, matchId));
   const detail = query.data && query.data.matchId === matchId ? query.data : null;
   const error = query.error;
-  const [tab, setTab] = useState<Tab>(initialRound === undefined ? "summary" : "rounds");
+  const [tab, setTab] = useState<Tab>(startTab(initialRound, initialDeath));
   const [allFlaws, setAllFlaws] = useState(false);
   const [roundIndex, setRoundIndex] = useState(initialRound ?? 0);
 
   useEffect(() => {
-    setTab(initialRound === undefined ? "summary" : "rounds");
+    setTab(startTab(initialRound, initialDeath));
     setRoundIndex(initialRound ?? 0);
-  }, [matchId, initialRound]);
+  }, [matchId, initialRound, initialDeath]);
 
   const openRound = (index: number) => {
     setRoundIndex(index);
@@ -88,6 +95,7 @@ export function MatchDetail({ account, matchId, initialRound, onBack }: Props) {
               Revoir mes morts
             </button>
             <ExportRecapButton kind="match" account={account} matchId={matchId} />
+            <FavoriteButton puuid={account.puuid} matchId={matchId} kind="match" labeled />
           </div>
         </div>
       </header>
@@ -124,8 +132,20 @@ export function MatchDetail({ account, matchId, initialRound, onBack }: Props) {
       </div>
 
       {tab === "note" && <NoteEditor puuid={account.puuid} matchId={matchId} />}
-      {tab === "review" && <DeathReview deaths={detail.deathReviews} minimap={detail.minimap} rotation={detail.rotation} />}
-      {tab === "rounds" && <RoundDetail rounds={detail.rounds} selected={roundIndex} onSelect={setRoundIndex} />}
+      {tab === "review" && (
+        <DeathReview
+          key={`${matchId}-${initialDeath ? initialRound : "none"}`}
+          puuid={account.puuid}
+          matchId={matchId}
+          deaths={detail.deathReviews}
+          minimap={detail.minimap}
+          rotation={detail.rotation}
+          focusRound={initialDeath ? initialRound : undefined}
+        />
+      )}
+      {tab === "rounds" && (
+        <RoundDetail puuid={account.puuid} matchId={matchId} rounds={detail.rounds} selected={roundIndex} onSelect={setRoundIndex} />
+      )}
       {tab === "summary" && (
         <>
           <section className="stack" style={{ gap: 14 }}>

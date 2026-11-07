@@ -4,7 +4,7 @@ use tauri::{AppHandle, Manager};
 
 use crate::error::{AppError, AppResult};
 use crate::state::AppState;
-use crate::{agent_stats, db, duels, journal, map_stats, progression, stats, weapon_stats};
+use crate::{agent_stats, db, duels, favorites, journal, map_stats, progression, stats, weapon_stats};
 
 #[derive(Debug, Clone)]
 pub enum Report {
@@ -18,6 +18,7 @@ pub enum Report {
     Duels(Option<String>),
     Notes,
     Tags,
+    Favorites,
 }
 
 fn json<T: Serialize>(value: AppResult<T>) -> AppResult<String> {
@@ -30,7 +31,7 @@ impl Report {
     }
 
     pub fn is_journal(key: &str) -> bool {
-        key.ends_with("|Notes") || key.ends_with("|Tags")
+        key.ends_with("|Notes") || key.ends_with("|Tags") || key.ends_with("|Favorites")
     }
 
     fn compute(&self, conn: &Connection, puuid: &str) -> AppResult<String> {
@@ -45,6 +46,7 @@ impl Report {
             Report::Duels(season) => json(duels::duels(conn, puuid, season.as_deref())),
             Report::Notes => json(journal::entries(conn, puuid)),
             Report::Tags => json(journal::tag_stats(conn, puuid)),
+            Report::Favorites => json(favorites::entries(conn, puuid)),
         }
     }
 
@@ -67,6 +69,7 @@ pub fn warm(app: &AppHandle, puuid: String) {
             Report::Progression(current.clone()),
             Report::Notes,
             Report::Tags,
+            Report::Favorites,
         ];
         for season in [current.clone(), None] {
             list.extend([

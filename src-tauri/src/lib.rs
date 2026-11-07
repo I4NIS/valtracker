@@ -9,6 +9,7 @@ mod backup;
 mod commands;
 mod db;
 mod error;
+mod favorites;
 mod heatmap;
 mod henrik;
 mod models;
@@ -83,6 +84,8 @@ pub fn run() {
             journal::save_note,
             journal::list_notes,
             journal::list_tags,
+            favorites::toggle_favorite,
+            favorites::list_favorites,
             recap::get_session_recap,
             recap::get_act_recap,
             recap::save_recap_image,

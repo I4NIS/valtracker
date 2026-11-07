@@ -130,6 +130,15 @@ CREATE TABLE match_notes (
     updated_at TEXT NOT NULL DEFAULT (datetime('now')),
     PRIMARY KEY (match_id, puuid)
 );
+", "
+CREATE TABLE favorites (
+    puuid TEXT NOT NULL,
+    match_id TEXT NOT NULL,
+    kind TEXT NOT NULL CHECK (kind IN ('match', 'round', 'death')),
+    round_index INTEGER NOT NULL DEFAULT -1,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (puuid, match_id, kind, round_index)
+);
 "];
 
 pub fn open(path: &Path) -> AppResult<Connection> {

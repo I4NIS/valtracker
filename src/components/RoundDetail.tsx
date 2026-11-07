@@ -3,6 +3,7 @@ import type { RoundEvent, RoundLine } from "../lib/api";
 import { agentIcon } from "../lib/assets";
 import { fmt } from "../lib/format";
 import { useAgentCatalog, weaponArt, type Catalog } from "../lib/gameAssets";
+import { FavoriteButton } from "./FavoriteButton";
 import { Art, KillMeans, SpikeGlyph } from "./GameArt";
 
 const ARMOR: Record<string, string> = {
@@ -17,13 +18,16 @@ function clock(seconds: number) {
 }
 
 type Props = {
+  puuid: string;
+  matchId: string;
   rounds: RoundLine[];
   selected: number;
   onSelect: (index: number) => void;
 };
 
-export function RoundDetail({ rounds, selected, onSelect }: Props) {
-  const round = rounds[Math.min(selected, rounds.length - 1)];
+export function RoundDetail({ puuid, matchId, rounds, selected, onSelect }: Props) {
+  const index = Math.min(selected, rounds.length - 1);
+  const round = rounds[index];
   const catalog = useAgentCatalog();
   if (!round) return <div className="empty">Aucun round à afficher.</div>;
 
@@ -44,14 +48,17 @@ export function RoundDetail({ rounds, selected, onSelect }: Props) {
         ))}
       </div>
 
-      <div className="stack" style={{ gap: 6 }}>
-        <span className="review-title">
-          Round {round.number}, {round.attack ? "attaque" : "défense"}
-        </span>
-        <span className="muted">
-          <strong className={round.won ? "win" : "bad"}>{round.won ? "Gagné" : "Perdu"}</strong>, {round.result.toLowerCase()}
-          {round.ceremony ? `, ${round.ceremony}` : ""}
-        </span>
+      <div className="row between" style={{ alignItems: "flex-start", gap: 16 }}>
+        <div className="stack" style={{ gap: 6, minWidth: 0 }}>
+          <span className="review-title">
+            Round {round.number}, {round.attack ? "attaque" : "défense"}
+          </span>
+          <span className="muted">
+            <strong className={round.won ? "win" : "bad"}>{round.won ? "Gagné" : "Perdu"}</strong>, {round.result.toLowerCase()}
+            {round.ceremony ? `, ${round.ceremony}` : ""}
+          </span>
+        </div>
+        <FavoriteButton puuid={puuid} matchId={matchId} kind="round" roundIndex={index} />
       </div>
 
       <div className="summary-grid">

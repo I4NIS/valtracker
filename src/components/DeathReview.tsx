@@ -5,28 +5,35 @@ import { agentIcon } from "../lib/assets";
 import { fmt } from "../lib/format";
 import { findAbility, useAgentCatalog } from "../lib/gameAssets";
 import { rotatePoint, rotationStyle } from "../lib/minimap";
+import { FavoriteButton } from "./FavoriteButton";
 import { Art, KillMeans, meansLabel } from "./GameArt";
 import { Icon } from "./Icon";
 
 type Order = "gravity" | "chrono";
 
 type Props = {
+  puuid: string;
+  matchId: string;
   deaths: Death[];
   minimap: string | null;
   rotation: number;
+  focusRound?: number;
 };
 
 const pctOf = (value: number) => `${value * 100}%`;
 
-export function DeathReview({ deaths, minimap, rotation }: Props) {
+function sortDeaths(deaths: Death[], order: Order) {
+  return order === "gravity" ? [...deaths].sort((a, b) => b.flaws.length - a.flaws.length || a.round - b.round) : deaths;
+}
+
+export function DeathReview({ puuid, matchId, deaths, minimap, rotation, focusRound }: Props) {
   const [order, setOrder] = useState<Order>("gravity");
-  const [index, setIndex] = useState(0);
+  const [index, setIndex] = useState(() =>
+    focusRound === undefined ? 0 : Math.max(0, sortDeaths(deaths, "gravity").findIndex((item) => item.round - 1 === focusRound)),
+  );
   const catalog = useAgentCatalog();
 
-  const list = useMemo(
-    () => (order === "gravity" ? [...deaths].sort((a, b) => b.flaws.length - a.flaws.length || a.round - b.round) : deaths),
-    [deaths, order],
-  );
+  const list = useMemo(() => sortDeaths(deaths, order), [deaths, order]);
   const death = list[Math.min(index, list.length - 1)];
 
   useEffect(() => {
@@ -119,13 +126,16 @@ export function DeathReview({ deaths, minimap, rotation }: Props) {
               </button>
             </div>
           </div>
-          <div className="stack">
-            <span className="review-title">
-              Round {death.round}, {death.attack ? "attaque" : "défense"}
-            </span>
-            <span className="muted">
-              {death.zone ?? "Zone inconnue"}, à {fmt(death.timeS, 1)} s, {death.roundWon ? "round gagné" : "round perdu"}
-            </span>
+          <div className="row between" style={{ alignItems: "flex-start", gap: 16 }}>
+            <div className="stack" style={{ minWidth: 0 }}>
+              <span className="review-title">
+                Round {death.round}, {death.attack ? "attaque" : "défense"}
+              </span>
+              <span className="muted">
+                {death.zone ?? "Zone inconnue"}, à {fmt(death.timeS, 1)} s, {death.roundWon ? "round gagné" : "round perdu"}
+              </span>
+            </div>
+            <FavoriteButton puuid={puuid} matchId={matchId} kind="death" roundIndex={death.round - 1} />
           </div>
           <div className="review-killer">
             <Art src={agentIcon(death.killerAgentId)} width={44} height={44} alt="" className="review-killer-agent" />

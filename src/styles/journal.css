@@ -250,6 +250,13 @@
   font-weight: 600;
 }
 
+.fav-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+
 .journal-row-stats {
   display: flex;
   flex-direction: column;

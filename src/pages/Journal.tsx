@@ -1,7 +1,9 @@
 import "../styles/journal.css";
 import { useEffect, useMemo, useState } from "react";
+import { FavoriteButton } from "../components/FavoriteButton";
 import type { Account } from "../lib/api";
 import { agentIcon } from "../lib/assets";
+import { favoriteLabel, type FavoriteEntry, type FavoriteKind } from "../lib/favorites";
 import { fmt, fullDate, pct } from "../lib/format";
 import { firstLine, sameTag, type NoteEntry, type TagStat } from "../lib/journal";
 import { useQuery } from "../lib/query";
@@ -10,12 +12,142 @@ import { queries } from "../lib/queries";
 type Props = {
   account: Account;
   refreshKey: number;
-  onOpenMatch: (matchId: string) => void;
+  onOpenMatch: (matchId: string, round?: number, death?: boolean) => void;
 };
+
+type View = "notes" | "favorites";
 
 const SMALL_SAMPLE = 3;
 
+const KIND_FILTERS: { id: FavoriteKind; label: string }[] = [
+  { id: "match", label: "Matchs" },
+  { id: "round", label: "Rounds" },
+  { id: "death", label: "Morts" },
+];
+
 export function Journal({ account, onOpenMatch }: Props) {
+  const [view, setView] = useState<View>("notes");
+
+  return (
+    <div className="content">
+      <div className="stack">
+        <span className="eyebrow">Tes notes personnelles</span>
+        <h1 className="title">Journal</h1>
+        <p className="muted">
+          {view === "notes"
+            ? "Tes notes et tags sur tes matchs, et tes résultats avec et sans chaque tag."
+            : "Les matchs, rounds et morts que tu as mis en favori."}
+        </p>
+      </div>
+
+      <div className="segmented" role="tablist" aria-label="Sections du journal" style={{ alignSelf: "flex-start" }}>
+        <button type="button" role="tab" aria-selected={view === "notes"} className={view === "notes" ? "active" : undefined} onClick={() => setView("notes")}>
+          Notes
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={view === "favorites"}
+          className={view === "favorites" ? "active" : undefined}
+          onClick={() => setView("favorites")}
+        >
+          Favoris
+        </button>
+      </div>
+
+      {view === "notes" ? (
+        <NotesView account={account} onOpenMatch={onOpenMatch} />
+      ) : (
+        <FavoritesView account={account} onOpenMatch={onOpenMatch} />
+      )}
+    </div>
+  );
+}
+
+function FavoritesView({ account, onOpenMatch }: Pick<Props, "account" | "onOpenMatch">) {
+  const query = useQuery(queries.favorites(account.puuid));
+  const list = query.data ?? (query.error ? [] : null);
+  const [kind, setKind] = useState<FavoriteKind | null>(null);
+  const visible = useMemo(() => (list ?? []).filter((entry) => !kind || entry.kind === kind), [list, kind]);
+
+  const open = (entry: FavoriteEntry) => {
+    if (entry.kind === "match" || entry.roundIndex === null) onOpenMatch(entry.matchId);
+    else onOpenMatch(entry.matchId, entry.roundIndex, entry.kind === "death");
+  };
+
+  if (query.error) return <p className="form-error">{query.error}</p>;
+  if (list === null) return <div className="empty">Chargement des favoris...</div>;
+  if (list.length === 0) {
+    return (
+      <div className="empty journal-empty">
+        <strong>Aucun favori pour l'instant</strong>
+        <span>L'étoile du détail d'un match ajoute aux favoris le match entier, un round ou une de tes morts.</span>
+      </div>
+    );
+  }
+
+  return (
+    <section className="stack" style={{ gap: 16 }}>
+      <div className="row between wrap">
+        <div className="chips" role="group" aria-label="Filtrer les favoris">
+          <button type="button" className={`chip${kind === null ? " active" : ""}`} aria-pressed={kind === null} onClick={() => setKind(null)}>
+            Tous
+          </button>
+          {KIND_FILTERS.map((item) => {
+            const count = list.filter((entry) => entry.kind === item.id).length;
+            if (count === 0) return null;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                className={`chip${kind === item.id ? " active" : ""}`}
+                aria-pressed={kind === item.id}
+                onClick={() => setKind(kind === item.id ? null : item.id)}
+              >
+                {item.label} <span className="chip-count">{count}</span>
+              </button>
+            );
+          })}
+        </div>
+        <span className="faint" style={{ fontSize: 13 }}>
+          {visible.length} {visible.length > 1 ? "favoris" : "favori"}
+        </span>
+      </div>
+      <div className="journal-list">
+        {visible.map((entry) => (
+          <div className="fav-item" key={`${entry.kind}-${entry.matchId}-${entry.roundIndex ?? "all"}`}>
+            <button type="button" className="journal-row" onClick={() => open(entry)}>
+              {agentIcon(entry.agentId) ? <img src={agentIcon(entry.agentId)} alt={entry.agentName ?? ""} /> : <span className="journal-row-icon" />}
+              <span className="stack journal-row-main">
+                <span className="row wrap" style={{ gap: 4, columnGap: 10 }}>
+                  <strong>{entry.mapName ?? "Map inconnue"}</strong>
+                  <strong className={entry.won ? "win" : "bad"}>
+                    {entry.won ? "Victoire" : "Défaite"} {entry.roundsWon}-{entry.roundsLost}
+                  </strong>
+                  <span className="faint" style={{ fontSize: 13 }}>
+                    {fullDate(entry.startedAt)}
+                  </span>
+                </span>
+                <span className="journal-row-tags">
+                  <span>{favoriteLabel(entry)}</span>
+                </span>
+              </span>
+              <span className="journal-row-stats">
+                <span className="muted">
+                  {entry.kills} / {entry.deaths} / {entry.assists}
+                </span>
+              </span>
+            </button>
+            <FavoriteButton puuid={account.puuid} matchId={entry.matchId} kind={entry.kind} roundIndex={entry.roundIndex} />
+          </div>
+        ))}
+        {visible.length === 0 && <div className="empty">Aucun favori de ce type.</div>}
+      </div>
+    </section>
+  );
+}
+
+function NotesView({ account, onOpenMatch }: Pick<Props, "account" | "onOpenMatch">) {
   const notesQuery = useQuery(queries.notes(account.puuid));
   const tagsQuery = useQuery(queries.tags(account.puuid));
   const notes = notesQuery.data ?? (notesQuery.error ? [] : null);
@@ -35,13 +167,7 @@ export function Journal({ account, onOpenMatch }: Props) {
   const maxAcs = Math.max(1, ...tags.flatMap((item) => [item.avgAcs, item.withoutAcs]));
 
   return (
-    <div className="content">
-      <div className="stack">
-        <span className="eyebrow">Tes notes personnelles</span>
-        <h1 className="title">Journal</h1>
-        <p className="muted">Tes notes et tags sur tes matchs, et tes résultats avec et sans chaque tag.</p>
-      </div>
-
+    <>
       {error && <p className="form-error">{error}</p>}
 
       {notes === null ? (
@@ -122,7 +248,7 @@ export function Journal({ account, onOpenMatch }: Props) {
           </section>
         </>
       )}
-    </div>
+    </>
   );
 }
 
