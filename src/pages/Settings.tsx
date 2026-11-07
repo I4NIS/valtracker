@@ -4,7 +4,7 @@ import { useRef, useState, type FormEvent } from "react";
 import { Icon } from "../components/Icon";
 import { api, errorMessage, type Account, type ImportCandidate, type Theme, type Thresholds } from "../lib/api";
 import { fmt } from "../lib/format";
-import type { Lang } from "../lib/i18n";
+import { t, type Lang } from "../lib/i18n";
 import { setQueryData, useQuery } from "../lib/query";
 import { queries } from "../lib/queries";
 import { RankBadge } from "../components/RankBadge";
@@ -51,7 +51,7 @@ export function Settings({
     try {
       await api.saveApiKey(key);
       setKey("");
-      setKeyMessage("Clé enregistrée.");
+      setKeyMessage(t("Clé enregistrée.", "Key saved."));
     } catch (err) {
       setKeyMessage(errorMessage(err));
     }
@@ -84,23 +84,23 @@ export function Settings({
 
   return (
     <div className="content">
-      <h1 className="title">Paramètres</h1>
+      <h1 className="title">{t("Paramètres", "Settings")}</h1>
 
       <section className="stack" style={{ gap: 14 }}>
-        <h2 className="section-title">Apparence</h2>
-        <div className="segmented" role="group" aria-label="Thème">
+        <h2 className="section-title">{t("Apparence", "Appearance")}</h2>
+        <div className="segmented" role="group" aria-label={t("Thème", "Theme")}>
           <button type="button" className={theme === "dark" ? "active" : undefined} onClick={() => onTheme("dark")}>
-            Sombre
+            {t("Sombre", "Dark")}
           </button>
           <button type="button" className={theme === "light" ? "active" : undefined} onClick={() => onTheme("light")}>
-            Clair
+            {t("Clair", "Light")}
           </button>
         </div>
       </section>
 
       <section className="stack" style={{ gap: 14 }}>
-        <h2 className="section-title">Langue</h2>
-        <div className="segmented" role="group" aria-label="Langue">
+        <h2 className="section-title">{t("Langue", "Language")}</h2>
+        <div className="segmented" role="group" aria-label={t("Langue", "Language")}>
           <button type="button" className={language === "fr" ? "active" : undefined} onClick={() => onLanguage("fr")}>
             Français
           </button>
@@ -111,11 +111,16 @@ export function Settings({
       </section>
 
       <section className="stack" style={{ gap: 14 }}>
-        <h2 className="section-title">Notifications</h2>
+        <h2 className="section-title">{t("Notifications", "Notifications")}</h2>
         <div className="panel settings-toggle">
           <span className="stack" style={{ gap: 2, minWidth: 0 }}>
-            <strong id="settings-notify">Notifications après chaque nouveau match</strong>
-            <span className="hint">Une notification Windows avec la map, le score et ton K/D quand la synchro trouve un nouveau match.</span>
+            <strong id="settings-notify">{t("Notifications après chaque nouveau match", "Notify after each new match")}</strong>
+            <span className="hint">
+              {t(
+                "Une notification Windows avec la map, le score et ton K/D quand la synchro trouve un nouveau match.",
+                "A Windows notification with the map, the score and your K/D when the sync finds a new match.",
+              )}
+            </span>
           </span>
           <button
             type="button"
@@ -131,10 +136,10 @@ export function Settings({
       </section>
 
       <section className="stack" style={{ gap: 14 }}>
-        <h2 className="section-title">Clé API HenrikDev</h2>
+        <h2 className="section-title">{t("Clé API HenrikDev", "HenrikDev API key")}</h2>
         <form className="panel stack" style={{ gap: 14 }} onSubmit={saveKey}>
           <div className="field">
-            <label htmlFor="settings-key">Nouvelle clé</label>
+            <label htmlFor="settings-key">{t("Nouvelle clé", "New key")}</label>
             <input
               id="settings-key"
               className="input"
@@ -145,23 +150,28 @@ export function Settings({
               autoComplete="off"
               spellCheck={false}
             />
-            <span className="hint">La clé actuelle reste en place tant que tu n'en enregistres pas une nouvelle.</span>
+            <span className="hint">
+              {t(
+                "La clé actuelle reste en place tant que tu n'en enregistres pas une nouvelle.",
+                "The current key stays in place until you save a new one.",
+              )}
+            </span>
           </div>
           {keyMessage && <p className="hint">{keyMessage}</p>}
           <div className="row wrap">
             <button type="submit" className="btn btn-primary" disabled={!key.trim()}>
-              Enregistrer la clé
+              {t("Enregistrer la clé", "Save key")}
             </button>
             <button type="button" className="btn btn-secondary" onClick={() => openUrl(HENRIK_DASHBOARD)}>
               <Icon name="external" size={16} strokeWidth={2} />
-              Tableau de bord HenrikDev
+              {t("Tableau de bord HenrikDev", "HenrikDev dashboard")}
             </button>
           </div>
         </form>
       </section>
 
       <section className="stack" style={{ gap: 14 }}>
-        <h2 className="section-title">Comptes</h2>
+        <h2 className="section-title">{t("Comptes", "Accounts")}</h2>
         <div className="panel settings-list">
           {accounts.length > 1 && (
             <div>
@@ -169,18 +179,21 @@ export function Settings({
                 <Icon name="agents" size={20} />
               </span>
               <span className="stack" style={{ gap: 0, flexGrow: 1 }}>
-                <strong>Tous les comptes</strong>
+                <strong>{t("Tous les comptes", "All accounts")}</strong>
                 <span className="faint" style={{ fontSize: 13 }}>
-                  Accueil et matchs de tes {accounts.length} comptes réunis
+                  {t(
+                    `Accueil et matchs de tes ${accounts.length} comptes réunis`,
+                    `Home and matches from your ${accounts.length} accounts combined`,
+                  )}
                 </span>
               </span>
               {combined ? (
                 <span className="faint" style={{ fontSize: 13 }}>
-                  Vue active
+                  {t("Vue active", "Active view")}
                 </span>
               ) : (
                 <button type="button" className="btn btn-secondary" onClick={onCombined}>
-                  Utiliser
+                  {t("Utiliser", "Use")}
                 </button>
               )}
               <span className="settings-spacer" aria-hidden="true" />
@@ -199,19 +212,19 @@ export function Settings({
               </span>
               {!combined && account.puuid === activePuuid ? (
                 <span className="faint" style={{ fontSize: 13 }}>
-                  Compte actif
+                  {t("Compte actif", "Active account")}
                 </span>
               ) : (
                 <button type="button" className="btn btn-secondary" onClick={() => activate(account.puuid)}>
-                  Utiliser
+                  {t("Utiliser", "Use")}
                 </button>
               )}
               <button
                 type="button"
                 className="icon-btn"
                 onClick={() => remove(account.puuid)}
-                aria-label={`Retirer ${account.name}`}
-                title="Retirer ce compte"
+                aria-label={t(`Retirer ${account.name}`, `Remove ${account.name}`)}
+                title={t("Retirer ce compte", "Remove this account")}
               >
                 <Icon name="close" size={16} strokeWidth={2} />
               </button>
@@ -221,18 +234,18 @@ export function Settings({
         <form className="panel stack" style={{ gap: 14 }} onSubmit={addAccount}>
           <div className="row wrap" style={{ alignItems: "flex-end" }}>
             <div className="field" style={{ flex: "1 1 240px" }}>
-              <label htmlFor="settings-riot">Ajouter un compte</label>
+              <label htmlFor="settings-riot">{t("Ajouter un compte", "Add an account")}</label>
               <input
                 id="settings-riot"
                 className="input"
-                placeholder="Pseudo#TAG"
+                placeholder={t("Pseudo#TAG", "Name#TAG")}
                 value={riotId}
                 onChange={(event) => setRiotId(event.target.value)}
                 spellCheck={false}
               />
             </div>
             <div className="field" style={{ flex: "0 1 200px" }}>
-              <label htmlFor="settings-region">Région</label>
+              <label htmlFor="settings-region">{t("Région", "Region")}</label>
               <select id="settings-region" className="input" value={region} onChange={(event) => setRegion(event.target.value)}>
                 {REGIONS.map((item) => (
                   <option key={item.id} value={item.id}>
@@ -242,7 +255,7 @@ export function Settings({
               </select>
             </div>
             <button type="submit" className="btn btn-primary" disabled={busy || !riotId.includes("#")}>
-              {busy ? "Recherche..." : "Ajouter"}
+              {busy ? t("Recherche...", "Searching...") : t("Ajouter", "Add")}
             </button>
           </div>
           {error && <p className="form-error">{error}</p>}
@@ -254,10 +267,10 @@ export function Settings({
       <DataSection />
 
       <section className="stack" style={{ gap: 14 }}>
-        <h2 className="section-title">Aide</h2>
+        <h2 className="section-title">{t("Aide", "Help")}</h2>
         <div className="row">
           <button type="button" className="btn btn-secondary" onClick={onReplayTour}>
-            Revoir le tutoriel
+            {t("Revoir le tutoriel", "Replay the tour")}
           </button>
         </div>
       </section>
@@ -275,11 +288,14 @@ type ThresholdRow = {
   format: (value: number) => string;
 };
 
-const THRESHOLD_ROWS: ThresholdRow[] = [
+const thresholdRows = (): ThresholdRow[] => [
   {
     key: "tradeWindowMs",
-    label: "Fenêtre de trade",
-    detail: "Un coéquipier qui tue ton tueur dans ce délai après ta mort compte comme un trade.",
+    label: t("Fenêtre de trade", "Trade window"),
+    detail: t(
+      "Un coéquipier qui tue ton tueur dans ce délai après ta mort compte comme un trade.",
+      "A teammate killing your killer within this time after your death counts as a trade.",
+    ),
     min: 1000,
     max: 10000,
     step: 500,
@@ -287,8 +303,11 @@ const THRESHOLD_ROWS: ThresholdRow[] = [
   },
   {
     key: "isolationMeters",
-    label: "Distance d'isolement",
-    detail: "Une mort compte comme isolée quand ton coéquipier le plus proche est plus loin que cette distance.",
+    label: t("Distance d'isolement", "Isolation distance"),
+    detail: t(
+      "Une mort compte comme isolée quand ton coéquipier le plus proche est plus loin que cette distance.",
+      "A death counts as isolated when your nearest teammate is farther away than this distance.",
+    ),
     min: 5,
     max: 40,
     step: 1,
@@ -296,28 +315,34 @@ const THRESHOLD_ROWS: ThresholdRow[] = [
   },
   {
     key: "fullBuy",
-    label: "Full buy",
-    detail: "Un round compte comme full buy quand ton équipement vaut au moins ce montant.",
+    label: t("Full buy", "Full buy"),
+    detail: t(
+      "Un round compte comme full buy quand ton équipement vaut au moins ce montant.",
+      "A round counts as a full buy when your loadout is worth at least this much.",
+    ),
     min: 2000,
     max: 5000,
     step: 100,
-    format: (value) => `${fmt(value)} crédits`,
+    format: (value) => t(`${fmt(value)} crédits`, `${fmt(value)} credits`),
   },
   {
     key: "sameSpot",
-    label: "Morts au même spot",
-    detail: "Une zone est signalée quand tu y meurs au moins ce nombre de fois dans un même match.",
+    label: t("Morts au même spot", "Deaths on the same spot"),
+    detail: t(
+      "Une zone est signalée quand tu y meurs au moins ce nombre de fois dans un même match.",
+      "A zone is flagged when you die there at least this many times in one match.",
+    ),
     min: 2,
     max: 6,
     step: 1,
-    format: (value) => `${value} morts`,
+    format: (value) => t(`${value} morts`, `${value} deaths`),
   },
 ];
 
 const SAVE_DELAY = 450;
 
 function sameThresholds(a: Thresholds, b: Thresholds) {
-  return THRESHOLD_ROWS.every((row) => a[row.key] === b[row.key]);
+  return thresholdRows().every((row) => a[row.key] === b[row.key]);
 }
 
 function ThresholdSection() {
@@ -340,7 +365,7 @@ function ThresholdSection() {
         setQueryData(queries.thresholds().key, saved);
         if (latest.current === next) {
           setDraft(null);
-          setStatus("Seuils enregistrés. Les analyses de tes matchs en tiennent compte.");
+          setStatus(t("Seuils enregistrés. Les analyses de tes matchs en tiennent compte.", "Thresholds saved. Your match analyses now use them."));
         }
       } catch (err) {
         setStatus(errorMessage(err));
@@ -357,14 +382,19 @@ function ThresholdSection() {
   return (
     <section className="stack" style={{ gap: 14 }}>
       <div className="stack" style={{ gap: 4 }}>
-        <h2 className="section-title">Seuils d'analyse</h2>
-        <span className="hint">Ces seuils servent à détecter les défauts de chaque mort et de chaque match.</span>
+        <h2 className="section-title">{t("Seuils d'analyse", "Analysis thresholds")}</h2>
+        <span className="hint">
+          {t(
+            "Ces seuils servent à détecter les défauts de chaque mort et de chaque match.",
+            "These thresholds are used to detect flaws in every death and every match.",
+          )}
+        </span>
       </div>
       {query.error && <p className="form-error">{query.error}</p>}
       {values && (
         <div className="panel stack" style={{ gap: 18 }}>
           <div className="settings-list threshold-list">
-            {THRESHOLD_ROWS.map((row) => (
+            {thresholdRows().map((row) => (
               <div key={row.key}>
                 <span className="threshold-text">
                   <strong>{row.label}</strong>
@@ -377,7 +407,7 @@ function ThresholdSection() {
                     type="button"
                     onClick={() => step(row, -1)}
                     disabled={values[row.key] <= row.min}
-                    aria-label={`Diminuer : ${row.label}`}
+                    aria-label={t(`Diminuer : ${row.label}`, `Decrease: ${row.label}`)}
                   >
                     <Icon name="minus" size={16} strokeWidth={2} />
                   </button>
@@ -386,7 +416,7 @@ function ThresholdSection() {
                     type="button"
                     onClick={() => step(row, 1)}
                     disabled={values[row.key] >= row.max}
-                    aria-label={`Augmenter : ${row.label}`}
+                    aria-label={t(`Augmenter : ${row.label}`, `Increase: ${row.label}`)}
                   >
                     <Icon name="plus" size={16} strokeWidth={2} />
                   </button>
@@ -402,7 +432,7 @@ function ThresholdSection() {
               onClick={() => defaults && change(defaults)}
               disabled={!defaults || sameThresholds(values, defaults)}
             >
-              Valeurs par défaut
+              {t("Valeurs par défaut", "Reset to defaults")}
             </button>
           </div>
         </div>
@@ -423,6 +453,10 @@ function plural(count: number, word: string) {
   return `${count} ${word}${count > 1 ? "s" : ""}`;
 }
 
+function pluralEn(count: number, one: string, many: string) {
+  return `${count} ${count === 1 ? one : many}`;
+}
+
 function DataSection() {
   const [busy, setBusy] = useState<"export" | "pick" | "import" | null>(null);
   const [status, setStatus] = useState<DataStatus>(null);
@@ -433,7 +467,7 @@ function DataSection() {
     setStatus(null);
     try {
       const path = await api.exportDatabase(`valtracker-${today()}.db`);
-      if (path) setStatus({ ok: true, message: `Base exportée dans ${path}` });
+      if (path) setStatus({ ok: true, message: t(`Base exportée dans ${path}`, `Database exported to ${path}`) });
     } catch (err) {
       setStatus({ ok: false, message: errorMessage(err) });
     } finally {
@@ -469,34 +503,46 @@ function DataSection() {
 
   return (
     <section className="stack" style={{ gap: 14 }}>
-      <h2 className="section-title">Données</h2>
+      <h2 className="section-title">{t("Données", "Data")}</h2>
       <div className="panel settings-list">
         <div>
           <span className="stack" style={{ gap: 2, flexGrow: 1, minWidth: 0 }}>
-            <strong>Exporter la base</strong>
-            <span className="hint">Une copie de tes comptes, matchs, notes et favoris dans un seul fichier.</span>
+            <strong>{t("Exporter la base", "Export database")}</strong>
+            <span className="hint">
+              {t(
+                "Une copie de tes comptes, matchs, notes et favoris dans un seul fichier.",
+                "A copy of your accounts, matches, notes and favorites in a single file.",
+              )}
+            </span>
           </span>
           <button type="button" className="btn btn-secondary" onClick={exportBase} disabled={busy !== null}>
-            {busy === "export" ? "Export..." : "Exporter"}
+            {busy === "export" ? t("Export...", "Exporting...") : t("Exporter", "Export")}
           </button>
         </div>
         <div>
           <span className="stack" style={{ gap: 2, flexGrow: 1, minWidth: 0 }}>
-            <strong>Importer une base</strong>
-            <span className="hint">Remplace tes données locales par celles d'un fichier exporté. Ta clé API actuelle est conservée.</span>
+            <strong>{t("Importer une base", "Import a database")}</strong>
+            <span className="hint">
+              {t(
+                "Remplace tes données locales par celles d'un fichier exporté. Ta clé API actuelle est conservée.",
+                "Replaces your local data with the data from an exported file. Your current API key is kept.",
+              )}
+            </span>
           </span>
           <button type="button" className="btn btn-secondary" onClick={pickBase} disabled={busy !== null}>
-            {busy === "pick" ? "Vérification..." : "Choisir un fichier"}
+            {busy === "pick" ? t("Vérification...", "Checking...") : t("Choisir un fichier", "Choose a file")}
           </button>
         </div>
       </div>
       {candidate && (
         <div className="panel stack" style={{ gap: 14 }}>
           <span className="stack" style={{ gap: 4, minWidth: 0 }}>
-            <strong>Remplacer toutes tes données locales ?</strong>
+            <strong>{t("Remplacer toutes tes données locales ?", "Replace all your local data?")}</strong>
             <span className="hint">
-              Le fichier contient {plural(candidate.accounts, "compte")} et {plural(candidate.matches, "match")}. Tes comptes, matchs, notes
-              et favoris actuels seront remplacés.
+              {t(
+                `Le fichier contient ${plural(candidate.accounts, "compte")} et ${plural(candidate.matches, "match")}. Tes comptes, matchs, notes et favoris actuels seront remplacés.`,
+                `The file contains ${pluralEn(candidate.accounts, "account", "accounts")} and ${pluralEn(candidate.matches, "match", "matches")}. Your current accounts, matches, notes and favorites will be replaced.`,
+              )}
             </span>
             <span className="faint ellipsis" style={{ fontSize: 12 }} title={candidate.path}>
               {candidate.path}
@@ -504,10 +550,10 @@ function DataSection() {
           </span>
           <div className="row wrap">
             <button type="button" className="btn btn-primary" onClick={importBase} disabled={busy !== null}>
-              {busy === "import" ? "Import..." : "Remplacer"}
+              {busy === "import" ? t("Import...", "Importing...") : t("Remplacer", "Replace")}
             </button>
             <button type="button" className="btn btn-secondary" onClick={() => setCandidate(null)} disabled={busy === "import"}>
-              Annuler
+              {t("Annuler", "Cancel")}
             </button>
           </div>
         </div>
