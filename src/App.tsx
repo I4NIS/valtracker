@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Shell, type Page, type SyncView, type TourTarget } from "./components/Shell";
+import { TitleBar } from "./components/TitleBar";
 import { Tour } from "./components/Tour";
 import { api, errorMessage, onSyncProgress, type Account, type Bootstrap, type Theme } from "./lib/api";
 import { Home } from "./pages/Home";
@@ -111,9 +112,12 @@ export default function App() {
 
   if (fatal) {
     return (
-      <div className="onboarding">
-        <div className="onboarding-panel">
-          <p className="form-error">{fatal}</p>
+      <div className="window">
+        <TitleBar />
+        <div className="onboarding">
+          <div className="onboarding-panel">
+            <p className="form-error">{fatal}</p>
+          </div>
         </div>
       </div>
     );
