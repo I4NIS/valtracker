@@ -2,10 +2,10 @@ use rusqlite::{Connection, params};
 use serde::Serialize;
 use serde_json::Value;
 
-use crate::analysis::{attack_side, attacks_first, int, point, text};
+use crate::analysis::attack_side;
 use crate::assets;
 use crate::error::AppResult;
-use crate::storage;
+use crate::game::{self, Game, Round};
 
 const EARLY_ROUND_MS: i64 = 20_000;
 
@@ -133,24 +133,19 @@ pub fn heatmap(conn: &Connection, puuid: &str, filters: &Filters) -> AppResult<H
          ORDER BY m.started_at DESC
          LIMIT ?6",
     )?;
-    let raws = stmt
-        .query_map(
-            params![puuid, selected, filters.season, filters.queue, agent, filters.limit.filter(|n| *n > 0).unwrap_or(-1)],
-            |row| Ok(row.get_ref(0)?.as_bytes()?.to_vec()),
-        )?
-        .collect::<Result<Vec<_>, _>>()?;
-    drop(stmt);
-
+    let mut rows =
+        stmt.query(params![puuid, selected, filters.season, filters.queue, agent, filters.limit.filter(|n| *n > 0).unwrap_or(-1)])?;
     let mut points = Vec::new();
-    let matches = raws.len() as i64;
-    if let Some(map) = &data {
-        for raw in raws {
-            let Some(game) = storage::decode(&raw) else {
-                continue;
-            };
-            collect(&game, puuid, map, &mut points);
+    let mut matches = 0;
+    while let Some(row) = rows.next()? {
+        let raw = row.get_ref(0)?.as_bytes().map_err(rusqlite::Error::from)?;
+        matches += 1;
+        if let Some(map) = &data {
+            game::with_game(raw, |game| collect(game, puuid, map, &mut points));
         }
     }
+    drop(rows);
+    drop(stmt);
 
     Ok(Heatmap {
         maps,
@@ -174,48 +169,41 @@ pub fn phase(rounds: &[Value], round: usize, time: i64) -> &'static str {
     }
 }
 
-fn collect(game: &Value, puuid: &str, map: &assets::MapData, points: &mut Vec<HeatPoint>) {
-    let empty = Vec::new();
-    let players = game.pointer("/players").and_then(Value::as_array).unwrap_or(&empty);
-    let Some(team) = players
-        .iter()
-        .find(|player| text(player, "/puuid") == Some(puuid))
-        .and_then(|player| text(player, "/team_id"))
-    else {
+fn phase_of(rounds: &[Round], round: usize, time: i64) -> &'static str {
+    let plant = rounds.get(round).and_then(|r| r.plant.as_ref()).and_then(|plant| plant.round_time_in_ms.0);
+    match plant {
+        Some(planted_at) if time > planted_at => "post",
+        _ if time < EARLY_ROUND_MS => "early",
+        _ => "mid",
+    }
+}
+
+fn collect(game: &Game, puuid: &str, map: &assets::MapData, points: &mut Vec<HeatPoint>) {
+    let Some(team) = game.player(puuid).and_then(|player| player.team_id.get()) else {
         return;
     };
-    let won = game
-        .pointer("/teams")
-        .and_then(Value::as_array)
-        .and_then(|teams| teams.iter().find(|entry| text(entry, "/team_id") == Some(team)))
-        .and_then(|entry| entry["won"].as_bool())
-        .unwrap_or(false);
-    let attack_first = attacks_first(game, team);
-    let rounds = game.pointer("/rounds").and_then(Value::as_array).unwrap_or(&empty);
+    let won = game.teams.iter().find(|entry| entry.team_id.get() == Some(team)).and_then(|entry| entry.won.0).unwrap_or(false);
+    let attack_first = game.attacks_first(team);
+    let rounds = &game.rounds;
 
-    for kill in game.pointer("/kills").and_then(Value::as_array).unwrap_or(&empty) {
-        let round = int(kill, "/round") as usize;
-        let phase = phase(rounds, round, int(kill, "/time_in_round_in_ms"));
+    for kill in game.kills.iter() {
+        let round = kill.round() as usize;
+        let phase = phase_of(rounds, round, kill.time());
         let attack = attack_side(round, attack_first);
         let mut push = |kind: &'static str, spot: (f64, f64)| {
             let (x, y) = map.project(spot.0, spot.1);
             points.push(HeatPoint { kind, x, y, attack, phase, zone: map.zone(spot.0, spot.1), won });
         };
-        let killer = text(kill, "/killer/puuid").unwrap_or_default();
-        if text(kill, "/victim/puuid") == Some(puuid) {
-            if let Some(spot) = point(kill, "/location") {
+        let killer = kill.killer.puuid.get().unwrap_or_default();
+        if kill.victim.puuid.get() == Some(puuid) {
+            if let Some(spot) = kill.location.get() {
                 push("death", spot);
             }
-            let killer_spot = kill
-                .pointer("/player_locations")
-                .and_then(Value::as_array)
-                .and_then(|list| list.iter().find(|entry| text(entry, "/player/puuid") == Some(killer)))
-                .and_then(|entry| point(entry, "/location"));
-            if let Some(spot) = killer_spot {
+            if let Some(spot) = kill.location_of(killer) {
                 push("killer", spot);
             }
         } else if killer == puuid {
-            if let Some(spot) = point(kill, "/location") {
+            if let Some(spot) = kill.location.get() {
                 push("kill", spot);
             }
         }

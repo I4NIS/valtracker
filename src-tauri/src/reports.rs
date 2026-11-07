@@ -5,7 +5,7 @@ use tauri::{AppHandle, Manager};
 use crate::error::{AppError, AppResult};
 use crate::state::AppState;
 use crate::stats::Filters;
-use crate::{agent_stats, db, duels, favorites, journal, map_detail, map_stats, progression, stats, weapon_stats};
+use crate::{agent_stats, db, duels, favorites, journal, map_detail, map_stats, progression, scan, stats, weapon_stats};
 
 #[derive(Debug, Clone)]
 pub enum Report {
@@ -67,7 +67,7 @@ pub fn warm(app: &AppHandle, puuid: String) {
         let Ok(conn) = db::open(&state.db_path) else { return };
         let current = stats::seasons(&conn, &puuid).ok().and_then(|list| list.first().map(|season| season.short.clone()));
         state.set_current_season(&puuid, current.as_deref());
-        let mut list = vec![
+        let list = vec![
             Report::Overview(Filters::season(current.as_deref())),
             Report::FilterOptions,
             Report::Recent(Filters::default(), 10, 0),
@@ -78,30 +78,44 @@ pub fn warm(app: &AppHandle, puuid: String) {
             Report::Tags,
             Report::Favorites,
         ];
-        for season in [current.clone(), None] {
-            list.extend([
-                Report::Agents(season.clone()),
-                Report::Maps(season.clone()),
-                Report::Weapons(season.clone()),
-                Report::Duels(season.clone()),
-            ]);
-        }
-        list.extend([Report::Overview(Filters::default()), Report::Progression(None)]);
+        compute_all(&state, &conn, &puuid, list);
+        let generation = state.generation();
+        let _ = scan::scan(&conn, &puuid, current.as_deref(), &|| false, &mut |season, batch| {
+            store_batch(&state, &puuid, season, batch, generation)
+        });
+        let mut list = vec![Report::Overview(Filters::default()), Report::Progression(None)];
         list.extend(played_maps(&conn, &puuid).into_iter().map(Report::MapHistory));
-        for report in list {
-            let key = report.key(&puuid);
-            if state.cached_json(&key).is_some() {
-                continue;
-            }
-            let generation = state.generation();
-            if let Ok(json) = report.compute(&conn, &puuid) {
-                state.store_json(key, json, generation);
-            }
-        }
-        for season in [current.as_deref(), None] {
-            weapon_stats::warm_histories(&state, &conn, &puuid, season);
-        }
+        compute_all(&state, &conn, &puuid, list);
     });
+}
+
+fn compute_all(state: &AppState, conn: &Connection, puuid: &str, list: Vec<Report>) {
+    for report in list {
+        let key = report.key(puuid);
+        if state.cached_json(&key).is_some() {
+            continue;
+        }
+        let generation = state.generation();
+        if let Ok(json) = report.compute(conn, puuid) {
+            state.store_json(key, json, generation);
+        }
+    }
+}
+
+fn store_batch(state: &AppState, puuid: &str, season: Option<&str>, batch: scan::Batch, generation: u64) {
+    let season_name = season.map(str::to_string);
+    let reports = [
+        (Report::Agents(season_name.clone()), batch.agents),
+        (Report::Maps(season_name.clone()), batch.maps),
+        (Report::Weapons(season_name.clone()), batch.weapons),
+        (Report::Duels(season_name), batch.duels),
+    ];
+    for (report, json) in reports {
+        if let Some(json) = json {
+            state.store_json(report.key(puuid), json, generation);
+        }
+    }
+    weapon_stats::store_histories(state, puuid, season, &batch.histories, generation);
 }
 
 fn played_maps(conn: &rusqlite::Connection, puuid: &str) -> Vec<String> {

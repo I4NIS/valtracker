@@ -135,8 +135,17 @@ pub fn reports(conn: &Connection, puuid: &str) -> BTreeMap<String, String> {
 }
 
 pub fn check(setup: &Setup, file: &str, outputs: &BTreeMap<String, String>) {
+    compare(setup, file, outputs, false);
+}
+
+pub fn check_subset(setup: &Setup, file: &str, outputs: &BTreeMap<String, String>) {
+    assert!(!outputs.is_empty());
+    compare(setup, file, outputs, true);
+}
+
+fn compare(setup: &Setup, file: &str, outputs: &BTreeMap<String, String>, subset: bool) {
     let path = setup.reference.join(file);
-    if setup.write {
+    if setup.write && !subset {
         std::fs::create_dir_all(&setup.reference).unwrap();
         let body: String = outputs.iter().map(|(key, value)| format!("{key}\t{value}\n")).collect();
         std::fs::write(&path, body).unwrap();
@@ -147,6 +156,7 @@ pub fn check(setup: &Setup, file: &str, outputs: &BTreeMap<String, String>) {
     let mut failures = Vec::new();
     for (key, value) in &expected {
         match outputs.get(*key) {
+            None if subset => {}
             None => failures.push(format!("missing {key}")),
             Some(found) if found != value => {
                 let at = found.bytes().zip(value.bytes()).position(|(a, b)| a != b).unwrap_or(found.len().min(value.len()));
@@ -179,4 +189,36 @@ fn reports_match_the_reference() {
         outputs.extend(reports(&setup.conn, &puuid));
     }
     check(&setup, "reports.tsv", &outputs);
+}
+
+pub fn histories(puuid: &str, season: Option<&str>, all: &weapon_stats::Histories) -> BTreeMap<String, String> {
+    all.iter()
+        .map(|((weapon, deaths), list)| {
+            (format!("{puuid}|WeaponHistory({season:?},{weapon}|{deaths})"), serde_json::to_string(list).unwrap())
+        })
+        .collect()
+}
+
+#[test]
+fn one_pass_scan_matches_the_reference() {
+    let Some(setup) = setup("scan") else {
+        return;
+    };
+    crate::i18n::set("fr");
+    let mut outputs = BTreeMap::new();
+    let mut emitted = Vec::new();
+    for puuid in puuids(&setup.conn) {
+        let current = seasons(&setup.conn, &puuid).first().cloned().flatten();
+        let done = crate::scan::scan(&setup.conn, &puuid, current.as_deref(), &|| false, &mut |season, batch| {
+            emitted.push(season.map(str::to_string));
+            for (name, json) in [("Agents", batch.agents), ("Maps", batch.maps), ("Weapons", batch.weapons), ("Duels", batch.duels)] {
+                outputs.insert(format!("{puuid}|{name}({season:?})"), json.expect("report"));
+            }
+            outputs.extend(histories(&puuid, season, &batch.histories));
+        })
+        .unwrap();
+        assert!(done);
+    }
+    assert!(emitted.contains(&None));
+    check_subset(&setup, "reports.tsv", &outputs);
 }

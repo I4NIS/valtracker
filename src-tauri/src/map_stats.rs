@@ -1,11 +1,11 @@
-use rusqlite::{Connection, params};
+use rusqlite::{Connection, Row, params};
 use serde::Serialize;
-use serde_json::Value;
 use std::collections::HashMap;
 
-use crate::analysis::{attack_side, attacks_first, point, text};
+use crate::analysis::attack_side;
 use crate::assets::{self, MapData};
 use crate::error::AppResult;
+use crate::game::Game;
 use crate::state::AppState;
 use crate::storage;
 
@@ -84,25 +84,18 @@ fn ratio(numerator: f64, denominator: f64) -> f64 {
     if denominator > 0.0 { numerator / denominator } else { 0.0 }
 }
 
-fn rounds_of(game: &Value, puuid: &str, map: Option<&MapData>, stat: &mut MapStat, sites: &mut HashMap<String, i64>) -> bool {
-    let empty = Vec::new();
-    let players = game.pointer("/players").and_then(Value::as_array).unwrap_or(&empty);
-    let Some(team) = players
-        .iter()
-        .find(|player| text(player, "/puuid") == Some(puuid))
-        .and_then(|player| text(player, "/team_id"))
-    else {
+fn rounds_of(game: &Game, puuid: &str, map: Option<&MapData>, stat: &mut MapStat, sites: &mut HashMap<String, i64>) -> bool {
+    let Some(team) = game.player(puuid).and_then(|player| player.team_id.get()) else {
         return false;
     };
-    let rounds = game.pointer("/rounds").and_then(Value::as_array).unwrap_or(&empty);
+    let rounds = &game.rounds;
     if rounds.is_empty() {
         return false;
     }
-    let attack_first = attacks_first(game, team);
+    let attack_first = game.attacks_first(team);
     for (index, round) in rounds.iter().enumerate() {
         let attack = attack_side(index, attack_first);
-        let won = text(round, "/winning_team") == Some(team);
-        let plant = round.pointer("/plant").filter(|value| value.is_object());
+        let won = round.winning_team.get() == Some(team);
         if attack {
             stat.attack_played += 1;
             stat.attack_won += won as i64;
@@ -114,14 +107,14 @@ fn rounds_of(game: &Value, puuid: &str, map: Option<&MapData>, stat: &mut MapSta
             stat.pistol_played += 1;
             stat.pistol_won += won as i64;
         }
-        if let Some(plant) = plant {
+        if let Some(plant) = &round.plant {
             if attack {
                 stat.plants += 1;
-                let site = text(plant, "/site").map(str::trim).filter(|site| !site.is_empty()).map(str::to_uppercase);
+                let site = plant.site.get().map(str::trim).filter(|site| !site.is_empty()).map(str::to_uppercase);
                 if let Some(site) = &site {
                     *sites.entry(site.clone()).or_default() += 1;
                 }
-                if let (Some(map), Some(spot)) = (map, point(plant, "/location")) {
+                if let (Some(map), Some(spot)) = (map, plant.location.get()) {
                     if stat.plant_spots.len() < PLANT_SPOTS {
                         let (x, y) = map.project(spot.0, spot.1);
                         stat.plant_spots.push(PlantSpot { x, y, site, won });
@@ -136,33 +129,35 @@ fn rounds_of(game: &Value, puuid: &str, map: Option<&MapData>, stat: &mut MapSta
     true
 }
 
-pub fn map_stats(conn: &Connection, puuid: &str, season: Option<&str>) -> AppResult<Vec<MapStat>> {
-    let mut stmt = conn.prepare(
-        "SELECT COALESCE(m.map_id, m.map_name, ''), COALESCE(m.map_name, mp.name, ''), mp.splash,
-                p.agent_id, p.agent_name, p.won, p.rounds_won, p.rounds_lost, m.rounds,
-                p.score, p.kills, p.deaths, p.headshots, p.headshots + p.bodyshots + p.legshots, p.damage_dealt,
-                h.last_change, m.raw, mp.list_icon, mp.display_icon
-         FROM match_players p
-         JOIN matches m ON m.match_id = p.match_id
-         LEFT JOIN maps mp ON mp.uuid = m.map_id
-         LEFT JOIN mmr_history h ON h.puuid = p.puuid AND h.match_id = p.match_id
-         WHERE p.puuid = ?1 AND m.queue = ?2 AND (?3 IS NULL OR m.season_short = ?3)
-         ORDER BY m.started_at DESC",
-    )?;
-    let mut rows = stmt.query(params![puuid, COMPETITIVE, season])?;
-    let mut totals: HashMap<String, Totals> = HashMap::new();
-    let mut layouts: HashMap<String, Option<MapData>> = HashMap::new();
+pub const MAP_COLUMNS: &str = "COALESCE(m.map_id, m.map_name, ''), COALESCE(m.map_name, mp.name, ''), mp.splash,
+        p.agent_id, p.agent_name, p.won, p.rounds_won, p.rounds_lost, m.rounds,
+        p.score, p.kills, p.deaths, p.headshots, p.headshots + p.bodyshots + p.legshots, p.damage_dealt,
+        h.last_change, m.raw, mp.list_icon, mp.display_icon";
 
-    while let Some(row) = rows.next()? {
+pub const MAP_JOINS: &str = "FROM match_players p
+     JOIN matches m ON m.match_id = p.match_id
+     LEFT JOIN maps mp ON mp.uuid = m.map_id
+     LEFT JOIN mmr_history h ON h.puuid = p.puuid AND h.match_id = p.match_id";
+
+pub const RAW_COLUMN: usize = 16;
+
+#[derive(Default)]
+pub struct MapAcc {
+    totals: HashMap<String, Totals>,
+    layouts: HashMap<String, Option<MapData>>,
+}
+
+impl MapAcc {
+    pub fn add(&mut self, conn: &Connection, row: &Row, game: Option<&Game>, puuid: &str) -> AppResult<()> {
         let map_id: String = row.get(0)?;
         if map_id.is_empty() {
-            continue;
+            return Ok(());
         }
-        if !layouts.contains_key(&map_id) {
-            layouts.insert(map_id.clone(), assets::load_map(conn, &map_id)?);
+        if !self.layouts.contains_key(&map_id) {
+            self.layouts.insert(map_id.clone(), assets::load_map(conn, &map_id)?);
         }
-        let layout = layouts.get(&map_id).and_then(Option::as_ref);
-        let entry = totals.entry(map_id.clone()).or_default();
+        let layout = self.layouts.get(&map_id).and_then(Option::as_ref);
+        let entry = self.totals.entry(map_id.clone()).or_default();
         let stat = &mut entry.stat;
         if stat.map_id.is_empty() {
             stat.map_id = map_id;
@@ -195,44 +190,66 @@ pub fn map_stats(conn: &Connection, puuid: &str, season: Option<&str>) -> AppRes
             agent.1 += 1;
             agent.2 += won as i64;
         }
-        let game = row.get_ref(16)?.as_bytes().ok().and_then(storage::decode);
         if let Some(game) = game {
-            if rounds_of(&game, puuid, layout, stat, &mut entry.sites) {
+            if rounds_of(game, puuid, layout, stat, &mut entry.sites) {
                 stat.analyzed += 1;
             }
         }
+        Ok(())
     }
 
-    let mut maps: Vec<MapStat> = totals
-        .into_values()
-        .map(|entry| {
-            let mut stat = entry.stat;
-            let rounds = stat.rounds as f64;
-            stat.losses = stat.matches - stat.wins - stat.draws;
-            stat.win_pct = ratio(stat.wins as f64 * 100.0, stat.matches as f64);
-            stat.acs = ratio(entry.score as f64, rounds);
-            stat.adr = ratio(entry.damage as f64, rounds);
-            stat.kd = ratio(entry.kills as f64, entry.deaths as f64);
-            stat.hs_pct = ratio(entry.headshots as f64 * 100.0, entry.shots as f64);
-            let mut sites: Vec<SitePlants> =
-                entry.sites.into_iter().map(|(site, plants)| SitePlants { site, plants }).collect();
-            sites.sort_by(|a, b| a.site.cmp(&b.site));
-            stat.plant_sites = sites;
-            if let Some((id, (name, count, wins))) = entry
-                .agents
-                .into_iter()
-                .max_by(|a, b| a.1.1.cmp(&b.1.1).then(a.1.2.cmp(&b.1.2)).then(b.0.cmp(&a.0)))
-            {
-                stat.agent_id = Some(id);
-                stat.agent_name = Some(name).filter(|name| !name.is_empty());
-                stat.agent_matches = count;
-                stat.agent_wins = wins;
-            }
-            stat
-        })
-        .collect();
-    maps.sort_by(|a, b| b.matches.cmp(&a.matches).then(b.wins.cmp(&a.wins)).then(a.name.cmp(&b.name)));
-    Ok(maps)
+    pub fn finish(self) -> Vec<MapStat> {
+        let mut maps: Vec<MapStat> = self
+            .totals
+            .into_values()
+            .map(|entry| {
+                let mut stat = entry.stat;
+                let rounds = stat.rounds as f64;
+                stat.losses = stat.matches - stat.wins - stat.draws;
+                stat.win_pct = ratio(stat.wins as f64 * 100.0, stat.matches as f64);
+                stat.acs = ratio(entry.score as f64, rounds);
+                stat.adr = ratio(entry.damage as f64, rounds);
+                stat.kd = ratio(entry.kills as f64, entry.deaths as f64);
+                stat.hs_pct = ratio(entry.headshots as f64 * 100.0, entry.shots as f64);
+                let mut sites: Vec<SitePlants> =
+                    entry.sites.into_iter().map(|(site, plants)| SitePlants { site, plants }).collect();
+                sites.sort_by(|a, b| a.site.cmp(&b.site));
+                stat.plant_sites = sites;
+                if let Some((id, (name, count, wins))) = entry
+                    .agents
+                    .into_iter()
+                    .max_by(|a, b| a.1.1.cmp(&b.1.1).then(a.1.2.cmp(&b.1.2)).then(b.0.cmp(&a.0)))
+                {
+                    stat.agent_id = Some(id);
+                    stat.agent_name = Some(name).filter(|name| !name.is_empty());
+                    stat.agent_matches = count;
+                    stat.agent_wins = wins;
+                }
+                stat
+            })
+            .collect();
+        maps.sort_by(|a, b| b.matches.cmp(&a.matches).then(b.wins.cmp(&a.wins)).then(a.name.cmp(&b.name)));
+        maps
+    }
+}
+
+pub fn map_stats(conn: &Connection, puuid: &str, season: Option<&str>) -> AppResult<Vec<MapStat>> {
+    let mut stmt = conn.prepare(&format!(
+        "SELECT {MAP_COLUMNS} {MAP_JOINS}
+         WHERE p.puuid = ?1 AND m.queue = ?2 AND (?3 IS NULL OR m.season_short = ?3)
+         ORDER BY m.started_at DESC"
+    ))?;
+    let mut rows = stmt.query(params![puuid, COMPETITIVE, season])?;
+    let mut acc = MapAcc::default();
+    while let Some(row) = rows.next()? {
+        let json = match row.get::<_, String>(0)?.is_empty() {
+            true => None,
+            false => row.get_ref(RAW_COLUMN)?.as_bytes().ok().and_then(storage::inflate),
+        };
+        let game = json.as_deref().and_then(Game::parse);
+        acc.add(conn, row, game.as_ref(), puuid)?;
+    }
+    Ok(acc.finish())
 }
 
 #[tauri::command(async)]
