@@ -40,7 +40,7 @@
 
 .map-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
   gap: 10px;
 }
 
@@ -52,9 +52,9 @@
   max-width: min(100%, max(360px, calc(100vh - 300px)));
 }
 
-@container main (min-width: 1001px) {
+@container main (min-width: 760px) {
   .heat-layout {
-    grid-template-columns: minmax(0, max(360px, calc(100vh - 300px))) minmax(300px, 1fr);
+    grid-template-columns: minmax(0, max(320px, calc(100vh - 300px))) minmax(260px, 1fr);
   }
 }
 
