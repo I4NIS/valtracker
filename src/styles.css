@@ -216,8 +216,11 @@ a {
   min-width: 0;
   background: var(--panel);
   border-radius: 16px;
+  overflow-x: hidden;
   overflow-y: auto;
   box-shadow: var(--shadow);
+  container-type: inline-size;
+  container-name: main;
 }
 
 .topbar {
@@ -551,11 +554,33 @@ a {
 }
 
 .list-scroll {
-  overflow-x: auto;
+  container-type: inline-size;
 }
 
 .list-scroll > div {
-  min-width: 680px;
+  min-width: 0;
+}
+
+@container (max-width: 600px) {
+  .track {
+    grid-template-columns: 36px minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 0.9fr) 40px;
+    gap: 12px;
+  }
+
+  .track > :nth-child(1),
+  .track > :nth-child(6) {
+    display: none;
+  }
+
+  .score-row {
+    grid-template-columns: 32px minmax(0, 1.6fr) 22px 36px minmax(64px, 0.9fr) 40px;
+    gap: 10px;
+  }
+
+  .score-row > :nth-child(7),
+  .score-row > :nth-child(8) {
+    display: none;
+  }
 }
 
 .empty {
@@ -864,14 +889,14 @@ a {
 }
 
 .timeline {
-  min-width: 720px;
   display: flex;
-  gap: 6px;
+  gap: 4px;
   align-items: flex-end;
 }
 
 .timeline .round {
   flex: 1 1 0;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -879,7 +904,7 @@ a {
 }
 
 .timeline .round.half {
-  margin-left: 14px;
+  margin-left: 10px;
 }
 
 .timeline .side {
@@ -946,7 +971,7 @@ a {
 
 .score-row {
   display: grid;
-  grid-template-columns: 36px minmax(0, 1.8fr) 24px 44px minmax(0, 0.9fr) 44px 44px 44px;
+  grid-template-columns: 36px minmax(0, 1.8fr) 24px 40px minmax(72px, 0.9fr) 40px 40px 44px;
   align-items: center;
   gap: 12px;
   padding: 8px 12px;
@@ -1179,14 +1204,12 @@ a {
 }
 
 .death-strip {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(52px, 1fr));
   gap: 6px;
-  overflow-x: auto;
-  padding-bottom: 4px;
 }
 
 .death-strip button {
-  flex: 1 0 52px;
   min-height: 56px;
   display: flex;
   flex-direction: column;
@@ -1219,7 +1242,7 @@ a {
   background: var(--bad);
 }
 
-@media (max-width: 1240px) {
+@container main (max-width: 1000px) {
   .summary-grid,
   .review {
     grid-template-columns: minmax(0, 1fr);
@@ -1227,6 +1250,22 @@ a {
 
   .minimap {
     max-width: 560px;
+  }
+}
+
+@container main (max-width: 640px) {
+  .timeline .side {
+    font-size: 9px;
+  }
+
+  .timeline .cell {
+    height: 28px;
+    font-size: 10px;
+    border-radius: 6px;
+  }
+
+  .timeline .bars span {
+    width: 3px;
   }
 }
 
