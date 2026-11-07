@@ -6,6 +6,7 @@ use std::collections::HashMap;
 use std::io::Read;
 
 use crate::error::AppResult;
+use crate::i18n::tr;
 use crate::progression;
 use crate::state::AppState;
 
@@ -270,7 +271,7 @@ pub fn agent_stats(conn: &Connection, puuid: &str, season: Option<&str>) -> AppR
             acc.first_deaths += deaths;
             acc.first_rounds += rounds;
         }
-        let map = acc.maps.entry(row.map_name.clone().unwrap_or_else(|| "Inconnue".into())).or_default();
+        let map = acc.maps.entry(row.map_name.clone().unwrap_or_else(|| tr("Inconnue", "Unknown").into())).or_default();
         if map.map_id.is_none() {
             map.map_id = row.map_id.clone();
         }
@@ -305,7 +306,7 @@ pub fn agent_stats(conn: &Connection, puuid: &str, season: Option<&str>) -> AppR
             let (name, role) = agents
                 .get(&agent_id)
                 .map(|(name, role)| (name.clone(), role.clone()))
-                .unwrap_or_else(|| (acc.name.clone().unwrap_or_else(|| "Agent inconnu".into()), None));
+                .unwrap_or_else(|| (acc.name.clone().unwrap_or_else(|| tr("Agent inconnu", "Unknown agent").into()), None));
             let (lobby_acs, lobby_samples) = lobby.get(&agent_id).copied().unwrap_or((None, 0));
             AgentStat {
                 name,

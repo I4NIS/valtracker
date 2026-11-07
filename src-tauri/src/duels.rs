@@ -6,6 +6,7 @@ use std::collections::{HashMap, HashSet};
 use crate::analysis::{attack_side, attacks_first, int, point, text};
 use crate::assets;
 use crate::error::AppResult;
+use crate::i18n::tr;
 use crate::storage;
 
 const COMPETITIVE: &str = "competitive";
@@ -467,7 +468,7 @@ fn report(totals: Totals, roles: &HashMap<String, String>) -> DuelReport {
         .filter(|(_, tally)| tally.matches > 0)
         .map(|(id, tally)| Matchup {
             agent_id: id.clone(),
-            agent_name: if tally.name.is_empty() { "Inconnu".into() } else { tally.name.clone() },
+            agent_name: if tally.name.is_empty() { tr("Inconnu", "Unknown").into() } else { tally.name.clone() },
             role: roles.get(id).or_else(|| roles.get(&id.to_lowercase())).cloned(),
             kills: tally.kills,
             deaths: tally.deaths,
@@ -477,7 +478,11 @@ fn report(totals: Totals, roles: &HashMap<String, String>) -> DuelReport {
         .collect();
     matchups.sort_by(|a, b| b.matches.cmp(&a.matches).then(a.agent_name.cmp(&b.agent_name)));
 
-    let labels = [("close", "Moins de 10 m"), ("mid", "10 à 25 m"), ("long", "Plus de 25 m")];
+    let labels = [
+        ("close", tr("Moins de 10 m", "Under 10 m")),
+        ("mid", tr("10 à 25 m", "10 to 25 m")),
+        ("long", tr("Plus de 25 m", "Over 25 m")),
+    ];
     let distances = labels
         .iter()
         .zip(totals.distance.iter())

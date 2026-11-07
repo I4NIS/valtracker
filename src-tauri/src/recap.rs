@@ -10,6 +10,7 @@ use tauri_plugin_opener::OpenerExt;
 
 use crate::analysis::{int, point, text};
 use crate::error::{AppError, AppResult};
+use crate::i18n::tr;
 use crate::progression;
 use crate::state::AppState;
 use crate::stats;
@@ -476,7 +477,7 @@ fn civil_from_days(days: i64) -> (i64, i64, i64) {
 pub fn session(conn: &Connection, puuid: &str) -> AppResult<SessionRecap> {
     let all = load_matches(conn, puuid, None)?;
     if all.is_empty() {
-        return Err(AppError::Invalid("Aucune partie compétitive à récapituler".into()));
+        return Err(AppError::Invalid(tr("Aucune partie compétitive à récapituler", "No competitive match to recap").into()));
     }
     let mut start = all.len() - 1;
     while start > 0 {
@@ -704,7 +705,7 @@ pub fn act(conn: &Connection, puuid: &str, season: Option<&str>) -> AppResult<Ac
     };
     let mut matches = load_matches(conn, puuid, season.as_deref())?;
     if matches.is_empty() {
-        return Err(AppError::Invalid("Aucune partie compétitive sur cet acte".into()));
+        return Err(AppError::Invalid(tr("Aucune partie compétitive sur cet acte", "No competitive match in this Act").into()));
     }
     attach_scores(conn, puuid, season.as_deref(), &mut matches, None)?;
 
@@ -824,10 +825,10 @@ fn free_path(folder: &Path, stem: &str) -> PathBuf {
 #[tauri::command(async)]
 pub fn save_recap_image(app: AppHandle, request: Request<'_>) -> AppResult<SavedImage> {
     let InvokeBody::Raw(bytes) = request.body() else {
-        return Err(AppError::Invalid("Image invalide".into()));
+        return Err(AppError::Invalid(tr("Image invalide", "Invalid image").into()));
     };
     if !bytes.starts_with(PNG_SIGNATURE) || bytes.len() > MAX_IMAGE_BYTES {
-        return Err(AppError::Invalid("Image invalide".into()));
+        return Err(AppError::Invalid(tr("Image invalide", "Invalid image").into()));
     }
     let name = request.headers().get("x-file-name").and_then(|value| value.to_str().ok()).unwrap_or_default();
     let folder = recap_folder(&app)?;
@@ -849,7 +850,7 @@ pub fn reveal_recap(app: AppHandle, path: String) -> AppResult<()> {
     let folder = recap_folder(&app)?;
     let target = PathBuf::from(&path);
     if target.parent() != Some(folder.as_path()) || !target.is_file() {
-        return Err(AppError::Invalid("Fichier introuvable".into()));
+        return Err(AppError::Invalid(tr("Fichier introuvable", "File not found").into()));
     }
     app.opener().reveal_item_in_dir(&target).map_err(|err| AppError::Invalid(err.to_string()))
 }

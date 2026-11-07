@@ -5,6 +5,7 @@ use std::collections::HashMap;
 
 use crate::analysis::{int, point, text};
 use crate::error::AppResult;
+use crate::i18n::tr;
 use crate::state::AppState;
 use crate::storage;
 
@@ -434,7 +435,7 @@ pub fn history(conn: &Connection, puuid: &str, season: Option<&str>, weapon: &st
                 .iter()
                 .find(|player| text(player, "/puuid") == Some(id))
                 .and_then(|player| text(player, "/name"))
-                .unwrap_or("Inconnu")
+                .unwrap_or(tr("Inconnu", "Unknown"))
                 .to_string()
         };
         let my_team = players.iter().find(|player| text(player, "/puuid") == Some(puuid)).and_then(|player| text(player, "/team_id"));

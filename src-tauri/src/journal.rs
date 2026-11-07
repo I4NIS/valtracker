@@ -4,6 +4,7 @@ use std::collections::{BTreeMap, HashSet};
 use tauri::State;
 
 use crate::error::{AppError, AppResult};
+use crate::i18n::tr;
 use crate::state::AppState;
 
 const MAX_TAGS: usize = 20;
@@ -97,11 +98,11 @@ pub fn load(conn: &Connection, puuid: &str, match_id: &str) -> AppResult<Option<
 
 pub fn store(conn: &Connection, puuid: &str, match_id: &str, note: &str, tags: Vec<String>) -> AppResult<()> {
     if puuid.trim().is_empty() || match_id.trim().is_empty() {
-        return Err(AppError::Invalid("Match ou compte inconnu".into()));
+        return Err(AppError::Invalid(tr("Match ou compte inconnu", "Unknown match or account").into()));
     }
     let note = note.trim();
     if note.chars().count() > MAX_NOTE_CHARS {
-        return Err(AppError::Invalid("La note est trop longue".into()));
+        return Err(AppError::Invalid(tr("La note est trop longue", "The note is too long").into()));
     }
     let tags = clean_tags(tags);
     if note.is_empty() && tags.is_empty() {

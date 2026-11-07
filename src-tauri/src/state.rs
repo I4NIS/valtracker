@@ -5,6 +5,7 @@ use std::sync::{Mutex, MutexGuard};
 use tauri::ipc::Response;
 
 use crate::error::{AppError, AppResult};
+use crate::i18n::tr;
 
 const CACHE_LIMIT: usize = 400;
 
@@ -27,7 +28,7 @@ impl AppState {
     }
 
     pub fn conn(&self) -> AppResult<MutexGuard<'_, Connection>> {
-        self.db.lock().map_err(|_| AppError::Invalid("La base de données est indisponible".into()))
+        self.db.lock().map_err(|_| AppError::Invalid(tr("La base de données est indisponible", "The database is unavailable").into()))
     }
 
     fn cache(&self) -> MutexGuard<'_, Cache> {
