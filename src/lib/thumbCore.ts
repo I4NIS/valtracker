@@ -21,11 +21,12 @@ async function openCache(): Promise<Cache | null> {
 }
 
 async function download(url: string): Promise<Blob> {
+  const source = `${url}${url.includes("?") ? "&" : "?"}cors=1`;
   let response: Response;
   try {
-    response = await fetch(url, { mode: "cors" });
+    response = await fetch(source, { mode: "cors" });
   } catch {
-    response = await fetch(url, { mode: "cors", cache: "reload" });
+    response = await fetch(source, { mode: "cors", cache: "reload" });
   }
   if (!response.ok) throw new Error(String(response.status));
   return response.blob();
