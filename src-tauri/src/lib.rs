@@ -19,6 +19,7 @@ mod state;
 mod stats;
 mod storage;
 mod sync;
+mod thresholds;
 
 use tauri::Manager;
 
@@ -80,6 +81,8 @@ pub fn run() {
             recap::get_act_recap,
             recap::save_recap_image,
             recap::reveal_recap,
+            thresholds::get_thresholds,
+            thresholds::set_thresholds,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

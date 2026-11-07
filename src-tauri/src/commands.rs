@@ -17,6 +17,7 @@ use crate::state::AppState;
 use crate::stats;
 use crate::storage;
 use crate::sync::{self, ACTIVE_ACCOUNT_SETTING, API_KEY_SETTING};
+use crate::thresholds::Thresholds;
 
 const REGIONS: [&str; 6] = ["eu", "na", "ap", "kr", "latam", "br"];
 const PREFERENCES: [&str; 3] = ["theme", "language", "tutorial_done"];
@@ -133,7 +134,8 @@ fn match_detail(conn: &Connection, puuid: &str, match_id: &str) -> AppResult<Mat
     let map_id = game.pointer("/metadata/map/id").and_then(Value::as_str).unwrap_or_default();
     let map = assets::load_map(conn, map_id)?;
     let roles = assets::agent_roles(conn)?;
-    let mut detail = analysis::analyze(&game, puuid, map.as_ref(), &roles)
+    let thresholds = Thresholds::load(conn)?;
+    let mut detail = analysis::analyze(&game, puuid, map.as_ref(), &roles, &thresholds)
         .ok_or_else(|| AppError::Invalid("Impossible d'analyser ce match".into()))?;
     if let Some((change, rr)) = conn
         .query_row(

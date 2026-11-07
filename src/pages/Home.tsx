@@ -5,7 +5,7 @@ import { MatchList } from "../components/MatchList";
 import { RankBadge } from "../components/RankBadge";
 import type { Account, RecentMatch } from "../lib/api";
 import { seasonLabel, tierLabel } from "../lib/assets";
-import { fmt, greeting, pct, signed, timeAgo } from "../lib/format";
+import { fmt, greeting, pct, signed, timeAgo, tradeWindowText } from "../lib/format";
 import { useQuery } from "../lib/query";
 import { defaultSeason, queries } from "../lib/queries";
 
@@ -34,6 +34,7 @@ export function Home({ account, onOpenMatch }: Props) {
   const overviewQuery = useQuery(season === undefined ? null : queries.overview(account.puuid, season));
   const recent = useQuery(queries.recent(account.puuid, 10)).data ?? [];
   const flaws = useQuery(queries.flaws(account.puuid)).data ?? null;
+  const thresholds = useQuery(queries.thresholds()).data?.values;
   const overview = overviewQuery.data ?? null;
   const error = overviewQuery.error ?? seasonsQuery.error;
 
@@ -248,13 +249,13 @@ export function Home({ account, onOpenMatch }: Props) {
               value={pct((flaws.untraded * 100) / flaws.deaths, 0)}
               ratio={flaws.untraded / flaws.deaths}
               title="de tes morts ne sont pas tradées"
-              detail={`${flaws.untraded} sur ${flaws.deaths} : personne n'a tué ton tueur dans les 3 secondes.`}
+              detail={`${flaws.untraded} sur ${flaws.deaths} : personne n'a tué ton tueur ${tradeWindowText(thresholds?.tradeWindowMs ?? 3000)}.`}
             />
             <FlawStat
               value={pct((flaws.isolated * 100) / flaws.deaths, 0)}
               ratio={flaws.isolated / flaws.deaths}
               title="de tes morts arrivent isolé"
-              detail={`${flaws.isolated} sur ${flaws.deaths}, sans coéquipier à moins de 15 m.`}
+              detail={`${flaws.isolated} sur ${flaws.deaths}, sans coéquipier à moins de ${fmt(thresholds?.isolationMeters ?? 15)} m.`}
             />
             <FlawStat
               value={flaws.firstDeaths ? `1 / ${Math.max(1, Math.round(flaws.rounds / flaws.firstDeaths))}` : "0"}

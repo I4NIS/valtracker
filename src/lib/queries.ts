@@ -11,6 +11,7 @@ type Season = string | null;
 const s = (season: Season) => season ?? "all";
 
 export const queries = {
+  thresholds: () => ({ key: "thresholds", fetch: () => api.getThresholds() }),
   seasons: (puuid: string) => ({ key: `seasons|${puuid}`, fetch: () => api.getSeasons(puuid) }),
   overview: (puuid: string, season: Season) => ({ key: `overview|${puuid}|${s(season)}`, fetch: () => api.getOverview(puuid, season) }),
   recent: (puuid: string, limit: number, offset = 0) => ({

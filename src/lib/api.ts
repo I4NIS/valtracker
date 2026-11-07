@@ -306,6 +306,18 @@ export type RecentFlaws = {
   firstDeaths: number;
 };
 
+export type Thresholds = {
+  tradeWindowMs: number;
+  isolationMeters: number;
+  fullBuy: number;
+  sameSpot: number;
+};
+
+export type ThresholdSettings = {
+  values: Thresholds;
+  defaults: Thresholds;
+};
+
 export const api = {
   bootstrap: () => invoke<Bootstrap>("bootstrap"),
   saveApiKey: (key: string) => invoke<void>("save_api_key", { key }),
@@ -325,6 +337,8 @@ export const api = {
   getSeasons: (puuid: string) => invoke<Season[]>("get_seasons", { puuid }),
   setPreference: (key: "theme" | "language" | "tutorial_done", value: string) =>
     invoke<void>("set_preference", { key, value }),
+  getThresholds: () => invoke<ThresholdSettings>("get_thresholds"),
+  setThresholds: (thresholds: Thresholds) => invoke<ThresholdSettings>("set_thresholds", { thresholds }),
 };
 
 export function onSyncProgress(callback: (progress: SyncProgress) => void): Promise<UnlistenFn> {

@@ -1,0 +1,59 @@
+.threshold-list > div {
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  padding: 16px 0;
+}
+
+.threshold-list > div:first-child {
+  padding-top: 0;
+}
+
+.threshold-list > div:last-child {
+  padding-bottom: 0;
+}
+
+.threshold-text {
+  display: flex;
+  flex: 1 1 280px;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 999px;
+  background: var(--field);
+}
+
+.stepper button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-2);
+}
+
+.stepper button:hover:not(:disabled) {
+  background: var(--panel);
+  color: var(--text);
+  box-shadow: var(--shadow);
+}
+
+.stepper button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.stepper output {
+  min-width: 96px;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+}
