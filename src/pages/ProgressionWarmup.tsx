@@ -80,7 +80,6 @@ export function Warmup({ puuid, season }: { puuid: string; season: string | null
         <Figure label={t("Parties", "Games")} value={fmt(sums.matches)} />
         <Figure label="K/D" value={fmt(sums.kd, 2)} />
         <Figure label={t("Kills par partie", "Kills per game")} value={fmt(sums.kills, 1)} />
-        <Figure label={t("Dégâts par partie", "Damage per game")} value={sums.damage !== null ? fmt(sums.damage) : "-"} />
       </div>
 
       <div className="warmup-charts">
@@ -271,7 +270,7 @@ function WarmupSkeleton() {
         ))}
       </div>
       <div className="compare-grid">
-        {repeat(5, (index) => (
+        {repeat(3, (index) => (
           <div className="compare-card" key={index}>
             <SkeletonLine width={70} size={12} />
             <SkeletonLine width={60} size={26} />

@@ -16,8 +16,6 @@ export type WarmupGame = {
   kills: number;
   deaths: number;
   assists: number;
-  damageMade: number;
-  damageReceived: number;
 };
 
 export type RankedGame = {
@@ -38,7 +36,7 @@ export function getWarmup(puuid: string, season: string | null): Promise<WarmupR
 
 export type DayPoint = { day: string; matches: number; kd: number; kills: number };
 
-export type Totals = { matches: number; kd: number; kills: number; damage: number | null };
+export type Totals = { matches: number; kd: number; kills: number };
 
 export type DaySide = { days: number; matches: number; wins: number };
 
@@ -66,13 +64,10 @@ const timeOf = (iso: string) => new Date(iso).getTime();
 export function totals(games: WarmupGame[]): Totals {
   const kills = games.reduce((sum, game) => sum + game.kills, 0);
   const deaths = games.reduce((sum, game) => sum + game.deaths, 0);
-  const measured = games.filter((game) => game.damageMade > 0);
-  const damage = measured.reduce((sum, game) => sum + game.damageMade, 0);
   return {
     matches: games.length,
     kd: ratio(kills, deaths),
     kills: games.length ? kills / games.length : 0,
-    damage: measured.length ? damage / measured.length : null,
   };
 }
 
