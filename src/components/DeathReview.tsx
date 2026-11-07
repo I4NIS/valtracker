@@ -4,6 +4,7 @@ import type { Death } from "../lib/api";
 import { agentIcon } from "../lib/assets";
 import { fmt } from "../lib/format";
 import { findAbility, useAgentCatalog } from "../lib/gameAssets";
+import { t } from "../lib/i18n";
 import { rotatePoint, rotationStyle } from "../lib/minimap";
 import { FavoriteButton } from "./FavoriteButton";
 import { Art, KillMeans, meansLabel } from "./GameArt";
@@ -45,28 +46,33 @@ export function DeathReview({ puuid, matchId, deaths, minimap, rotation, focusRo
     return () => window.removeEventListener("keydown", onKey);
   }, [list.length]);
 
-  if (!death) return <div className="empty">Aucune mort sur ce match. Rien à revoir.</div>;
+  if (!death) return <div className="empty">{t("Aucune mort sur ce match. Rien à revoir.", "No deaths this match. Nothing to review.")}</div>;
 
   const position = death.position ? rotatePoint(death.position, rotation) : null;
   const killerPosition = death.killerPosition ? rotatePoint(death.killerPosition, rotation) : null;
   const others = death.others.map((marker) => ({ ally: marker.ally, ...rotatePoint(marker, rotation) }));
 
   const facts: [string, string][] = [
-    ["Distance", death.distanceM !== null ? `${fmt(death.distanceM)} m` : "Inconnue"],
-    ["Coéquipier le plus proche", death.nearestAllyM !== null ? `${fmt(death.nearestAllyM)} m` : "Aucun en vie"],
-    ["Ton équipement", `${fmt(death.loadout)} crédits`],
+    [t("Distance", "Distance"), death.distanceM !== null ? `${fmt(death.distanceM)} m` : t("Inconnue", "Unknown")],
+    [t("Coéquipier le plus proche", "Nearest teammate"), death.nearestAllyM !== null ? `${fmt(death.nearestAllyM)} m` : t("Aucun en vie", "None alive")],
+    [t("Ton équipement", "Your loadout"), t(`${fmt(death.loadout)} crédits`, `${fmt(death.loadout)} credits`)],
   ];
 
   return (
     <div className="stack" style={{ gap: 28 }}>
       <div className="row between wrap">
-        <span className="faint">Tes {deaths.length} morts, une par une. Flèches du clavier pour naviguer.</span>
-        <div className="segmented" role="group" aria-label="Ordre des morts">
+        <span className="faint">
+          {t(
+            `Tes ${deaths.length} morts, une par une. Flèches du clavier pour naviguer.`,
+            `Your ${deaths.length} ${deaths.length === 1 ? "death" : "deaths"}, one by one. Use the arrow keys to navigate.`,
+          )}
+        </span>
+        <div className="segmented" role="group" aria-label={t("Ordre des morts", "Death order")}>
           <button type="button" className={order === "gravity" ? "active" : undefined} onClick={() => { setOrder("gravity"); setIndex(0); }}>
-            Les plus lourdes d'abord
+            {t("Les plus lourdes d'abord", "Worst first")}
           </button>
           <button type="button" className={order === "chrono" ? "active" : undefined} onClick={() => { setOrder("chrono"); setIndex(0); }}>
-            Dans l'ordre
+            {t("Dans l'ordre", "In order")}
           </button>
         </div>
       </div>
@@ -74,7 +80,7 @@ export function DeathReview({ puuid, matchId, deaths, minimap, rotation, focusRo
       <div className="review">
         <div className="stack" style={{ gap: 12 }}>
           <div className="minimap">
-            {minimap && <img src={minimap} alt="Minimap" style={rotationStyle(rotation)} />}
+            {minimap && <img src={minimap} alt={t("Minimap", "Minimap")} style={rotationStyle(rotation)} />}
             {position ? (
               <>
                 {killerPosition && (
@@ -97,31 +103,34 @@ export function DeathReview({ puuid, matchId, deaths, minimap, rotation, focusRo
                   <Icon name="close" size={11} strokeWidth={3} />
                 </span>
                 <span className="marker-label" style={{ left: pctOf(position.x), top: pctOf(position.y) }}>
-                  Toi
+                  {t("Toi", "You")}
                 </span>
               </>
             ) : (
-              <span className="minimap-empty">Positions indisponibles pour cette map</span>
+              <span className="minimap-empty">{t("Positions indisponibles pour cette map", "Positions unavailable for this map")}</span>
             )}
           </div>
           <div className="legend">
-            <span><i className="ally" />Coéquipiers</span>
-            <span><i className="enemy" />Ennemis</span>
-            <span><i className="killer" />Ton tueur</span>
-            <span>Positions au moment de ta mort</span>
+            <span><i className="ally" />{t("Coéquipiers", "Teammates")}</span>
+            <span><i className="enemy" />{t("Ennemis", "Enemies")}</span>
+            <span><i className="killer" />{t("Ton tueur", "Your killer")}</span>
+            <span>{t("Positions au moment de ta mort", "Positions at the moment of your death")}</span>
           </div>
         </div>
 
         <div className="stack" style={{ gap: 22 }}>
           <div className="row between">
             <span className="faint">
-              Mort {Math.min(index, list.length - 1) + 1} sur {list.length}
+              {t(
+                `Mort ${Math.min(index, list.length - 1) + 1} sur ${list.length}`,
+                `Death ${Math.min(index, list.length - 1) + 1} of ${list.length}`,
+              )}
             </span>
             <div className="row" style={{ gap: 8 }}>
-              <button type="button" className="icon-btn round-lg" onClick={() => setIndex((i) => (i + list.length - 1) % list.length)} aria-label="Mort précédente">
+              <button type="button" className="icon-btn round-lg" onClick={() => setIndex((i) => (i + list.length - 1) % list.length)} aria-label={t("Mort précédente", "Previous death")}>
                 <Icon name="arrowRight" size={16} strokeWidth={2} className="flip" />
               </button>
-              <button type="button" className="icon-btn round-lg primary" onClick={() => setIndex((i) => (i + 1) % list.length)} aria-label="Mort suivante">
+              <button type="button" className="icon-btn round-lg primary" onClick={() => setIndex((i) => (i + 1) % list.length)} aria-label={t("Mort suivante", "Next death")}>
                 <Icon name="arrowRight" size={16} strokeWidth={2} />
               </button>
             </div>
@@ -129,10 +138,11 @@ export function DeathReview({ puuid, matchId, deaths, minimap, rotation, focusRo
           <div className="row between" style={{ alignItems: "flex-start", gap: 16 }}>
             <div className="stack" style={{ minWidth: 0 }}>
               <span className="review-title">
-                Round {death.round}, {death.attack ? "attaque" : "défense"}
+                Round {death.round}, {death.attack ? t("attaque", "attack") : t("défense", "defense")}
               </span>
               <span className="muted">
-                {death.zone ?? "Zone inconnue"}, à {fmt(death.timeS, 1)} s, {death.roundWon ? "round gagné" : "round perdu"}
+                {death.zone ?? t("Zone inconnue", "Unknown zone")}, {t("à", "at")} {fmt(death.timeS, 1)} s,{" "}
+                {death.roundWon ? t("round gagné", "round won") : t("round perdu", "round lost")}
               </span>
             </div>
             <FavoriteButton puuid={puuid} matchId={matchId} kind="death" roundIndex={death.round - 1} />
@@ -141,7 +151,7 @@ export function DeathReview({ puuid, matchId, deaths, minimap, rotation, focusRo
             <Art src={agentIcon(death.killerAgentId)} width={44} height={44} alt="" className="review-killer-agent" />
             <span className="stack" style={{ gap: 0, minWidth: 0 }}>
               <span className="faint" style={{ fontSize: 12 }}>
-                Tué par
+                {t("Tué par", "Killed by")}
               </span>
               <strong className="ellipsis">
                 {death.killerName}
@@ -172,8 +182,8 @@ export function DeathReview({ puuid, matchId, deaths, minimap, rotation, focusRo
             ))}
           </div>
           <div className="stack" style={{ gap: 10 }}>
-            <span style={{ fontSize: 17, fontWeight: 700, letterSpacing: "-0.02em" }}>Défauts détectés</span>
-            {death.flaws.length === 0 && <span className="good">Aucun défaut détecté sur cette mort</span>}
+            <span style={{ fontSize: 17, fontWeight: 700, letterSpacing: "-0.02em" }}>{t("Défauts détectés", "Detected flaws")}</span>
+            {death.flaws.length === 0 && <span className="good">{t("Aucun défaut détecté sur cette mort", "No flaws detected on this death")}</span>}
             {death.flaws.map((flaw) => (
               <span className="flaw-line" key={flaw}>
                 <i className="bad-dot" />
@@ -190,7 +200,7 @@ export function DeathReview({ puuid, matchId, deaths, minimap, rotation, focusRo
         </div>
       </div>
 
-      <div className="death-strip" role="group" aria-label="Toutes tes morts">
+      <div className="death-strip" role="group" aria-label={t("Toutes tes morts", "All your deaths")}>
         {list.map((item, i) => (
           <button
             type="button"

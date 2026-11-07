@@ -1,6 +1,7 @@
 import "../styles/game.css";
 import { useState, type ReactNode } from "react";
 import { findAbility, MELEE_ID, weaponArt, type Ability, type Catalog } from "../lib/gameAssets";
+import { t } from "../lib/i18n";
 
 type ArtProps = {
   src: string | undefined;
@@ -72,16 +73,16 @@ export function meansLabel(weaponName: string | null | undefined, weaponKind: st
   if (weaponName) return weaponName;
   switch (weaponKind?.toLowerCase()) {
     case "melee":
-      return "Couteau";
+      return t("Couteau", "Knife");
     case "bomb":
       return "Spike";
     case "fall":
-      return "Chute";
+      return t("Chute", "Fall");
     case undefined:
     case "":
-      return "Arme inconnue";
+      return t("Arme inconnue", "Unknown weapon");
     default:
-      return "Capacité";
+      return t("Capacité", "Ability");
   }
 }
 
@@ -91,7 +92,7 @@ export function KillMeans({ weaponId, weaponName, weaponKind, agentId, catalog, 
 
   if (kind === "bomb") {
     return (
-      <span className="kill-means" title="Explosion du spike">
+      <span className="kill-means" title={t("Explosion du spike", "Spike explosion")}>
         <SpikeGlyph size={height} />
       </span>
     );

@@ -2,6 +2,7 @@ import { relaunch } from "@tauri-apps/plugin-process";
 import { check, type Update } from "@tauri-apps/plugin-updater";
 import { useEffect, useState } from "react";
 import { errorMessage } from "../lib/api";
+import { t } from "../lib/i18n";
 import { Icon } from "./Icon";
 
 type Stage = "idle" | "downloading" | "installing" | "error";
@@ -50,21 +51,21 @@ export function UpdateBanner() {
         <Icon name="sync" size={16} strokeWidth={2} className={busy ? "spin" : undefined} />
       </span>
       <div className="stack" style={{ gap: 2, flexGrow: 1 }}>
-        <strong>Valtracker {update.version} est disponible</strong>
+        <strong>{t(`Valtracker ${update.version} est disponible`, `Valtracker ${update.version} is available`)}</strong>
         <span className="hint">
-          {stage === "downloading" && `Téléchargement ${progress} %`}
-          {stage === "installing" && "Installation, l'app va redémarrer"}
-          {stage === "error" && `Échec de la mise à jour : ${error}`}
-          {stage === "idle" && `Tu utilises la version ${update.currentVersion}.`}
+          {stage === "downloading" && t(`Téléchargement ${progress} %`, `Downloading ${progress}%`)}
+          {stage === "installing" && t("Installation, l'app va redémarrer", "Installing, the app will restart")}
+          {stage === "error" && t(`Échec de la mise à jour : ${error}`, `Update failed: ${error}`)}
+          {stage === "idle" && t(`Tu utilises la version ${update.currentVersion}.`, `You're on version ${update.currentVersion}.`)}
         </span>
       </div>
       {!busy && (
         <div className="row" style={{ gap: 8 }}>
           <button type="button" className="btn btn-secondary" onClick={() => setDismissed(true)}>
-            Plus tard
+            {t("Plus tard", "Later")}
           </button>
           <button type="button" className="btn btn-primary" onClick={install}>
-            {stage === "error" ? "Réessayer" : "Installer"}
+            {stage === "error" ? t("Réessayer", "Retry") : t("Installer", "Install")}
           </button>
         </div>
       )}

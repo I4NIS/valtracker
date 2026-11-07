@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { lang } from "./i18n";
 
 export type Note = {
   matchId: string;
@@ -39,6 +40,12 @@ export type TagStat = {
 };
 
 export const SUGGESTED_TAGS = ["Fatigué", "En duo", "En stack", "Nouvelle sensi", "Nouveau setup", "Tilt", "Échauffé", "Soirée"];
+
+const SUGGESTED_TAGS_EN = ["Tired", "Duo", "Stack", "New sens", "New setup", "Tilted", "Warmed up", "Late night"];
+
+export function suggestedTags(): string[] {
+  return lang() === "en" ? SUGGESTED_TAGS_EN : SUGGESTED_TAGS;
+}
 
 export const journal = {
   getNote: (puuid: string, matchId: string) => invoke<Note | null>("get_note", { puuid, matchId }),

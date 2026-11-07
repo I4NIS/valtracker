@@ -2,6 +2,7 @@ import "../styles/palette.css";
 import type { ReactNode } from "react";
 import type { Account, Theme } from "../lib/api";
 import { timeAgo } from "../lib/format";
+import { t } from "../lib/i18n";
 import { Icon, type IconName } from "./Icon";
 import { RankBadge } from "./RankBadge";
 import { TitleBar } from "./TitleBar";
@@ -28,28 +29,28 @@ export type SyncView = {
   lastSyncAt: string | null;
 };
 
-const NAV: { title: string; items: { page: Page; label: string; icon: IconName }[] }[] = [
+const NAV = (): { title: string; items: { page: Page; label: string; icon: IconName }[] }[] => [
   {
-    title: "Général",
+    title: t("Général", "General"),
     items: [
-      { page: "home", label: "Accueil", icon: "home" },
-      { page: "matches", label: "Matchs", icon: "matches" },
-      { page: "progress", label: "Progression", icon: "progress" },
+      { page: "home", label: t("Accueil", "Home"), icon: "home" },
+      { page: "matches", label: t("Matchs", "Matches"), icon: "matches" },
+      { page: "progress", label: t("Progression", "Progression"), icon: "progress" },
     ],
   },
   {
-    title: "Analyse",
+    title: t("Analyse", "Analysis"),
     items: [
-      { page: "agents", label: "Agents", icon: "agents" },
-      { page: "maps", label: "Maps", icon: "maps" },
-      { page: "weapons", label: "Armes", icon: "weapons" },
-      { page: "duels", label: "Duels", icon: "duels" },
-      { page: "heatmaps", label: "Heatmaps", icon: "heatmaps" },
+      { page: "agents", label: t("Agents", "Agents"), icon: "agents" },
+      { page: "maps", label: t("Maps", "Maps"), icon: "maps" },
+      { page: "weapons", label: t("Armes", "Weapons"), icon: "weapons" },
+      { page: "duels", label: t("Duels", "Duels"), icon: "duels" },
+      { page: "heatmaps", label: t("Heatmaps", "Heatmaps"), icon: "heatmaps" },
     ],
   },
   {
-    title: "Perso",
-    items: [{ page: "journal", label: "Journal", icon: "journal" }],
+    title: t("Perso", "Personal"),
+    items: [{ page: "journal", label: t("Journal", "Journal"), icon: "journal" }],
   },
 ];
 
@@ -69,11 +70,11 @@ type Props = {
 
 function syncText(sync: SyncView): string {
   if (sync.running) {
-    const extra = sync.newMatches > 0 ? `, ${sync.newMatches} nouveaux` : "";
-    return `Synchronisation : ${sync.stage}${extra}`;
+    const extra = sync.newMatches > 0 ? t(`, ${sync.newMatches} nouveaux`, `, ${sync.newMatches} new`) : "";
+    return t(`Synchronisation : ${sync.stage}${extra}`, `Syncing: ${sync.stage}${extra}`);
   }
-  if (sync.error) return `Échec de la synchro : ${sync.error}`;
-  return `Synchronisé ${timeAgo(sync.lastSyncAt)}`;
+  if (sync.error) return t(`Échec de la synchro : ${sync.error}`, `Sync failed: ${sync.error}`);
+  return t(`Synchronisé ${timeAgo(sync.lastSyncAt)}`, sync.lastSyncAt ? `Synced ${timeAgo(sync.lastSyncAt)}` : "Never synced");
 }
 
 export function Shell({
@@ -95,8 +96,8 @@ export function Shell({
     <div className="window">
       <TitleBar />
       <div className="app">
-        <nav className="sidebar" aria-label="Navigation principale">
-          {NAV.map((group) => (
+        <nav className="sidebar" aria-label={t("Navigation principale", "Main navigation")}>
+          {NAV().map((group) => (
             <div className="nav-group" key={group.title}>
               <span className="nav-group-title">{group.title}</span>
               {group.items.map((item) => (
@@ -118,13 +119,17 @@ export function Shell({
             type="button"
             className={`account-chip${target("settings")}`}
             onClick={() => onNavigate("settings")}
-            aria-label="Paramètres et comptes"
+            aria-label={t("Paramètres et comptes", "Settings and accounts")}
           >
             <RankBadge tier={account?.tier} size={36} />
             <span className="names">
-              <strong>{combinedCount > 1 ? "Tous les comptes" : (account?.name ?? "Aucun compte")}</strong>
+              <strong>{combinedCount > 1 ? t("Tous les comptes", "All accounts") : (account?.name ?? t("Aucun compte", "No account"))}</strong>
               <span className="faint">
-                {combinedCount > 1 ? `${combinedCount} comptes` : account ? `#${account.tag}` : "Ajoute un compte"}
+                {combinedCount > 1
+                  ? t(`${combinedCount} comptes`, `${combinedCount} accounts`)
+                  : account
+                    ? `#${account.tag}`
+                    : t("Ajoute un compte", "Add an account")}
               </span>
             </span>
             <Icon name="settings" />
@@ -138,9 +143,9 @@ export function Shell({
                 type="button"
                 className="search-pill"
                 onClick={onSearch}
-                aria-label="Rechercher"
+                aria-label={t("Rechercher", "Search")}
                 aria-keyshortcuts="Control+K"
-                title="Rechercher (Ctrl K)"
+                title={t("Rechercher (Ctrl K)", "Search (Ctrl K)")}
               >
                 <svg
                   width="15"
@@ -154,7 +159,7 @@ export function Shell({
                 >
                   <path d="M4 11a7 7 0 1 0 14 0a7 7 0 1 0-14 0M20 20l-4-4" />
                 </svg>
-                <span>Rechercher</span>
+                <span>{t("Rechercher", "Search")}</span>
                 <kbd>Ctrl K</kbd>
               </button>
             )}
@@ -167,8 +172,8 @@ export function Shell({
               className={`icon-btn${target("sync")}`}
               onClick={onSync}
               disabled={sync.running || !account}
-              aria-label="Synchroniser maintenant"
-              title="Synchroniser maintenant"
+              aria-label={t("Synchroniser maintenant", "Sync now")}
+              title={t("Synchroniser maintenant", "Sync now")}
             >
               <Icon name="sync" size={16} strokeWidth={2} className={sync.running ? "spin" : undefined} />
             </button>
@@ -176,8 +181,8 @@ export function Shell({
               type="button"
               className="icon-btn"
               onClick={onToggleTheme}
-              aria-label={theme === "dark" ? "Passer en thème clair" : "Passer en thème sombre"}
-              title={theme === "dark" ? "Thème clair" : "Thème sombre"}
+              aria-label={theme === "dark" ? t("Passer en thème clair", "Switch to light theme") : t("Passer en thème sombre", "Switch to dark theme")}
+              title={theme === "dark" ? t("Thème clair", "Light theme") : t("Thème sombre", "Dark theme")}
             >
               <Icon name={theme === "dark" ? "sun" : "moon"} size={16} strokeWidth={2} />
             </button>

@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 import { api, type Account, type RecentMatch, type Theme } from "../lib/api";
 import { agentIcon } from "../lib/assets";
 import { timeAgo } from "../lib/format";
+import { locale, t } from "../lib/i18n";
 import { Icon, type IconName } from "./Icon";
 import type { Page } from "./Shell";
 
@@ -27,17 +28,17 @@ type Item =
 
 type Section = { id: string; title: string; items: Item[] };
 
-const PAGES: { page: Page; label: string; icon: IconName; keywords: string }[] = [
-  { page: "home", label: "Accueil", icon: "home", keywords: "home dashboard tableau de bord resume" },
-  { page: "matches", label: "Matchs", icon: "matches", keywords: "historique parties games" },
-  { page: "progress", label: "Progression", icon: "progress", keywords: "rang rr elo courbe evolution" },
-  { page: "agents", label: "Agents", icon: "agents", keywords: "personnages roles" },
-  { page: "maps", label: "Maps", icon: "maps", keywords: "cartes attaque defense" },
-  { page: "weapons", label: "Armes", icon: "weapons", keywords: "weapons precision headshots" },
-  { page: "duels", label: "Duels", icon: "duels", keywords: "opening clutch matchups" },
-  { page: "heatmaps", label: "Heatmaps", icon: "heatmaps", keywords: "positions morts kills carte chaleur" },
-  { page: "journal", label: "Journal", icon: "journal", keywords: "notes tags" },
-  { page: "settings", label: "Paramètres", icon: "settings", keywords: "settings comptes cle api reglages options" },
+const PAGES = (): { page: Page; label: string; icon: IconName; keywords: string }[] => [
+  { page: "home", label: t("Accueil", "Home"), icon: "home", keywords: t("home dashboard tableau de bord resume", "home dashboard overview summary") },
+  { page: "matches", label: t("Matchs", "Matches"), icon: "matches", keywords: t("historique parties games", "history games") },
+  { page: "progress", label: t("Progression", "Progression"), icon: "progress", keywords: t("rang rr elo courbe evolution", "rank rr elo chart progress") },
+  { page: "agents", label: t("Agents", "Agents"), icon: "agents", keywords: t("personnages roles", "characters roles") },
+  { page: "maps", label: t("Maps", "Maps"), icon: "maps", keywords: t("cartes attaque defense", "attack defense") },
+  { page: "weapons", label: t("Armes", "Weapons"), icon: "weapons", keywords: t("weapons precision headshots", "guns accuracy headshots") },
+  { page: "duels", label: t("Duels", "Duels"), icon: "duels", keywords: t("opening clutch matchups", "opening clutch matchups") },
+  { page: "heatmaps", label: t("Heatmaps", "Heatmaps"), icon: "heatmaps", keywords: t("positions morts kills carte chaleur", "positions deaths kills map heat") },
+  { page: "journal", label: t("Journal", "Journal"), icon: "journal", keywords: t("notes tags", "notes tags") },
+  { page: "settings", label: t("Paramètres", "Settings"), icon: "settings", keywords: t("settings comptes cle api reglages options", "settings accounts api key preferences options") },
 ];
 
 const MATCH_LIMIT = 50;
@@ -70,21 +71,21 @@ function dateWords(iso: string): string {
   yesterday.setDate(now.getDate() - 1);
   const parts = [
     timeAgo(iso, now),
-    date.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" }),
-    date.toLocaleDateString("fr-FR"),
+    date.toLocaleDateString(locale(), { weekday: "long", day: "numeric", month: "long", year: "numeric" }),
+    date.toLocaleDateString(locale()),
     `${date.getDate()}/${date.getMonth() + 1}`,
   ];
-  if (date.toDateString() === now.toDateString()) parts.push("aujourd'hui aujourdhui");
-  if (date.toDateString() === yesterday.toDateString()) parts.push("hier");
+  if (date.toDateString() === now.toDateString()) parts.push(t("aujourd'hui aujourdhui", "today"));
+  if (date.toDateString() === yesterday.toDateString()) parts.push(t("hier", "yesterday"));
   return parts.join(" ");
 }
 
 function matchHaystack(game: RecentMatch): string {
   return normalize(
     [
-      game.mapName ?? "map inconnue",
+      game.mapName ?? t("map inconnue", "unknown map"),
       game.agentName ?? "",
-      game.won ? "victoire win gagne" : "defaite loss perdu",
+      game.won ? t("victoire win gagne", "victory win won") : t("defaite loss perdu", "defeat loss lost"),
       `${game.roundsWon}-${game.roundsLost}`,
       `${game.kills}/${game.deaths}/${game.assists}`,
       dateWords(game.startedAt),
@@ -168,12 +169,12 @@ export function CommandPalette({
       run();
     };
 
-    const pages: Item[] = PAGES.map((entry) => ({
+    const pages: Item[] = PAGES().map((entry) => ({
       kind: "page" as const,
       key: `page-${entry.page}`,
       label: entry.label,
       icon: entry.icon,
-      haystack: normalize(`${entry.label} ${entry.page} page aller ${entry.keywords}`),
+      haystack: normalize(`${entry.label} ${entry.page} ${t("page aller", "page go")} ${entry.keywords}`),
       run: finish(() => onNavigate(entry.page)),
     }));
 
@@ -182,10 +183,12 @@ export function CommandPalette({
       actions.push({
         kind: "action",
         key: "action-sync",
-        label: "Synchroniser maintenant",
-        hint: syncing ? "En cours" : "Action",
+        label: t("Synchroniser maintenant", "Sync now"),
+        hint: syncing ? t("En cours", "Running") : t("Action", "Action"),
         icon: "sync",
-        haystack: normalize("Synchroniser maintenant sync synchro actualiser rafraichir mettre a jour"),
+        haystack: normalize(
+          t("Synchroniser maintenant sync synchro actualiser rafraichir mettre a jour", "Sync now synchronize refresh update reload"),
+        ),
         run: finish(onSync),
       });
     }
@@ -193,19 +196,24 @@ export function CommandPalette({
       {
         kind: "action",
         key: "action-theme",
-        label: "Changer de thème",
-        hint: theme === "dark" ? "Passer en clair" : theme === "light" ? "Passer en sombre" : "Action",
+        label: t("Changer de thème", "Change theme"),
+        hint:
+          theme === "dark"
+            ? t("Passer en clair", "Switch to light")
+            : theme === "light"
+              ? t("Passer en sombre", "Switch to dark")
+              : t("Action", "Action"),
         icon: theme === "light" ? "moon" : "sun",
-        haystack: normalize("Changer de thème theme clair sombre dark light mode apparence"),
+        haystack: normalize(t("Changer de thème theme clair sombre dark light mode apparence", "Change theme light dark mode appearance")),
         run: finish(onToggleTheme),
       },
       {
         kind: "action",
         key: "action-tour",
-        label: "Revoir le tutoriel",
-        hint: "Action",
+        label: t("Revoir le tutoriel", "Replay the tour"),
+        hint: t("Action", "Action"),
         icon: "arrowRight",
-        haystack: normalize("Revoir le tutoriel tour aide guide visite decouverte"),
+        haystack: normalize(t("Revoir le tutoriel tour aide guide visite decouverte", "Replay the tour tutorial help guide walkthrough")),
         run: finish(onReplayTour),
       },
     );
@@ -229,9 +237,9 @@ export function CommandPalette({
     };
 
     return [
-      { id: "pages", title: "Pages", items: pick(pages, true) },
-      { id: "actions", title: "Actions", items: pick(actions, true) },
-      { id: "matches", title: "Matchs", items: pick(games, false) },
+      { id: "pages", title: t("Pages", "Pages"), items: pick(pages, true) },
+      { id: "actions", title: t("Actions", "Actions"), items: pick(actions, true) },
+      { id: "matches", title: t("Matchs", "Matches"), items: pick(games, false) },
     ].filter((section) => section.items.length > 0);
   }, [query, recent, account, theme, syncing, onClose, onNavigate, onOpenMatch, onToggleTheme, onSync, onReplayTour]);
 
@@ -286,7 +294,7 @@ export function CommandPalette({
         className="palette"
         role="dialog"
         aria-modal="true"
-        aria-label="Palette de commandes"
+        aria-label={t("Palette de commandes", "Command palette")}
         onKeyDown={onKeyDown}
       >
         <div className="palette-search">
@@ -299,8 +307,8 @@ export function CommandPalette({
             aria-controls={listId}
             aria-autocomplete="list"
             aria-activedescendant={count > 0 ? optionId(current) : undefined}
-            aria-label="Rechercher une page, une action ou un match"
-            placeholder="Rechercher une page, une action, un match..."
+            aria-label={t("Rechercher une page, une action ou un match", "Search for a page, an action or a match")}
+            placeholder={t("Rechercher une page, une action, un match...", "Search pages, actions, matches...")}
             value={query}
             onChange={(event) => {
               setQuery(event.target.value);
@@ -310,21 +318,26 @@ export function CommandPalette({
             spellCheck={false}
             autoComplete="off"
           />
-          <kbd className="palette-kbd">Échap</kbd>
+          <kbd className="palette-kbd">{t("Échap", "Esc")}</kbd>
         </div>
 
-        <div className="palette-list" id={listId} role="listbox" aria-label="Résultats" ref={listRef}>
+        <div className="palette-list" id={listId} role="listbox" aria-label={t("Résultats", "Results")} ref={listRef}>
           {count === 0 && (
             <div className="palette-empty" role="presentation">
-              <strong>Aucun résultat</strong>
-              <span>Essaie un nom de map, un agent, « victoire », « défaite » ou une date.</span>
+              <strong>{t("Aucun résultat", "No results")}</strong>
+              <span>
+                {t(
+                  "Essaie un nom de map, un agent, « victoire », « défaite » ou une date.",
+                  "Try a map name, an agent, \"victory\", \"defeat\" or a date.",
+                )}
+              </span>
             </div>
           )}
           {sections.map((section) => (
             <div className="palette-section" role="group" aria-labelledby={`${baseId}-${section.id}`} key={section.id}>
               <div className="palette-section-title" id={`${baseId}-${section.id}`} role="presentation">
                 <span>{section.title}</span>
-                {section.id === "matches" && loading && <span className="palette-loading">Chargement</span>}
+                {section.id === "matches" && loading && <span className="palette-loading">{t("Chargement", "Loading")}</span>}
               </div>
               {section.items.map((item) => {
                 index += 1;
@@ -344,7 +357,7 @@ export function CommandPalette({
                   >
                     {item.kind === "match" ? <MatchRow game={item.match} /> : <CommandRow item={item} />}
                     <kbd className="palette-enter" aria-hidden="true">
-                      Entrée
+                      {t("Entrée", "Enter")}
                     </kbd>
                   </div>
                 );
@@ -353,7 +366,7 @@ export function CommandPalette({
           ))}
           {!loading && failed && recent.length === 0 && (
             <div className="palette-note" role="presentation">
-              Impossible de charger les matchs récents.
+              {t("Impossible de charger les matchs récents.", "Couldn't load recent matches.")}
             </div>
           )}
         </div>
@@ -362,15 +375,15 @@ export function CommandPalette({
           <span>
             <kbd className="palette-kbd">↑</kbd>
             <kbd className="palette-kbd">↓</kbd>
-            naviguer
+            {t("naviguer", "navigate")}
           </span>
           <span>
-            <kbd className="palette-kbd">Entrée</kbd>
-            ouvrir
+            <kbd className="palette-kbd">{t("Entrée", "Enter")}</kbd>
+            {t("ouvrir", "open")}
           </span>
           <span>
-            <kbd className="palette-kbd">Échap</kbd>
-            fermer
+            <kbd className="palette-kbd">{t("Échap", "Esc")}</kbd>
+            {t("fermer", "close")}
           </span>
           <span className="palette-footer-end">
             <kbd className="palette-kbd">Ctrl K</kbd>
@@ -389,7 +402,7 @@ function CommandRow({ item }: { item: Extract<Item, { kind: "page" | "action" }>
         <Icon name={item.icon} size={16} strokeWidth={2} />
       </span>
       <span className="palette-label">{item.label}</span>
-      <span className="palette-hint">{item.kind === "page" ? "Page" : item.hint}</span>
+      <span className="palette-hint">{item.kind === "page" ? t("Page", "Page") : item.hint}</span>
     </>
   );
 }
@@ -402,11 +415,11 @@ function MatchRow({ game }: { game: RecentMatch }) {
         {icon ? <img src={icon} alt="" loading="lazy" /> : <Icon name="agents" size={16} />}
       </span>
       <span className="palette-match-main">
-        <strong>{game.mapName ?? "Map inconnue"}</strong>
-        <span>{game.agentName ?? "Agent inconnu"}</span>
+        <strong>{game.mapName ?? t("Map inconnue", "Unknown map")}</strong>
+        <span>{game.agentName ?? t("Agent inconnu", "Unknown agent")}</span>
       </span>
       <span className={`palette-result ${game.won ? "won" : "lost"}`}>
-        {game.won ? "Victoire" : "Défaite"} {game.roundsWon}-{game.roundsLost}
+        {game.won ? t("Victoire", "Victory") : t("Défaite", "Defeat")} {game.roundsWon}-{game.roundsLost}
       </span>
       <span className="palette-kda">
         {game.kills} / {game.deaths} / {game.assists}
