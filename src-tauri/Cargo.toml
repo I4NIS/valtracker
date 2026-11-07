@@ -1,6 +1,6 @@
 [package]
 name = "valtracker"
-version = "0.1.2"
+version = "1.0.0"
 description = "Suivi de performances Valorant"
 authors = ["I4NIS"]
 edition = "2024"
