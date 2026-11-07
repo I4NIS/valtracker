@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { MatchList } from "../components/MatchList";
 import { RankBadge } from "../components/RankBadge";
-import { api, errorMessage, type Account, type Overview, type RecentMatch, type Season } from "../lib/api";
+import { api, errorMessage, type Account, type Overview, type RecentFlaws, type RecentMatch, type Season } from "../lib/api";
 import { seasonLabel, tierLabel } from "../lib/assets";
 import { fmt, greeting, pct, signed, timeAgo } from "../lib/format";
 
@@ -25,6 +25,7 @@ export function Home({ account, refreshKey, onOpenMatch }: Props) {
   const [season, setSeason] = useState<string | null | undefined>(undefined);
   const [overview, setOverview] = useState<Overview | null>(null);
   const [recent, setRecent] = useState<RecentMatch[]>([]);
+  const [flaws, setFlaws] = useState<RecentFlaws | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -39,6 +40,10 @@ export function Home({ account, refreshKey, onOpenMatch }: Props) {
       .getRecentMatches(account.puuid, 10)
       .then(setRecent)
       .catch((err) => setError(errorMessage(err)));
+    api
+      .getRecentFlaws(account.puuid)
+      .then(setFlaws)
+      .catch(() => setFlaws(null));
   }, [account.puuid, refreshKey]);
 
   useEffect(() => {
@@ -159,6 +164,34 @@ export function Home({ account, refreshKey, onOpenMatch }: Props) {
         )}
       </section>
 
+      {flaws && flaws.deaths > 0 && (
+        <section className="stack" style={{ gap: 20 }}>
+          <div className="row between wrap" style={{ alignItems: "baseline" }}>
+            <h2 className="section-title">Tes défauts du moment</h2>
+            <span className="faint" style={{ fontSize: 13 }}>
+              Sur tes {flaws.matches} derniers matchs compétitifs
+            </span>
+          </div>
+          <div className="stat-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
+            <FlawStat
+              value={pct((flaws.untraded * 100) / flaws.deaths, 0)}
+              title="de tes morts ne sont pas tradées"
+              detail={`${flaws.untraded} sur ${flaws.deaths} : personne n'a tué ton tueur dans les 3 secondes.`}
+            />
+            <FlawStat
+              value={pct((flaws.isolated * 100) / flaws.deaths, 0)}
+              title="de tes morts arrivent isolé"
+              detail={`${flaws.isolated} sur ${flaws.deaths}, sans coéquipier à moins de 15 m.`}
+            />
+            <FlawStat
+              value={flaws.firstDeaths ? `1 / ${Math.max(1, Math.round(flaws.rounds / flaws.firstDeaths))}` : "0"}
+              title="rounds où tu meurs en premier"
+              detail={`${flaws.firstDeaths} first deaths en ${flaws.rounds} rounds.`}
+            />
+          </div>
+        </section>
+      )}
+
       <section className="stack" style={{ gap: 10 }}>
         <h2 className="section-title">Derniers matchs</h2>
         {recent.length > 0 && <span className="faint" style={{ fontSize: 13 }}>Clique sur un match pour voir son détail.</span>}
@@ -168,6 +201,18 @@ export function Home({ account, refreshKey, onOpenMatch }: Props) {
           <MatchList matches={recent} onOpen={onOpenMatch} />
         )}
       </section>
+    </div>
+  );
+}
+
+function FlawStat({ value, title, detail }: { value: string; title: string; detail: string }) {
+  return (
+    <div className="stack" style={{ gap: 8 }}>
+      <span className="flaw-value" style={{ fontSize: 44 }}>
+        {value}
+      </span>
+      <strong style={{ fontSize: 15 }}>{title}</strong>
+      <span className="hint">{detail}</span>
     </div>
   );
 }
