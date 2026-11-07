@@ -3,6 +3,7 @@ use serde_json::Value;
 use std::collections::HashMap;
 
 use crate::assets::MapData;
+use crate::i18n::{english, tr};
 use crate::thresholds::Thresholds;
 use crate::weapon_stats::{held_weapon_id, kill_weapon_id};
 
@@ -113,17 +114,17 @@ pub struct RoundLine {
 fn result_label(raw: &str) -> String {
     let lower = raw.to_lowercase();
     if lower.is_empty() {
-        "Temps écoulé".into()
+        tr("Temps écoulé", "Time ran out").into()
     } else if lower.contains("elim") {
-        "Élimination".into()
+        tr("Élimination", "Elimination").into()
     } else if lower.contains("detonat") || lower.contains("exploded") {
-        "Spike explosé".into()
+        tr("Spike explosé", "Spike detonated").into()
     } else if lower.contains("defus") {
-        "Spike désamorcé".into()
+        tr("Spike désamorcé", "Spike defused").into()
     } else if lower.contains("time") || lower.contains("expire") {
-        "Temps écoulé".into()
+        tr("Temps écoulé", "Time ran out").into()
     } else if lower.contains("surrender") {
-        "Abandon".into()
+        tr("Abandon", "Surrender").into()
     } else {
         raw.to_string()
     }
@@ -132,11 +133,11 @@ fn result_label(raw: &str) -> String {
 fn ceremony_label(raw: &str) -> Option<String> {
     match raw {
         "CeremonyAce" => Some("Ace".into()),
-        "CeremonyTeamAce" => Some("Ace d'équipe".into()),
+        "CeremonyTeamAce" => Some(tr("Ace d'équipe", "Team Ace").into()),
         "CeremonyClutch" => Some("Clutch".into()),
         "CeremonyFlawless" => Some("Flawless".into()),
-        "CeremonyThrifty" => Some("Victoire en éco".into()),
-        "CeremonyCloser" => Some("Round décisif".into()),
+        "CeremonyThrifty" => Some(tr("Victoire en éco", "Thrifty").into()),
+        "CeremonyCloser" => Some(tr("Round décisif", "Closer").into()),
         _ => None,
     }
 }
@@ -240,12 +241,18 @@ fn round_list(rounds: &[usize]) -> String {
     match parts.len() {
         0 => String::new(),
         1 => parts[0].clone(),
-        n => format!("{} et {}", parts[..n - 1].join(", "), parts[n - 1]),
+        n => format!("{} {} {}", parts[..n - 1].join(", "), tr("et", "and"), parts[n - 1]),
     }
 }
 
 fn plural(count: usize, word: &str) -> String {
-    if count > 1 { format!("{count} {word}s") } else { format!("{count} {word}") }
+    let many = if english() { count != 1 } else { count > 1 };
+    if many { format!("{count} {word}s") } else { format!("{count} {word}") }
+}
+
+fn rounds_label(rounds: &[usize]) -> String {
+    let word = if english() && rounds.len() == 1 { "Round" } else { "Rounds" };
+    format!("{word} {}", round_list(rounds))
 }
 
 fn role_weights(role: Option<&str>) -> (f64, f64, f64, f64) {
@@ -414,7 +421,7 @@ pub fn analyze(
             let person = |id: &str, fallback: Option<&str>| {
                 let line = lines.iter().find(|line| line.puuid == id);
                 (
-                    line.map_or_else(|| fallback.unwrap_or("Inconnu").to_string(), |line| line.name.clone()),
+                    line.map_or_else(|| fallback.unwrap_or(tr("Inconnu", "Unknown")).to_string(), |line| line.name.clone()),
                     line.and_then(|line| line.agent_id.clone()),
                     team_of(id) == Some(my_team.as_str()),
                     id == puuid,
@@ -563,7 +570,7 @@ pub fn analyze(
                 time_s: time as f64 / 1000.0,
                 attack: attack_side(round, attack_first),
                 round_won: round_line.is_some_and(|line| line.won),
-                killer_name: killer.map_or_else(|| "Inconnu".to_string(), |line| line.name.clone()),
+                killer_name: killer.map_or_else(|| tr("Inconnu", "Unknown").to_string(), |line| line.name.clone()),
                 killer_agent: killer.and_then(|line| line.agent_name.clone()),
                 killer_agent_id: killer.and_then(|line| line.agent_id.clone()),
                 weapon: text(kill, "/weapon/name").map(str::to_string),
@@ -590,30 +597,47 @@ pub fn analyze(
             *zone_counts.entry(zone.clone()).or_default() += 1;
         }
     }
+    let english = english();
     for death in &mut deaths {
         if !death.traded {
-            death.flaws.push(format!("Non tradée : personne n'a tué {} {}", death.killer_name, thresholds.trade_window_text()));
+            death.flaws.push(if english {
+                format!("Not traded: nobody killed {} {}", death.killer_name, thresholds.trade_window_text())
+            } else {
+                format!("Non tradée : personne n'a tué {} {}", death.killer_name, thresholds.trade_window_text())
+            });
         } else {
-            death.positives.push("Tradée par un coéquipier".to_string());
+            death.positives.push(tr("Tradée par un coéquipier", "Traded by a teammate").to_string());
         }
         match death.nearest_ally_m {
             Some(meters) if meters > thresholds.isolation_meters => {
-                death.flaws.push(format!("Isolé : coéquipier le plus proche à {} m", meters.round()));
+                death.flaws.push(if english {
+                    format!("Isolated: nearest teammate {} m away", meters.round())
+                } else {
+                    format!("Isolé : coéquipier le plus proche à {} m", meters.round())
+                });
             }
-            None => death.positives.push("Dernier joueur en vie de ton équipe".to_string()),
+            None => death.positives.push(tr("Dernier joueur en vie de ton équipe", "Last player alive on your team").to_string()),
             _ => {}
         }
         if death.first_death {
-            death.flaws.push("Premier mort du round".to_string());
+            death.flaws.push(tr("Premier mort du round", "First death of the round").to_string());
         }
         if let Some(zone) = &death.zone {
             let count = zone_counts.get(zone).copied().unwrap_or(0);
             if count >= thresholds.same_spot {
-                death.flaws.push(format!("{count} morts à {zone} dans ce match"));
+                death.flaws.push(if english {
+                    format!("{count} deaths at {zone} this match")
+                } else {
+                    format!("{count} morts à {zone} dans ce match")
+                });
             }
         }
         if death.loadout >= thresholds.full_buy {
-            death.flaws.push(format!("Full buy perdu : {} crédits", death.loadout));
+            death.flaws.push(if english {
+                format!("Full buy lost: {} credits", death.loadout)
+            } else {
+                format!("Full buy perdu : {} crédits", death.loadout)
+            });
         }
     }
 
@@ -632,11 +656,11 @@ pub fn analyze(
     let enemy_acs = average(&enemies);
     let level = ratio(team_acs, enemy_acs);
     let team_level = if level < 0.85 {
-        "Faible"
+        tr("Faible", "Weak")
     } else if level > 1.15 {
-        "Bonne"
+        tr("Bonne", "Strong")
     } else {
-        "Moyenne"
+        tr("Moyenne", "Average")
     };
 
     let mut teams: Vec<TeamBlock> = teams_json
@@ -722,23 +746,24 @@ fn assign_badges(lines: &mut [PlayerLine], players: &[Value], teams: &[Value], d
             lines[index].badge = Some("MVP".into());
         }
         if let Some(index) = best(lines, &|line| !team_won(&line.puuid), &|line| line.score as f64) {
-            lines[index].badge = Some("MVP de l'équipe".into());
+            lines[index].badge = Some(tr("MVP de l'équipe", "Team MVP").into());
         }
     }
     if let Some(index) = best(lines, &|_| true, &|line| line.adr) {
-        lines[index].badge = Some("plus de dégâts".into());
+        lines[index].badge = Some(tr("plus de dégâts", "most damage").into());
     }
     let enough_kills = |line: &PlayerLine| line.kills >= MIN_KILLS_FOR_HS_BADGE;
     if let Some(index) = best(lines, &enough_kills, &|line| line.hs_pct) {
-        lines[index].badge = Some("meilleur HS".into());
+        lines[index].badge = Some(tr("meilleur HS", "best HS").into());
     }
     if let Some(index) = best(lines, &|_| true, &|line| -(line.deaths as f64)) {
-        lines[index].badge = Some("moins de morts".into());
+        lines[index].badge = Some(tr("moins de morts", "fewest deaths").into());
     }
 }
 
 fn match_flaws(deaths: &[Death], rounds: &[RoundLine], zones: &HashMap<String, usize>, thresholds: &Thresholds) -> Vec<Flaw> {
     let mut flaws = Vec::new();
+    let english = english();
     let total = deaths.len();
     if total == 0 {
         return flaws;
@@ -747,12 +772,18 @@ fn match_flaws(deaths: &[Death], rounds: &[RoundLine], zones: &HashMap<String, u
     let untraded = deaths.iter().filter(|death| !death.traded).count();
     if untraded > 0 {
         let traded: Vec<usize> = deaths.iter().filter(|death| death.traded).map(|death| death.round).collect();
-        let detail = if traded.is_empty() {
-            format!("Aucune de tes morts n'a été vengée {}", thresholds.trade_window_text())
-        } else {
-            format!("Seules tes morts des rounds {} ont été vengées {}", round_list(&traded), thresholds.trade_window_text())
+        let window = thresholds.trade_window_text();
+        let detail = match (traded.is_empty(), english) {
+            (true, false) => format!("Aucune de tes morts n'a été vengée {window}"),
+            (true, true) => format!("None of your deaths were traded {window}"),
+            (false, false) => format!("Seules tes morts des rounds {} ont été vengées {window}", round_list(&traded)),
+            (false, true) => format!("Only your deaths in {} were traded {window}", rounds_label(&traded).to_lowercase()),
         };
-        flaws.push(Flaw { value: format!("{untraded} / {total}"), title: "morts non tradées".into(), detail });
+        flaws.push(Flaw {
+            value: format!("{untraded} / {total}"),
+            title: tr("morts non tradées", "untraded deaths").into(),
+            detail,
+        });
     }
 
     let isolated: Vec<&Death> = deaths
@@ -764,28 +795,35 @@ fn match_flaws(deaths: &[Death], rounds: &[RoundLine], zones: &HashMap<String, u
         let distances: Vec<f64> = isolated.iter().filter_map(|death| death.nearest_ally_m).collect();
         let min = distances.iter().copied().fold(f64::MAX, f64::min).round();
         let max = distances.iter().copied().fold(0.0, f64::max).round();
-        let range = if (max - min).abs() < 1.0 { format!("{max} m") } else { format!("entre {min} et {max} m") };
-        flaws.push(Flaw {
-            value: isolated.len().to_string(),
-            title: if isolated.len() > 1 { "morts en étant isolé".into() } else { "mort en étant isolé".into() },
-            detail: format!("Rounds {} : coéquipier le plus proche {range}", round_list(&rounds_list)),
-        });
+        let same = (max - min).abs() < 1.0;
+        let detail = match (same, english) {
+            (true, false) => format!("{} : coéquipier le plus proche {max} m", rounds_label(&rounds_list)),
+            (false, false) => format!("{} : coéquipier le plus proche entre {min} et {max} m", rounds_label(&rounds_list)),
+            (true, true) => format!("{}: nearest teammate {max} m away", rounds_label(&rounds_list)),
+            (false, true) => format!("{}: nearest teammate {min} to {max} m away", rounds_label(&rounds_list)),
+        };
+        let title = if isolated.len() > 1 {
+            tr("morts en étant isolé", "deaths while isolated")
+        } else {
+            tr("mort en étant isolé", "death while isolated")
+        };
+        flaws.push(Flaw { value: isolated.len().to_string(), title: title.into(), detail });
     }
 
     if let Some((zone, count)) = zones.iter().filter(|(_, count)| **count >= thresholds.same_spot).max_by_key(|(_, count)| **count) {
         let in_zone: Vec<&Death> = deaths.iter().filter(|death| death.zone.as_deref() == Some(zone.as_str())).collect();
         let rounds_list: Vec<usize> = in_zone.iter().map(|death| death.round).collect();
         let side = if in_zone.iter().all(|death| death.attack) {
-            ", toutes en attaque"
+            tr(", toutes en attaque", ", all on attack")
         } else if in_zone.iter().all(|death| !death.attack) {
-            ", toutes en défense"
+            tr(", toutes en défense", ", all on defense")
         } else {
             ""
         };
         flaws.push(Flaw {
             value: count.to_string(),
-            title: format!("morts à {zone}"),
-            detail: format!("Rounds {}{side}", round_list(&rounds_list)),
+            title: if english { format!("deaths at {zone}") } else { format!("morts à {zone}") },
+            detail: format!("{}{side}", rounds_label(&rounds_list)),
         });
     }
 
@@ -793,10 +831,16 @@ fn match_flaws(deaths: &[Death], rounds: &[RoundLine], zones: &HashMap<String, u
     if !first.is_empty() {
         let rounds_list: Vec<usize> = first.iter().map(|death| death.round).collect();
         let lost = first.iter().filter(|death| !death.round_won).count();
+        let detail = match (english, first.len()) {
+            (false, _) => format!("{} : ton équipe en a perdu {}", rounds_label(&rounds_list), lost),
+            (true, 1) if lost == 1 => format!("{}: your team lost it", rounds_label(&rounds_list)),
+            (true, 1) => format!("{}: your team won it", rounds_label(&rounds_list)),
+            (true, _) => format!("{}: your team lost {lost} of them", rounds_label(&rounds_list)),
+        };
         flaws.push(Flaw {
             value: first.len().to_string(),
             title: if first.len() > 1 { "first deaths".into() } else { "first death".into() },
-            detail: format!("Rounds {} : ton équipe en a perdu {}", round_list(&rounds_list), lost),
+            detail,
         });
     }
 
@@ -808,8 +852,12 @@ fn match_flaws(deaths: &[Death], rounds: &[RoundLine], zones: &HashMap<String, u
         let rounds_list: Vec<usize> = wasted.iter().map(|round| round.number).collect();
         flaws.push(Flaw {
             value: wasted.len().to_string(),
-            title: if wasted.len() > 1 { "full buys perdus sans kill".into() } else { "full buy perdu sans kill".into() },
-            detail: format!("Rounds {}", round_list(&rounds_list)),
+            title: if wasted.len() > 1 {
+                tr("full buys perdus sans kill", "full buys lost without a kill").into()
+            } else {
+                tr("full buy perdu sans kill", "full buy lost without a kill").into()
+            },
+            detail: rounds_label(&rounds_list),
         });
     }
 
@@ -821,12 +869,111 @@ fn match_flaws(deaths: &[Death], rounds: &[RoundLine], zones: &HashMap<String, u
     if per_round < 0.5 {
         flaws.push(Flaw {
             value: plural((attack_kills + defense_kills) as usize, "kill"),
-            title: format!("en {} rounds", rounds.len()),
-            detail: format!(
-                "{attack_kills} en {attack_rounds} rounds d'attaque, {defense_kills} en {defense_rounds} rounds de défense"
-            ),
+            title: if english { format!("in {}", plural(rounds.len(), "round")) } else { format!("en {} rounds", rounds.len()) },
+            detail: if english {
+                format!(
+                    "{attack_kills} in {}, {defense_kills} in {}",
+                    plural(attack_rounds, "attack round"),
+                    plural(defense_rounds, "defense round")
+                )
+            } else {
+                format!("{attack_kills} en {attack_rounds} rounds d'attaque, {defense_kills} en {defense_rounds} rounds de défense")
+            },
         });
     }
 
     flaws
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn player(puuid: &str, team: &str, kills: i64, deaths: i64) -> Value {
+        json!({
+            "puuid": puuid,
+            "name": puuid,
+            "tag": "0000",
+            "team_id": team,
+            "agent": { "id": "jett", "name": "Jett" },
+            "stats": {
+                "score": kills * 200,
+                "kills": kills,
+                "deaths": deaths,
+                "assists": 0,
+                "headshots": kills,
+                "bodyshots": kills,
+                "legshots": 0,
+                "damage": { "dealt": kills * 150 },
+            },
+        })
+    }
+
+    fn sample() -> Value {
+        json!({
+            "metadata": { "match_id": "m1", "map": { "id": "ascent", "name": "Ascent" } },
+            "players": [player("me", "Red", 0, 1), player("foe", "Blue", 1, 0)],
+            "teams": [
+                { "team_id": "Red", "won": false, "rounds": { "won": 0, "lost": 1 } },
+                { "team_id": "Blue", "won": true, "rounds": { "won": 1, "lost": 0 } },
+            ],
+            "rounds": [{ "winning_team": "Blue", "winning_team_role": "Attacker", "result": "Elimination" }],
+            "kills": [{
+                "round": 0,
+                "time_in_round_in_ms": 5000,
+                "killer": { "puuid": "foe", "name": "foe" },
+                "victim": { "puuid": "me", "name": "me" },
+                "weapon": { "name": "Vandal", "type": "Weapon" },
+            }],
+        })
+    }
+
+    fn analyze_in(language: &str) -> MatchDetail {
+        crate::i18n::set(language);
+        let detail = analyze(&sample(), "me", None, &HashMap::new(), &Thresholds::default());
+        crate::i18n::set("fr");
+        detail.expect("sample match")
+    }
+
+    #[test]
+    fn writes_texts_in_french() {
+        let detail = analyze_in("fr");
+        let flaws: Vec<(&str, &str, &str)> =
+            detail.flaws.iter().map(|flaw| (flaw.value.as_str(), flaw.title.as_str(), flaw.detail.as_str())).collect();
+        assert_eq!(
+            flaws,
+            [
+                ("1 / 1", "morts non tradées", "Aucune de tes morts n'a été vengée dans les 3 secondes"),
+                ("1", "first death", "Rounds 1 : ton équipe en a perdu 1"),
+                ("0 kill", "en 1 rounds", "0 en 0 rounds d'attaque, 0 en 1 rounds de défense"),
+            ]
+        );
+        let death = &detail.death_reviews[0];
+        assert_eq!(death.flaws, ["Non tradée : personne n'a tué foe dans les 3 secondes", "Premier mort du round"]);
+        assert_eq!(death.positives, ["Dernier joueur en vie de ton équipe"]);
+        assert_eq!(detail.team_level, "Faible");
+        assert_eq!(detail.rounds[0].result, "Élimination");
+    }
+
+    #[test]
+    fn writes_texts_in_english() {
+        let detail = analyze_in("en");
+        let flaws: Vec<(&str, &str, &str)> =
+            detail.flaws.iter().map(|flaw| (flaw.value.as_str(), flaw.title.as_str(), flaw.detail.as_str())).collect();
+        assert_eq!(
+            flaws,
+            [
+                ("1 / 1", "untraded deaths", "None of your deaths were traded within 3 seconds"),
+                ("1", "first death", "Round 1: your team lost it"),
+                ("0 kills", "in 1 round", "0 in 0 attack rounds, 0 in 1 defense round"),
+            ]
+        );
+        let death = &detail.death_reviews[0];
+        assert_eq!(death.flaws, ["Not traded: nobody killed foe within 3 seconds", "First death of the round"]);
+        assert_eq!(death.positives, ["Last player alive on your team"]);
+        assert_eq!(detail.team_level, "Weak");
+        assert_eq!(detail.rounds[0].result, "Elimination");
+        assert!(!crate::i18n::english());
+    }
 }

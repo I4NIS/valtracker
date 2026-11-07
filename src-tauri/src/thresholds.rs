@@ -4,6 +4,7 @@ use tauri::{AppHandle, Emitter, State};
 
 use crate::db;
 use crate::error::{AppError, AppResult};
+use crate::i18n::{decimal, english, tr};
 use crate::reports;
 use crate::state::AppState;
 use crate::sync::ACTIVE_ACCOUNT_SETTING;
@@ -35,16 +36,24 @@ pub struct ThresholdSettings {
 impl Thresholds {
     pub fn validate(&self) -> AppResult<()> {
         if !(1000..=10_000).contains(&self.trade_window_ms) {
-            return Err(AppError::Invalid("La fenêtre de trade doit être entre 1 et 10 secondes".into()));
+            return Err(AppError::Invalid(
+                tr("La fenêtre de trade doit être entre 1 et 10 secondes", "The trade window must be between 1 and 10 seconds").into(),
+            ));
         }
         if !(5.0..=40.0).contains(&self.isolation_meters) {
-            return Err(AppError::Invalid("La distance d'isolement doit être entre 5 et 40 m".into()));
+            return Err(AppError::Invalid(
+                tr("La distance d'isolement doit être entre 5 et 40 m", "The isolation distance must be between 5 and 40 m").into(),
+            ));
         }
         if !(2000..=5000).contains(&self.full_buy) {
-            return Err(AppError::Invalid("Le full buy doit être entre 2000 et 5000 crédits".into()));
+            return Err(AppError::Invalid(
+                tr("Le full buy doit être entre 2000 et 5000 crédits", "The full buy must be between 2000 and 5000 credits").into(),
+            ));
         }
         if !(2..=6).contains(&self.same_spot) {
-            return Err(AppError::Invalid("Le nombre de morts au même spot doit être entre 2 et 6".into()));
+            return Err(AppError::Invalid(
+                tr("Le nombre de morts au même spot doit être entre 2 et 6", "Deaths at the same spot must be between 2 and 6").into(),
+            ));
         }
         Ok(())
     }
@@ -64,15 +73,11 @@ impl Thresholds {
 
     pub fn trade_window_text(&self) -> String {
         if self.trade_window_ms == 1000 {
-            return "dans la seconde".into();
+            return tr("dans la seconde", "within 1 second").into();
         }
         let seconds = self.trade_window_ms as f64 / 1000.0;
-        let value = if self.trade_window_ms % 1000 == 0 {
-            format!("{seconds:.0}")
-        } else {
-            format!("{seconds:.1}").replace('.', ",")
-        };
-        format!("dans les {value} secondes")
+        let value = decimal(seconds, if self.trade_window_ms % 1000 == 0 { 0 } else { 1 });
+        if english() { format!("within {value} seconds") } else { format!("dans les {value} secondes") }
     }
 }
 
@@ -166,5 +171,10 @@ mod tests {
         assert_eq!(base.trade_window_text(), "dans les 3 secondes");
         assert_eq!(Thresholds { trade_window_ms: 1000, ..base }.trade_window_text(), "dans la seconde");
         assert_eq!(Thresholds { trade_window_ms: 2500, ..base }.trade_window_text(), "dans les 2,5 secondes");
+        crate::i18n::set("en");
+        assert_eq!(base.trade_window_text(), "within 3 seconds");
+        assert_eq!(Thresholds { trade_window_ms: 1000, ..base }.trade_window_text(), "within 1 second");
+        assert_eq!(Thresholds { trade_window_ms: 2500, ..base }.trade_window_text(), "within 2.5 seconds");
+        crate::i18n::set("fr");
     }
 }
