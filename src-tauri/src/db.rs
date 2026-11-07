@@ -139,6 +139,9 @@ CREATE TABLE favorites (
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     PRIMARY KEY (puuid, match_id, kind, round_index)
 );
+", "
+CREATE INDEX IF NOT EXISTS idx_match_summaries_puuid ON match_summaries(puuid);
+CREATE INDEX IF NOT EXISTS idx_match_notes_puuid ON match_notes(puuid);
 "];
 
 pub fn open(path: &Path) -> AppResult<Connection> {
