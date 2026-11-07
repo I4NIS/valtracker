@@ -25,6 +25,7 @@ pub struct MapOption {
     pub id: String,
     pub name: String,
     pub matches: i64,
+    pub image: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -33,20 +34,24 @@ pub struct Heatmap {
     pub maps: Vec<MapOption>,
     pub map_id: Option<String>,
     pub minimap: Option<String>,
+    pub splash: Option<String>,
+    pub rotation: i32,
     pub matches: i64,
     pub points: Vec<HeatPoint>,
 }
 
 pub fn heatmap(conn: &Connection, puuid: &str, map_id: Option<&str>, season: Option<&str>) -> AppResult<Heatmap> {
     let mut stmt = conn.prepare(
-        "SELECT m.map_id, COALESCE(m.map_name, ''), COUNT(*)
+        "SELECT m.map_id, COALESCE(m.map_name, ''), COUNT(*), (SELECT splash FROM maps WHERE uuid = m.map_id)
          FROM match_players p JOIN matches m ON m.match_id = p.match_id
          WHERE p.puuid = ?1 AND m.map_id IS NOT NULL AND (?2 IS NULL OR m.season_short = ?2)
          GROUP BY m.map_id
          ORDER BY COUNT(*) DESC",
     )?;
     let maps = stmt
-        .query_map(params![puuid, season], |row| Ok(MapOption { id: row.get(0)?, name: row.get(1)?, matches: row.get(2)? }))?
+        .query_map(params![puuid, season], |row| {
+            Ok(MapOption { id: row.get(0)?, name: row.get(1)?, matches: row.get(2)?, image: row.get(3)? })
+        })?
         .collect::<Result<Vec<_>, _>>()?;
     drop(stmt);
 
@@ -55,7 +60,7 @@ pub fn heatmap(conn: &Connection, puuid: &str, map_id: Option<&str>, season: Opt
         .map(str::to_string)
         .or_else(|| maps.first().map(|map| map.id.clone()));
     let Some(selected) = selected else {
-        return Ok(Heatmap { maps, map_id: None, minimap: None, matches: 0, points: Vec::new() });
+        return Ok(Heatmap { maps, map_id: None, minimap: None, splash: None, rotation: 0, matches: 0, points: Vec::new() });
     };
     let data = assets::load_map(conn, &selected)?;
 
@@ -81,6 +86,8 @@ pub fn heatmap(conn: &Connection, puuid: &str, map_id: Option<&str>, season: Opt
 
     Ok(Heatmap {
         maps,
+        rotation: data.as_ref().map_or(0, assets::MapData::rotation),
+        splash: data.as_ref().and_then(|map| map.splash.clone()),
         minimap: data.and_then(|map| map.display_icon),
         map_id: Some(selected),
         matches,
