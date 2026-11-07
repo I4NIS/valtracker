@@ -153,11 +153,28 @@
   gap: 12px;
 }
 
+.weapons-table.weapons-pane {
+  padding: 0 8px 8px;
+  border-radius: 16px;
+  background: var(--raised);
+}
+
 .weapons-table.weapons-pane .weapon-row.head {
   position: sticky;
   top: 0;
-  z-index: 1;
-  background: var(--panel);
+  z-index: 2;
+  margin: 0 -8px;
+  padding: 14px 22px 10px;
+  border-radius: 16px 16px 0 0;
+  background: var(--raised);
+}
+
+.weapons-table.weapons-pane button.weapon-row:hover {
+  background: var(--field);
+}
+
+.weapons-table.weapons-pane button.weapon-row.active {
+  background: color-mix(in srgb, var(--field) 70%, var(--line));
 }
 
 .weapons-side.panel {
@@ -205,7 +222,15 @@
 }
 
 .weapon-row {
-  grid-template-columns: minmax(0, 2.1fr) minmax(0, 1.4fr) 64px 52px 70px 64px;
+  grid-template-columns: minmax(0, 2.1fr) 40px minmax(40px, 1.2fr) 64px 52px 70px 64px;
+}
+
+.weapon-row.head .weapon-col-kills {
+  grid-column: span 2;
+}
+
+.weapon-kills-count {
+  font-weight: 700;
 }
 
 .killer-row {
@@ -343,8 +368,13 @@ button.weapon-part:hover {
   font-weight: 500;
 }
 
-.weapon-row > :nth-child(n + 3) {
+.weapon-row > :nth-child(n + 3),
+.weapon-row.head > :nth-child(n + 3) {
   text-align: right;
+}
+
+.weapon-row:not(.head) > :nth-child(3) {
+  text-align: left;
 }
 
 .killer-row > :nth-child(3),
@@ -403,6 +433,7 @@ button.weapon-row.active {
 }
 
 .weapon-kills .bar > span,
+.weapon-kills-bar > span,
 .range-bar.is-good > span {
   background: var(--good);
 }
@@ -412,6 +443,7 @@ button.weapon-row.active {
 }
 
 .weapon-kills .bar > span,
+.weapon-kills-bar > span,
 .range-bar > span {
   transition: width 0.35s ease;
 }
@@ -535,9 +567,29 @@ button.weapon-row.active {
   }
 }
 
+@container wtable (max-width: 700px) {
+  .weapon-row {
+    grid-template-columns: minmax(0, 1fr) 40px 60px 48px 66px 58px;
+    gap: 12px;
+  }
+
+  .weapon-row.head .weapon-col-kills {
+    grid-column: auto;
+    text-align: right;
+  }
+
+  .weapon-row:not(.head) > .weapon-kills-count {
+    text-align: right;
+  }
+
+  .weapon-kills-bar {
+    display: none;
+  }
+}
+
 @container wtable (max-width: 560px) {
   .weapon-row {
-    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.3fr) 48px 60px;
+    grid-template-columns: minmax(0, 1fr) 40px 48px 58px;
     gap: 12px;
   }
 
@@ -565,7 +617,7 @@ button.weapon-row.active {
 
 @container wtable (max-width: 380px) {
   .weapon-row {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) 52px;
+    grid-template-columns: minmax(0, 1fr) 40px 52px;
     padding: 8px 10px;
   }
 

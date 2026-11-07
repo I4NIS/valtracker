@@ -339,7 +339,7 @@ export function Weapons({ account, onOpenRound }: Props) {
                     <div className="weapons-table weapons-pane" role="list">
                       <div className="weapon-row head" aria-hidden="true">
                         <span>{t("Arme", "Weapon")}</span>
-                        <span>Kills</span>
+                        <span className="weapon-col-kills">Kills</span>
                         <span className="weapon-col-share">{t("Part", "Share")}</span>
                         <span className="weapon-col-hs">HS</span>
                         <span className="weapon-col-dist">Distance</span>
@@ -362,11 +362,9 @@ export function Weapons({ account, onOpenRound }: Props) {
                                   <span className="faint">{weaponCategory(item.name)}</span>
                                 </span>
                               </span>
-                              <span className="weapon-kills">
-                                <strong>{fmt(item.kills)}</strong>
-                                <span className="bar">
-                                  <span style={{ width: `${(item.kills / topKills) * 100}%` }} />
-                                </span>
+                              <strong className="weapon-kills-count">{fmt(item.kills)}</strong>
+                              <span className="bar weapon-kills-bar" aria-hidden="true">
+                                <span style={{ width: `${(item.kills / topKills) * 100}%` }} />
                               </span>
                               <span className="weapon-col-share">{pct(item.killShare)}</span>
                               <span className="weapon-col-hs">{item.hsPct === null ? "-" : pct(item.hsPct, 0)}</span>
