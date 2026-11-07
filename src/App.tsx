@@ -60,6 +60,8 @@ export default function App() {
   const [theme, setTheme] = useState<Theme>("dark");
   const [language, setLanguage] = useState<Lang>("fr");
   const [page, setPage] = useState<Page>("home");
+  const pageRef = useRef(page);
+  pageRef.current = page;
   const [openMatch, setOpenMatch] = useState<string | null>(null);
   const [openMatchOwner, setOpenMatchOwner] = useState<string | null>(null);
   const [openRound, setOpenRound] = useState<number | undefined>(undefined);
@@ -139,8 +141,8 @@ export default function App() {
   const single = combined ? null : account;
 
   useEffect(() => {
-    if (combined) prefetchAccount(ALL_ACCOUNTS).catch(() => undefined);
-    else if (account) prefetchAccount(account.puuid).catch(() => undefined);
+    if (combined) prefetchAccount(ALL_ACCOUNTS, pageRef.current).catch(() => undefined);
+    else if (account) prefetchAccount(account.puuid, pageRef.current).catch(() => undefined);
   }, [account?.puuid, combined !== null, refreshKey]);
   const needsSetup = boot !== null && (!boot.hasApiKey || boot.accounts.length === 0);
 

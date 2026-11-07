@@ -5,9 +5,9 @@ import { SeasonPicker } from "../components/SeasonPicker";
 import type { Account } from "../lib/api";
 import { t } from "../lib/i18n";
 import { useQuery } from "../lib/query";
-import { ALL_ACCOUNTS, queries } from "../lib/queries";
+import { ALL_ACCOUNTS, queries, RECENT_PAGE } from "../lib/queries";
 
-const PAGE = 20;
+const PAGE = RECENT_PAGE;
 
 type Props = {
   account: Account;

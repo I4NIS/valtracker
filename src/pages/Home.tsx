@@ -1,5 +1,5 @@
 import "../styles/home.css";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ExportRecapButton } from "../components/ExportRecap";
 import { type ExtraFilters, hasExtra, MatchFilters, NO_EXTRA } from "../components/MatchFilters";
 import { MatchList } from "../components/MatchList";
@@ -10,7 +10,7 @@ import { seasonLabel, tierLabel } from "../lib/assets";
 import { fmt, greeting, pct, signed, tradeWindowText } from "../lib/format";
 import { t } from "../lib/i18n";
 import { useQuery } from "../lib/query";
-import { ALL_ACCOUNTS, defaultSeason, queries } from "../lib/queries";
+import { ALL_ACCOUNTS, defaultSeason, queries, RECENT_PAGE } from "../lib/queries";
 
 type Props = {
   account: Account;
@@ -18,6 +18,8 @@ type Props = {
   accounts: Account[] | null;
   onOpenMatch: (matchId: string, round?: number, puuid?: string) => void;
 };
+
+const RECENT_SHOWN = 10;
 
 let remembered: { puuid: string; extra: ExtraFilters } | null = null;
 
@@ -45,7 +47,8 @@ export function Home({ account, accounts, onOpenMatch }: Props) {
     setExtra(NO_EXTRA);
   }
   const overviewQuery = useQuery(season === undefined ? null : queries.overview(puuid, { ...extra, season }));
-  const recent = useQuery(queries.recent(puuid, 10)).data ?? [];
+  const latest = useQuery(queries.recent(puuid, RECENT_PAGE)).data;
+  const recent = useMemo(() => (latest ?? []).slice(0, RECENT_SHOWN), [latest]);
   const flaws = useQuery(accounts ? null : queries.flaws(puuid)).data ?? null;
   const thresholds = useQuery(queries.thresholds()).data?.values;
   const overview = overviewQuery.data ?? null;
