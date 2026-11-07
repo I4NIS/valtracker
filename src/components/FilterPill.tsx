@@ -16,10 +16,9 @@ type Props<T> = {
   onChange: (value: T | null) => void;
 };
 
-export function FilterPill<T extends string | number>({ label, allLabel, value, options, onChange }: Props<T>) {
+export function useMenu() {
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
-  const selected = value === null ? null : (options.find((option) => option.value === value) ?? null);
 
   useEffect(() => {
     if (!open) return;
@@ -36,6 +35,13 @@ export function FilterPill<T extends string | number>({ label, allLabel, value, 
       document.removeEventListener("keydown", escape);
     };
   }, [open]);
+
+  return { open, setOpen, root };
+}
+
+export function FilterPill<T extends string | number>({ label, allLabel, value, options, onChange }: Props<T>) {
+  const { open, setOpen, root } = useMenu();
+  const selected = value === null ? null : (options.find((option) => option.value === value) ?? null);
 
   const pick = (next: T | null) => {
     setOpen(false);

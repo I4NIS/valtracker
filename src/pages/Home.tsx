@@ -5,6 +5,7 @@ import { FilterPill, type PillOption } from "../components/FilterPill";
 import { Icon } from "../components/Icon";
 import { MatchList } from "../components/MatchList";
 import { RankBadge } from "../components/RankBadge";
+import { SeasonPicker } from "../components/SeasonPicker";
 import type { Account, OverviewFilters, Party, RecentMatch } from "../lib/api";
 import { agentIcon, seasonLabel, tierLabel } from "../lib/assets";
 import { fmt, greeting, pct, roleLabel, signed, timeAgo, tradeWindowText } from "../lib/format";
@@ -51,7 +52,6 @@ export function Home({ account, accounts, onOpenMatch }: Props) {
   const puuid = accounts ? ALL_ACCOUNTS : account.puuid;
   const [season, setSeason] = useState<string | null | undefined>(() => defaultSeason(puuid));
   const seasonsQuery = useQuery(queries.seasons(puuid));
-  const seasons = seasonsQuery.data ?? [];
   const [scope, setScope] = useState(puuid);
   const [extra, setExtra] = useState<Extra>(() => (remembered?.puuid === puuid ? remembered.extra : NO_EXTRA));
   if (scope !== puuid) {
@@ -70,10 +70,6 @@ export function Home({ account, accounts, onOpenMatch }: Props) {
   useEffect(() => {
     remembered = { puuid, extra };
   }, [puuid, extra]);
-
-  useEffect(() => {
-    if (season === undefined && seasonsQuery.data) setSeason(seasonsQuery.data[0]?.short ?? null);
-  }, [season, seasonsQuery.data]);
 
   const filtered = Object.values(extra).some((value) => value !== null);
   const rr = account.rr ?? 0;
@@ -248,22 +244,8 @@ export function Home({ account, accounts, onOpenMatch }: Props) {
       )}
 
       <section className="stack" style={{ gap: 20 }}>
-        <div className="home-filters">
-          <div className="chips" role="group" aria-label={t("Acte", "Act")}>
-            {seasons.map((item) => (
-              <button
-                key={item.short}
-                type="button"
-                className={`chip${season === item.short ? " active" : ""}`}
-                onClick={() => setSeason(item.short)}
-              >
-                {seasonLabel(item.short)}
-              </button>
-            ))}
-            <button type="button" className={`chip${season === null ? " active" : ""}`} onClick={() => setSeason(null)}>
-              {t("Global", "All time")}
-            </button>
-          </div>
+        <div className="filter-bar">
+          <SeasonPicker puuid={puuid} value={season} onChange={setSeason} />
           <div className="chips" role="group" aria-label={t("Filtres", "Filters")}>
             {(options?.maps.length ?? 0) > 1 && (
               <FilterPill
