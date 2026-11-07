@@ -17,6 +17,8 @@ pub enum AppError {
     NotFound,
     #[error("{}", tr("Limite de requêtes atteinte, réessaie dans une minute", "Rate limit reached, try again in a minute"))]
     RateLimited,
+    #[error("{}", tr("HenrikDev ne répond pas pour le moment", "HenrikDev is not responding right now"))]
+    Unavailable,
     #[error("{0}")]
     Invalid(String),
 }

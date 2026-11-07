@@ -98,7 +98,11 @@ impl Henrik {
     async fn fetch(&self, segments: &[&str], query: &[(&str, String)]) -> AppResult<Vec<u8>> {
         let url = build_url(segments, query)?;
         for _ in 0..MAX_ATTEMPTS {
-            let response = self.client.get(url.clone()).header("Authorization", &self.key).send().await?;
+            let response = match self.client.get(url.clone()).header("Authorization", &self.key).send().await {
+                Ok(response) => response,
+                Err(err) if err.is_timeout() => return Err(AppError::Unavailable),
+                Err(err) => return Err(err.into()),
+            };
             let status = response.status();
             let reset = header_secs(&response, "x-ratelimit-reset").unwrap_or(60);
             if status == StatusCode::TOO_MANY_REQUESTS {
@@ -149,6 +153,7 @@ fn api_error(status: StatusCode, body: &Value) -> AppError {
     let message = match status.as_u16() {
         401 | 403 => tr("Clé API HenrikDev invalide ou expirée", "HenrikDev API key invalid or expired").to_string(),
         404 => return AppError::NotFound,
+        500..=599 => return AppError::Unavailable,
         code if detail.is_empty() && english => format!("The HenrikDev API returned error {code}"),
         code if detail.is_empty() => format!("L'API HenrikDev a répondu avec l'erreur {code}"),
         code if english => format!("The HenrikDev API returned error {code}: {detail}"),
@@ -178,5 +183,15 @@ mod tests {
         assert!(games(r#"{"status":200}"#).is_empty());
         assert!(games(r#"{"status":200,"data":{"a":1}}"#).is_empty());
         assert!(games("not json").is_empty());
+    }
+
+    #[test]
+    fn server_errors_mean_henrikdev_is_unavailable() {
+        let body = serde_json::json!({"errors": [{"code": 9, "message": "Not able to fetch needed resource to build response"}]});
+        for code in [500, 502, 503, 504] {
+            assert!(matches!(api_error(StatusCode::from_u16(code).unwrap(), &body), AppError::Unavailable));
+        }
+        assert!(matches!(api_error(StatusCode::NOT_FOUND, &body), AppError::NotFound));
+        assert!(matches!(api_error(StatusCode::BAD_REQUEST, &body), AppError::Api(_)));
     }
 }

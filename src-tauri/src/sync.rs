@@ -27,7 +27,14 @@ pub async fn run(app: &AppHandle, puuid: &str) -> AppResult<SyncReport> {
     let state = app.state::<AppState>();
     let _guard = state.sync_lock.lock().await;
     let result = sync(app, &state, puuid).await;
-    let error = result.as_ref().err().map(ToString::to_string);
+    let error = result.as_ref().err().map(|err| match err {
+        AppError::Unavailable => tr(
+            "HenrikDev ne répond pas pour le moment. Tes matchs restent consultables, nouvel essai automatique d'ici 10 minutes",
+            "HenrikDev is not responding right now. Your matches are still available, next try within 10 minutes",
+        )
+        .to_string(),
+        err => err.to_string(),
+    });
     let new_matches = result.as_ref().map_or(0, |report| report.new_matches);
     emit(app, puuid, tr("Terminé", "Done"), new_matches, false, error);
     crate::reports::ready(app);
