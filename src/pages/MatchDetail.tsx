@@ -2,11 +2,13 @@ import { useEffect, useState } from "react";
 import { DeathReview } from "../components/DeathReview";
 import { Icon } from "../components/Icon";
 import { NoteEditor } from "../components/NoteEditor";
-import { api, errorMessage, type Account, type MatchDetail as Detail, type RoundLine } from "../lib/api";
+import type { Account, RoundLine } from "../lib/api";
 import { RankBadge } from "../components/RankBadge";
 import { RoundDetail } from "../components/RoundDetail";
 import { agentIcon } from "../lib/assets";
 import { duration, fmt, fullDate, pct, placeLabel, roleLabel, scoreTone, signed } from "../lib/format";
+import { useQuery } from "../lib/query";
+import { queries } from "../lib/queries";
 
 type Tab = "summary" | "rounds" | "review" | "note";
 
@@ -20,31 +22,29 @@ const TABS: { id: Tab; label: string }[] = [
 type Props = {
   account: Account;
   matchId: string;
+  initialRound?: number;
   onBack: () => void;
 };
 
 const VISIBLE_FLAWS = 3;
 
-export function MatchDetail({ account, matchId, onBack }: Props) {
-  const [detail, setDetail] = useState<Detail | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [tab, setTab] = useState<Tab>("summary");
+export function MatchDetail({ account, matchId, initialRound, onBack }: Props) {
+  const query = useQuery(queries.match(account.puuid, matchId));
+  const detail = query.data && query.data.matchId === matchId ? query.data : null;
+  const error = query.error;
+  const [tab, setTab] = useState<Tab>(initialRound === undefined ? "summary" : "rounds");
   const [allFlaws, setAllFlaws] = useState(false);
-  const [roundIndex, setRoundIndex] = useState(0);
+  const [roundIndex, setRoundIndex] = useState(initialRound ?? 0);
+
+  useEffect(() => {
+    setTab(initialRound === undefined ? "summary" : "rounds");
+    setRoundIndex(initialRound ?? 0);
+  }, [matchId, initialRound]);
 
   const openRound = (index: number) => {
     setRoundIndex(index);
     setTab("rounds");
   };
-
-  useEffect(() => {
-    setDetail(null);
-    setError(null);
-    api
-      .getMatch(account.puuid, matchId)
-      .then(setDetail)
-      .catch((err) => setError(errorMessage(err)));
-  }, [account.puuid, matchId]);
 
   if (error) {
     return (

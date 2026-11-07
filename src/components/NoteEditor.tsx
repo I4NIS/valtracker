@@ -2,6 +2,7 @@ import "../styles/journal.css";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { errorMessage } from "../lib/api";
 import { journal, sameTag, SUGGESTED_TAGS } from "../lib/journal";
+import { invalidate } from "../lib/query";
 import { Icon } from "./Icon";
 
 type Status = "loading" | "idle" | "pending" | "saving" | "saved" | "error";
@@ -33,6 +34,7 @@ export function NoteEditor({ puuid, matchId }: Props) {
     if (mounted) setStatus("saving");
     try {
       await journal.saveNote(target.puuid, target.matchId, value.note, value.tags);
+      invalidate("journal|");
       if (mounted && current === version.current) {
         setStatus("saved");
         setError(null);

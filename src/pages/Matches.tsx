@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { MatchList } from "../components/MatchList";
-import { api, errorMessage, type Account, type RecentMatch } from "../lib/api";
+import type { Account } from "../lib/api";
+import { useQuery } from "../lib/query";
+import { queries } from "../lib/queries";
 
 const PAGE = 20;
 
@@ -10,36 +12,21 @@ type Props = {
   onOpen: (matchId: string) => void;
 };
 
-export function Matches({ account, refreshKey, onOpen }: Props) {
-  const [matches, setMatches] = useState<RecentMatch[]>([]);
-  const [done, setDone] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+let shown = PAGE;
+
+export function Matches({ account, onOpen }: Props) {
+  const [count, setCount] = useState(shown);
+  const query = useQuery(queries.recent(account.puuid, count));
+  const matches = query.data ?? [];
+  const loading = query.pending;
+  const error = query.error;
+  const done = !loading && matches.length < count;
 
   useEffect(() => {
-    setLoading(true);
-    api
-      .getRecentMatches(account.puuid, PAGE, 0)
-      .then((list) => {
-        setMatches(list);
-        setDone(list.length < PAGE);
-      })
-      .catch((err) => setError(errorMessage(err)))
-      .finally(() => setLoading(false));
-  }, [account.puuid, refreshKey]);
+    shown = count;
+  }, [count]);
 
-  const more = async () => {
-    setLoading(true);
-    try {
-      const list = await api.getRecentMatches(account.puuid, PAGE, matches.length);
-      setMatches((current) => [...current, ...list]);
-      setDone(list.length < PAGE);
-    } catch (err) {
-      setError(errorMessage(err));
-    } finally {
-      setLoading(false);
-    }
-  };
+  const more = () => setCount((current) => current + PAGE);
 
   return (
     <div className="content">

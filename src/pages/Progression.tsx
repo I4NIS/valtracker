@@ -1,9 +1,11 @@
 import "../styles/progression.css";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { SeasonPicker } from "../components/SeasonPicker";
-import { api, errorMessage, type Account, type GameSummary, type Progression as Data, type RrPoint } from "../lib/api";
+import type { Account, GameSummary, RrPoint } from "../lib/api";
 import { seasonLabel, tierNameById } from "../lib/assets";
 import { fmt, fullDate, pct, signed } from "../lib/format";
+import { useQuery } from "../lib/query";
+import { defaultSeason, queries } from "../lib/queries";
 
 const RECENT = 20;
 const GAUGE_LENGTH = 283;
@@ -15,19 +17,11 @@ type Props = {
 
 const average = (values: number[]) => (values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0);
 
-export function Progression({ account, refreshKey }: Props) {
-  const [season, setSeason] = useState<string | null | undefined>(undefined);
-  const [data, setData] = useState<Data | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (season === undefined) return;
-    setError(null);
-    api
-      .getProgression(account.puuid, season)
-      .then(setData)
-      .catch((err) => setError(errorMessage(err)));
-  }, [account.puuid, season, refreshKey]);
+export function Progression({ account }: Props) {
+  const [season, setSeason] = useState<string | null | undefined>(() => defaultSeason(account.puuid));
+  const query = useQuery(season === undefined ? null : queries.progression(account.puuid, season));
+  const data = query.data ?? null;
+  const error = query.error;
 
   const games = data?.games ?? [];
   const recent = games.slice(-RECENT);
