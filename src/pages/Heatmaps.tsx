@@ -1,7 +1,9 @@
+import "../styles/heatmap.css";
 import { useEffect, useMemo, useState } from "react";
 import { SeasonPicker } from "../components/SeasonPicker";
 import { api, errorMessage, type Account, type HeatPoint, type Heatmap } from "../lib/api";
 import { pct } from "../lib/format";
+import { rotatePoint, rotationStyle } from "../lib/minimap";
 
 type Layer = HeatPoint["kind"];
 type Side = "all" | "attack" | "defense";
@@ -26,6 +28,9 @@ const PHASES: { id: Phase; label: string }[] = [
   { id: "post", label: "Après le plant" },
 ];
 
+const matchCount = (count: number) => `${count} ${count > 1 ? "matchs" : "match"}`;
+const clamp = (value: number) => Math.min(0.92, Math.max(0.08, value));
+
 type Props = {
   account: Account;
   refreshKey: number;
@@ -39,6 +44,7 @@ export function Heatmaps({ account, refreshKey }: Props) {
   const [layer, setLayer] = useState<Layer>("death");
   const [side, setSide] = useState<Side>("all");
   const [phase, setPhase] = useState<Phase>("all");
+  const [zone, setZone] = useState<string | null>(null);
 
   useEffect(() => {
     if (season === undefined) return;
@@ -49,16 +55,23 @@ export function Heatmaps({ account, refreshKey }: Props) {
       .catch((err) => setError(errorMessage(err)));
   }, [account.puuid, mapId, season, refreshKey]);
 
+  useEffect(() => {
+    setZone(null);
+  }, [mapId, season, layer, side, phase, data?.mapId]);
+
   const style = LAYERS.find((item) => item.id === layer) ?? LAYERS[0];
+  const rotation = data?.rotation ?? 0;
   const points = useMemo(
     () =>
-      (data?.points ?? []).filter(
-        (point) =>
-          point.kind === layer &&
-          (side === "all" || point.attack === (side === "attack")) &&
-          (phase === "all" || point.phase === phase),
-      ),
-    [data, layer, side, phase],
+      (data?.points ?? [])
+        .filter(
+          (point) =>
+            point.kind === layer &&
+            (side === "all" || point.attack === (side === "attack")) &&
+            (phase === "all" || point.phase === phase),
+        )
+        .map((point) => ({ ...point, ...rotatePoint(point, rotation) })),
+    [data, layer, side, phase, rotation],
   );
   const zones = useMemo(() => {
     const counts = new Map<string, number>();
@@ -67,15 +80,30 @@ export function Heatmaps({ account, refreshKey }: Props) {
     });
     return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8);
   }, [points]);
+  const zoneLabel = useMemo(() => {
+    if (!zone) return null;
+    const inZone = points.filter((point) => point.zone === zone);
+    if (inZone.length === 0) return null;
+    const x = inZone.reduce((sum, point) => sum + point.x, 0) / inZone.length;
+    const y = inZone.reduce((sum, point) => sum + point.y, 0) / inZone.length;
+    return { x: clamp(x), y: clamp(y) };
+  }, [points, zone]);
   const top = zones[0]?.[1] ?? 1;
-  const mapName = data?.maps.find((map) => map.id === data.mapId)?.name ?? "Heatmaps";
+  const selectedMap = data?.maps.find((map) => map.id === data.mapId);
+  const mapName = selectedMap?.name ?? "Heatmaps";
+  const splash = data?.splash ?? selectedMap?.image ?? null;
+  const pointClass = (base: string, pointZone: string | null) => (zone && pointZone === zone ? `${base} in-zone` : base);
 
   return (
     <div className="content">
-      <div className="stack">
-        <span className="eyebrow">Heatmaps, {data?.matches ?? 0} matchs</span>
-        <h1 className="title">{mapName}</h1>
-      </div>
+      <header className="heat-banner">
+        {splash && <img src={splash} alt="" />}
+        <div className="heat-banner-text">
+          <span className="heat-banner-eyebrow">Heatmaps</span>
+          <h1 className="heat-banner-title">{mapName}</h1>
+          <span className="heat-banner-sub">{matchCount(data?.matches ?? 0)}</span>
+        </div>
+      </header>
 
       <SeasonPicker puuid={account.puuid} value={season} onChange={(next) => { setSeason(next); setMapId(null); }} />
 
@@ -85,11 +113,21 @@ export function Heatmaps({ account, refreshKey }: Props) {
         <div className="empty">Aucun match synchronisé sur cette période.</div>
       ) : (
         <>
-          <div className="stack" style={{ gap: 12 }}>
-            <div className="chips" role="group" aria-label="Map">
+          <div className="stack" style={{ gap: 16 }}>
+            <div className="map-cards" role="group" aria-label="Map">
               {data?.maps.map((map) => (
-                <button key={map.id} type="button" className={`chip${data.mapId === map.id ? " active" : ""}`} onClick={() => setMapId(map.id)}>
-                  {map.name} <span className="chip-count">{map.matches}</span>
+                <button
+                  key={map.id}
+                  type="button"
+                  className={`map-card${data.mapId === map.id ? " active" : ""}`}
+                  aria-pressed={data.mapId === map.id}
+                  onClick={() => setMapId(map.id)}
+                >
+                  {map.image && <img src={map.image} alt="" />}
+                  <span className="map-card-text">
+                    <strong>{map.name}</strong>
+                    <span>{matchCount(map.matches)}</span>
+                  </span>
                 </button>
               ))}
             </div>
@@ -101,12 +139,12 @@ export function Heatmaps({ account, refreshKey }: Props) {
           </div>
 
           <div className="review">
-            <div className="minimap">
-              {data?.minimap && <img src={data.minimap} alt={`Minimap de ${mapName}`} />}
+            <div className={`minimap${zone ? " has-focus" : ""}`}>
+              {data?.minimap && <img src={data.minimap} alt={`Minimap de ${mapName}`} style={rotationStyle(rotation)} />}
               {points.map((point, i) => (
                 <span
                   key={`b${i}`}
-                  className="heat-blob"
+                  className={pointClass("heat-blob", point.zone)}
                   style={{
                     left: `${point.x * 100}%`,
                     top: `${point.y * 100}%`,
@@ -115,8 +153,17 @@ export function Heatmaps({ account, refreshKey }: Props) {
                 />
               ))}
               {points.map((point, i) => (
-                <span key={`d${i}`} className="heat-dot" style={{ left: `${point.x * 100}%`, top: `${point.y * 100}%`, background: `rgb(${style.color})` }} />
+                <span
+                  key={`d${i}`}
+                  className={pointClass("heat-dot", point.zone)}
+                  style={{ left: `${point.x * 100}%`, top: `${point.y * 100}%`, background: `rgb(${style.color})` }}
+                />
               ))}
+              {zone && zoneLabel && (
+                <span className="zone-pill" style={{ left: `${zoneLabel.x * 100}%`, top: `${zoneLabel.y * 100}%` }}>
+                  {zone}
+                </span>
+              )}
               {data && !data.minimap && <span className="minimap-empty">Minimap indisponible, relance une synchro</span>}
             </div>
 
@@ -128,22 +175,28 @@ export function Heatmaps({ account, refreshKey }: Props) {
               <div className="stack" style={{ gap: 4 }}>
                 <span style={{ fontSize: 17, fontWeight: 700, letterSpacing: "-0.02em", paddingBottom: 6 }}>Par zone</span>
                 {zones.length === 0 && <span className="faint">Rien à afficher avec ces filtres.</span>}
-                {zones.map(([zone, count]) => (
-                  <div className="zone-row" key={zone}>
-                    <div className="row between">
-                      <span style={{ fontWeight: 500 }}>{zone}</span>
+                {zones.map(([name, count]) => (
+                  <button
+                    type="button"
+                    className={`zone-row zone-button${zone === name ? " active" : ""}`}
+                    key={name}
+                    aria-pressed={zone === name}
+                    onClick={() => setZone((current) => (current === name ? null : name))}
+                  >
+                    <span className="row between">
+                      <span style={{ fontWeight: 500 }}>{name}</span>
                       <span>
                         <strong>{count}</strong> <span className="faint">{pct((count * 100) / points.length, 0)}</span>
                       </span>
-                    </div>
-                    <div className="bar">
+                    </span>
+                    <span className="bar">
                       <span style={{ width: `${(count / top) * 100}%`, background: `rgb(${style.color})` }} />
-                    </div>
-                  </div>
+                    </span>
+                  </button>
                 ))}
               </div>
               <span className="faint" style={{ fontSize: 12 }}>
-                Zones nommées d'après les callouts officiels de la map.
+                Zones nommées d'après les callouts officiels de la map. Clique sur une zone pour la mettre en avant.
               </span>
             </div>
           </div>
