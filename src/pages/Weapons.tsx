@@ -1,5 +1,5 @@
 import "../styles/weapons.css";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { AbilityArt, Art, SpikeGlyph } from "../components/GameArt";
 import { SeasonPicker } from "../components/SeasonPicker";
 import type { Account } from "../lib/api";
@@ -29,15 +29,35 @@ type Props = {
 
 const KILLER_LIMIT = 8;
 const ABILITIES = "Capacités";
+const MELEE = "Couteau";
 const SPIKE = "Spike";
+const FALL = "Chute";
 const STACK_LIMIT = 3;
 const HISTORY_PAGE = 10;
 
 const meters = (value: number | null) => (value === null ? "-" : `${fmt(value, 1)} m`);
 const plural = (count: number, one: string, many: string) => `${fmt(count)} ${(lang() === "en" ? count !== 1 : count > 1) ? many : one}`;
-const displayName = (name: string) => (name === ABILITIES ? t("Capacités", "Abilities") : name);
+
+function displayName(name: string): string {
+  if (name === ABILITIES) return t("Capacités", "Abilities");
+  if (name === MELEE) return t("Couteau", "Knife");
+  if (name === FALL) return t("Chute", "Fall");
+  return name;
+}
 
 type Armed = { id: string | null; name: string; parts: AbilityPart[] };
+
+type Tracked = { id: string | null; name: string; kills: number; deaths: number; killParts: AbilityPart[]; deathParts: AbilityPart[] };
+
+const partKey = (name: string | null, agentId: string | null) => `${name ?? ""}|${agentId?.toLowerCase() ?? ""}`;
+
+function FallGlyph({ size }: { size: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" role="img" aria-label={t("Chute", "Fall")} className="fall-glyph">
+      <path d="M12 3v13M7 11l5 5 5-5M5 21h14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
 
 function partLabel(part: AbilityPart, catalog: Catalog | null): string {
   const ability = findAbility(catalog, part.name, part.agentId);
@@ -76,6 +96,13 @@ function WeaponThumb({ item, catalog, width, height, eager }: { item: Armed; cat
       </span>
     );
   }
+  if (item.name === FALL) {
+    return (
+      <span className="weapon-thumb" style={{ width, height }}>
+        <FallGlyph size={Math.round(height * 0.8)} />
+      </span>
+    );
+  }
   return (
     <span className="weapon-thumb" style={{ width, height }}>
       <Art src={weaponArt(item.id)} width={width} height={height} alt={displayName(item.name)} mono eager={eager} />
@@ -89,13 +116,43 @@ export function Weapons({ account, onOpenRound }: Props) {
   const data = query.data ?? null;
   const error = query.error;
   const [selected, setSelected] = useState<string | null>(null);
+  const [target, setTarget] = useState<string | null>(null);
   const [deathsMode, setDeathsMode] = useState(false);
+  const [partFilter, setPartFilter] = useState<string | null>(null);
+  const historyRef = useRef<HTMLDivElement>(null);
   const catalog = useAgentCatalog();
 
   const weapon = useMemo(
     () => data?.weapons.find((item) => item.name === selected) ?? data?.weapons[0] ?? null,
     [data, selected],
   );
+
+  const tracked = useMemo<Tracked | null>(() => {
+    if (!data) return null;
+    const known = (value: string | null | undefined) =>
+      value && (data.weapons.some((item) => item.name === value) || data.killers.some((item) => item.name === value)) ? value : null;
+    const name = known(target) ?? known(weapon?.name);
+    if (name === null) return null;
+    const armed = data.weapons.find((item) => item.name === name);
+    const killer = data.killers.find((item) => item.name === name);
+    if (!armed && !killer) return null;
+    return {
+      id: armed?.id ?? killer?.id ?? null,
+      name,
+      kills: armed?.kills ?? 0,
+      deaths: killer?.deaths ?? armed?.deaths ?? 0,
+      killParts: armed?.parts ?? [],
+      deathParts: killer?.parts ?? [],
+    };
+  }, [data, target, weapon]);
+
+  function track(name: string, deaths: boolean, part: string | null = null, scroll = false) {
+    if (data?.weapons.some((item) => item.name === name)) setSelected(name);
+    setTarget(name);
+    setDeathsMode(deaths);
+    setPartFilter(part);
+    if (scroll) window.requestAnimationFrame(() => historyRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  }
 
   const overall = useMemo(() => {
     if (!data) return null;
@@ -141,7 +198,7 @@ export function Weapons({ account, onOpenRound }: Props) {
         <>
           <section className="weapons-summary">
             {favorite && (
-              <button type="button" className="weapons-favorite" onClick={() => setSelected(favorite.name)}>
+              <button type="button" className="weapons-favorite" onClick={() => track(favorite.name, false)}>
                 <span className="label">{t("Arme principale", "Main weapon")}</span>
                 <span className="weapons-favorite-art">
                   <Art src={weaponArt(favorite.id)} width={360} height={112} alt={favorite.name} mono eager />
@@ -199,10 +256,7 @@ export function Weapons({ account, onOpenRound }: Props) {
                             type="button"
                             className={`weapon-row${active ? " active" : ""}`}
                             aria-pressed={active}
-                            onClick={() => {
-                              setSelected(item.name);
-                              setDeathsMode(false);
-                            }}
+                            onClick={() => track(item.name, false)}
                           >
                             <span className="weapon-ident">
                               <WeaponThumb item={item} catalog={catalog} width={84} height={28} />
@@ -224,7 +278,7 @@ export function Weapons({ account, onOpenRound }: Props) {
                           </button>
                           {active && (
                             <div className="weapon-inline">
-                              <WeaponDetail weapon={item} catalog={catalog} />
+                              <WeaponDetail weapon={item} catalog={catalog} onPick={(part) => track(ABILITIES, false, part, true)} />
                             </div>
                           )}
                         </div>
@@ -232,8 +286,8 @@ export function Weapons({ account, onOpenRound }: Props) {
                     })}
                   </div>
                   {weapon && (
-                    <aside className="weapons-side panel" aria-label={t(`Détail ${weapon.name}`, `${displayName(weapon.name)} details`)}>
-                      <WeaponDetail weapon={weapon} catalog={catalog} />
+                    <aside className="weapons-side panel" aria-label={t(`Détail ${displayName(weapon.name)}`, `${displayName(weapon.name)} details`)}>
+                      <WeaponDetail weapon={weapon} catalog={catalog} onPick={(part) => track(ABILITIES, false, part, true)} />
                     </aside>
                   )}
                 </div>
@@ -247,16 +301,24 @@ export function Weapons({ account, onOpenRound }: Props) {
             </section>
           )}
 
-          {weapon && season !== undefined && (
-            <WeaponHistory
-              key={`${season ?? "all"}-${weapon.name}`}
-              puuid={account.puuid}
-              season={season}
-              weapon={weapon}
-              deaths={deathsMode}
-              onDeaths={setDeathsMode}
-              onOpenRound={onOpenRound}
-            />
+          {tracked && season !== undefined && (
+            <div ref={historyRef} className="weapon-history-anchor">
+              <WeaponHistory
+                key={`${season ?? "all"}-${tracked.name}`}
+                puuid={account.puuid}
+                season={season}
+                tracked={tracked}
+                catalog={catalog}
+                deaths={deathsMode}
+                onDeaths={(value) => {
+                  setDeathsMode(value);
+                  setPartFilter(null);
+                }}
+                filter={partFilter}
+                onFilter={setPartFilter}
+                onOpenRound={onOpenRound}
+              />
+            </div>
           )}
 
           {killers.length > 0 && (
@@ -272,15 +334,8 @@ export function Weapons({ account, onOpenRound }: Props) {
                     killer={item}
                     catalog={catalog}
                     top={topDeaths}
-                    active={weapon?.name === item.name}
-                    onSelect={
-                      data.weapons.some((entry) => entry.name === item.name)
-                        ? () => {
-                            setSelected(item.name);
-                            setDeathsMode(true);
-                          }
-                        : undefined
-                    }
+                    active={deathsMode && tracked?.name === item.name}
+                    onSelect={() => track(item.name, true, null, true)}
                   />
                 ))}
               </div>
@@ -295,7 +350,7 @@ export function Weapons({ account, onOpenRound }: Props) {
               {abilityKillers.length > 0 && (
                 <div className="stack" style={{ gap: 10 }}>
                   <h3 className="weapon-detail-sub">{t("Capacités qui t'ont tué", "Abilities that killed you")}</h3>
-                  <PartList parts={abilityKillers} catalog={catalog} unit="mort" />
+                  <PartList parts={abilityKillers} catalog={catalog} unit="mort" onPick={(part) => track(ABILITIES, true, part, true)} />
                 </div>
               )}
             </section>
@@ -369,18 +424,29 @@ function RangeBars({ ranges, tone }: { ranges: RangeSplit; tone: "good" | "bad" 
   );
 }
 
-function PartList({ parts, catalog, unit }: { parts: AbilityPart[]; catalog: Catalog | null; unit: "kill" | "mort" }) {
+function PartList({
+  parts,
+  catalog,
+  unit,
+  onPick,
+}: {
+  parts: AbilityPart[];
+  catalog: Catalog | null;
+  unit: "kill" | "mort";
+  onPick?: (key: string) => void;
+}) {
   return (
     <ul className="weapon-parts">
       {parts.map((part) => {
         const agent = agentName(part, catalog);
-        return (
-          <li key={`${part.name}-${part.agentId}`} className="weapon-part">
+        const label = partLabel(part, catalog);
+        const body = (
+          <>
             <span className="weapon-part-icon">
               <PartIcon part={part} catalog={catalog} size={28} />
             </span>
             <span className="stack" style={{ gap: 0, minWidth: 0 }}>
-              <strong className="ellipsis">{partLabel(part, catalog)}</strong>
+              <strong className="ellipsis">{label}</strong>
               {agent && <span className="faint ellipsis weapon-part-agent-name">{agent}</span>}
             </span>
             <span className="weapon-part-count">
@@ -392,6 +458,22 @@ function PartList({ parts, catalog, unit }: { parts: AbilityPart[]; catalog: Cat
                   : t(part.count > 1 ? "morts" : "mort", part.count === 1 ? "death" : "deaths")}
               </small>
             </span>
+          </>
+        );
+        return (
+          <li key={`${part.name}-${part.agentId}`}>
+            {onPick ? (
+              <button
+                type="button"
+                className="weapon-part is-link"
+                onClick={() => onPick(partKey(part.name, part.agentId))}
+                aria-label={t(`Voir l'historique : ${label}`, `Show history: ${label}`)}
+              >
+                {body}
+              </button>
+            ) : (
+              <div className="weapon-part">{body}</div>
+            )}
           </li>
         );
       })}
@@ -399,7 +481,7 @@ function PartList({ parts, catalog, unit }: { parts: AbilityPart[]; catalog: Cat
   );
 }
 
-function WeaponDetail({ weapon, catalog }: { weapon: WeaponLine; catalog: Catalog | null }) {
+function WeaponDetail({ weapon, catalog, onPick }: { weapon: WeaponLine; catalog: Catalog | null; onPick?: (key: string) => void }) {
   const measured = rangeTotal(weapon.killRanges);
   const figures = [
     { label: "Kills", value: fmt(weapon.kills) },
@@ -437,7 +519,7 @@ function WeaponDetail({ weapon, catalog }: { weapon: WeaponLine; catalog: Catalo
       {ability && weapon.parts.length > 0 && (
         <div className="stack" style={{ gap: 10 }}>
           <span className="weapon-detail-sub">{t("Tes kills par capacité", "Your kills by ability")}</span>
-          <PartList parts={weapon.parts} catalog={catalog} unit="kill" />
+          <PartList parts={weapon.parts} catalog={catalog} unit="kill" onPick={onPick} />
         </div>
       )}
 
@@ -551,30 +633,51 @@ function clock(ms: number): string {
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 }
 
+function entryPart(entry: WeaponDuel, deaths: boolean): AbilityPart {
+  return { name: entry.ability, agentId: deaths ? entry.opponentAgentId : entry.agentId, count: 0 };
+}
+
 function WeaponHistory({
   puuid,
   season,
-  weapon,
+  tracked,
+  catalog,
   deaths,
   onDeaths,
+  filter,
+  onFilter,
   onOpenRound,
 }: {
   puuid: string;
   season: string | null;
-  weapon: WeaponLine;
+  tracked: Tracked;
+  catalog: Catalog | null;
   deaths: boolean;
   onDeaths: (deaths: boolean) => void;
+  filter: string | null;
+  onFilter: (filter: string | null) => void;
   onOpenRound?: (matchId: string, roundIndex: number) => void;
 }) {
   const [shown, setShown] = useState(HISTORY_PAGE);
-  const query = useQuery(queries.weaponHistory(puuid, season, weapon.name, deaths));
+  const query = useQuery(queries.weaponHistory(puuid, season, tracked.name, deaths));
   const list = query.pending ? null : (query.data ?? []);
-  const total = deaths ? weapon.deaths : weapon.kills;
+  const total = deaths ? tracked.deaths : tracked.kills;
+  const ability = tracked.name === ABILITIES;
+  const parts = ability ? (deaths ? tracked.deathParts : tracked.killParts) : [];
+  const active = filter !== null && parts.some((part) => partKey(part.name, part.agentId) === filter) ? filter : null;
+  const visible = useMemo(() => {
+    if (!list || active === null) return list;
+    return list.filter((entry) => {
+      const part = entryPart(entry, deaths);
+      return partKey(part.name, part.agentId) === active;
+    });
+  }, [list, active, deaths]);
+  const name = displayName(tracked.name);
 
   return (
     <section className="stack" style={{ gap: 16 }}>
       <div className="row between wrap" style={{ alignItems: "center", gap: 12 }}>
-        <h2 className="section-title">{t(`Historique : ${weapon.name}`, `History: ${displayName(weapon.name)}`)}</h2>
+        <h2 className="section-title">{t(`Historique : ${name}`, `History: ${name}`)}</h2>
         <div className="segmented" role="tablist" aria-label={t("Kills ou morts", "Kills or deaths")}>
           {[false, true].map((value) => (
             <button
@@ -588,25 +691,61 @@ function WeaponHistory({
                 setShown(HISTORY_PAGE);
               }}
             >
-              {value ? t(`Tes morts ${fmt(weapon.deaths)}`, `Your deaths ${fmt(weapon.deaths)}`) : t(`Tes kills ${fmt(weapon.kills)}`, `Your kills ${fmt(weapon.kills)}`)}
+              {value ? t(`Tes morts ${fmt(tracked.deaths)}`, `Your deaths ${fmt(tracked.deaths)}`) : t(`Tes kills ${fmt(tracked.kills)}`, `Your kills ${fmt(tracked.kills)}`)}
             </button>
           ))}
         </div>
       </div>
+      {parts.length > 1 && (
+        <div className="chips" role="group" aria-label={t("Filtrer par capacité", "Filter by ability")}>
+          <button type="button" className={`chip${active === null ? " active" : ""}`} aria-pressed={active === null} onClick={() => onFilter(null)}>
+            {t("Toutes", "All")} <span className="chip-count">{fmt(total)}</span>
+          </button>
+          {parts.map((part) => {
+            const key = partKey(part.name, part.agentId);
+            return (
+              <button
+                key={key}
+                type="button"
+                className={`chip history-chip${active === key ? " active" : ""}`}
+                aria-pressed={active === key}
+                onClick={() => {
+                  onFilter(active === key ? null : key);
+                  setShown(HISTORY_PAGE);
+                }}
+              >
+                <PartIcon part={part} catalog={catalog} size={18} />
+                {partLabel(part, catalog)} <span className="chip-count">{fmt(part.count)}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
       {total === 0 ? (
         <span className="faint">
           {deaths ? t("Aucune mort subie avec cette arme.", "No deaths to this weapon.") : t("Aucun kill avec cette arme.", "No kills with this weapon.")}
         </span>
-      ) : list === null ? (
+      ) : query.error && list === null ? (
+        <span className="form-error">{query.error}</span>
+      ) : visible === null ? (
         <span className="faint">{t("Recherche dans tes matchs...", "Searching your matches...")}</span>
+      ) : visible.length === 0 ? (
+        <span className="faint">{t("Aucun round retrouvé dans tes matchs.", "No round found in your matches.")}</span>
       ) : (
         <>
           <ul className="weapon-history" aria-label={deaths ? t("Tes morts face à cette arme", "Your deaths to this weapon") : t("Tes kills avec cette arme", "Your kills with this weapon")}>
-            {list.slice(0, shown).map((entry) => (
-              <HistoryRow key={`${entry.matchId}-${entry.roundIndex}-${entry.timeMs}`} entry={entry} deaths={deaths} onOpenRound={onOpenRound} />
+            {visible.slice(0, shown).map((entry) => (
+              <HistoryRow
+                key={`${entry.matchId}-${entry.roundIndex}-${entry.timeMs}`}
+                entry={entry}
+                deaths={deaths}
+                part={ability ? entryPart(entry, deaths) : null}
+                catalog={catalog}
+                onOpenRound={onOpenRound}
+              />
             ))}
           </ul>
-          {list.length > shown && (
+          {visible.length > shown && (
             <button type="button" className="btn btn-secondary" style={{ alignSelf: "center" }} onClick={() => setShown(shown + HISTORY_PAGE * 2)}>
               {t("Afficher plus", "Show more")}
             </button>
@@ -620,14 +759,19 @@ function WeaponHistory({
 function HistoryRow({
   entry,
   deaths,
+  part,
+  catalog,
   onOpenRound,
 }: {
   entry: WeaponDuel;
   deaths: boolean;
+  part: AbilityPart | null;
+  catalog: Catalog | null;
   onOpenRound?: (matchId: string, roundIndex: number) => void;
 }) {
   const round = entry.roundIndex + 1;
   const map = entry.mapName ?? t("Map inconnue", "Unknown map");
+  const means = part ? partLabel(part, catalog) : null;
   const body = (
     <>
       <span className="weapon-history-map">
@@ -646,6 +790,14 @@ function HistoryRow({
           </span>
         </span>
       </span>
+      {part && means && (
+        <span className="weapon-history-means" title={means}>
+          <span className="weapon-part-icon">
+            <PartIcon part={part} catalog={catalog} size={22} />
+          </span>
+          <span className="ellipsis">{means}</span>
+        </span>
+      )}
       <span className="weapon-history-dist">{meters(entry.distance)}</span>
       {entry.roundWon !== null && (
         <span className={`weapon-history-result ${entry.roundWon ? "is-win" : "is-loss"}`}>
@@ -671,3 +823,4 @@ function HistoryRow({
     </li>
   );
 }
+
