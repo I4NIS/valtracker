@@ -135,7 +135,7 @@ export function Heatmaps({ account }: Props) {
     points.forEach((point) => {
       if (point.zone) counts.set(point.zone, (counts.get(point.zone) ?? 0) + 1);
     });
-    return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8);
+    return [...counts.entries()].sort((a, b) => b[1] - a[1]);
   }, [points]);
   const zoneLabel = useMemo(() => {
     if (!zone) return null;
@@ -300,6 +300,7 @@ export function Heatmaps({ account }: Props) {
                     </span>
                   ))}
                 {!loading && zones.length === 0 && <span className="faint">{t("Rien à afficher avec ces filtres.", "Nothing to show with these filters.")}</span>}
+                <div className="zone-list">
                 {zones.map(([name, count]) => (
                   <button
                     type="button"
@@ -319,6 +320,7 @@ export function Heatmaps({ account }: Props) {
                     </span>
                   </button>
                 ))}
+                </div>
               </div>
               <span className="faint" style={{ fontSize: 12 }}>
                 {t(

@@ -185,3 +185,14 @@
     grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
   }
 }
+
+.zone-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: max(260px, calc(100vh - 420px));
+  margin-right: -6px;
+  padding-right: 6px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
