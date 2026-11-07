@@ -115,7 +115,7 @@ export function Progression({ account, refreshKey }: Props) {
             <div className="row between wrap">
               <h2 className="section-title">RR</h2>
               <span className="faint" style={{ fontSize: 13 }}>
-                {data.rr.length} matchs classés
+                {data.rr.filter((point) => (point.tier ?? 0) >= 3).length} matchs classés
               </span>
             </div>
             <RrChart points={data.rr} />
@@ -216,7 +216,7 @@ function recordsOf(games: GameSummary[], rr: RrPoint[]) {
     current = game.won ? current + 1 : 0;
     best = Math.max(best, current);
   });
-  const peak = [...rr].filter((point) => point.tier !== null).sort((a, b) => value(b) - value(a))[0];
+  const peak = [...rr].filter((point) => (point.tier ?? 0) >= 3).sort((a, b) => value(b) - value(a))[0];
   return [
     byKills && { label: "Meilleure game", value: `${byKills.kills} kills`, sub: `${byKills.mapName ?? ""}, ${fullDate(byKills.startedAt)}` },
     byAcs && { label: "Meilleur ACS", value: fmt(byAcs.acs), sub: `${byAcs.mapName ?? ""}, ${fullDate(byAcs.startedAt)}` },
