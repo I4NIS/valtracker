@@ -34,6 +34,7 @@ use crate::state::AppState;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    http::install_crypto();
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _, _| tray::show(app)))
         .plugin(tauri_plugin_opener::init())

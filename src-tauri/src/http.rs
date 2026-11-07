@@ -1,4 +1,5 @@
 use reqwest::{Client, Response};
+use std::sync::OnceLock;
 use std::time::Duration;
 
 use crate::error::{AppError, AppResult};
@@ -6,8 +7,19 @@ use crate::i18n::tr;
 
 const MAX_BODY: usize = 16 * 1024 * 1024;
 
+static CLIENT: OnceLock<Client> = OnceLock::new();
+
+pub fn install_crypto() {
+    let _ = rustls::crypto::ring::default_provider().install_default();
+}
+
 pub fn client() -> AppResult<Client> {
-    Ok(Client::builder().timeout(Duration::from_secs(30)).user_agent("Valtracker").https_only(true).build()?)
+    if let Some(client) = CLIENT.get() {
+        return Ok(client.clone());
+    }
+    install_crypto();
+    let client = Client::builder().timeout(Duration::from_secs(30)).user_agent("Valtracker").https_only(true).build()?;
+    Ok(CLIENT.get_or_init(|| client).clone())
 }
 
 fn too_large() -> AppError {
