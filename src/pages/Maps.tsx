@@ -15,8 +15,10 @@ import { t } from "../lib/i18n";
 import { useBackLabel } from "../lib/navigation";
 import { prefetch, useQuery } from "../lib/query";
 import { defaultSeason, queries } from "../lib/queries";
+import { useViewport } from "../lib/viewport";
 
 const MIN_RANKED = 3;
+const LARGE_WIDTH = 1700;
 const RANK_SIZE = 3;
 
 type Props = {
@@ -47,6 +49,7 @@ export function Maps({ account, onOpenRound }: Props) {
   const [openId, setOpenId] = useState<string | null>(null);
   const opened = maps?.find((map) => map.mapId === openId) ?? null;
   useBackLabel(opened ? t(`Retour à ${opened.name}`, `Back to ${opened.name}`) : null);
+  const large = useViewport().width >= LARGE_WIDTH;
 
   const ranking = useMemo(() => {
     const eligible = (maps ?? [])
@@ -89,7 +92,7 @@ export function Maps({ account, onOpenRound }: Props) {
 
       {!maps ? (
         error ? null : (
-          <SkeletonGroup className="mapstat-grid" label={t("Chargement de tes maps", "Loading your maps")}>
+          <SkeletonGroup className={`mapstat-grid${large ? " large" : ""}`} label={t("Chargement de tes maps", "Loading your maps")}>
             {repeat(8, (index) => (
               <SkeletonBlock key={index} height={128} radius={16} />
             ))}
@@ -99,7 +102,7 @@ export function Maps({ account, onOpenRound }: Props) {
         <div className="empty">{t("Aucun match compétitif synchronisé sur cette période.", "No competitive matches synced for this period.")}</div>
       ) : (
         <>
-          <div className="mapstat-grid" role="group" aria-label={t("Maps jouées", "Maps played")}>
+          <div className={`mapstat-grid${large ? " large" : ""}`} role="group" aria-label={t("Maps jouées", "Maps played")}>
             {maps.map((map) => (
               <button
                 key={map.mapId}
@@ -120,6 +123,26 @@ export function Maps({ account, onOpenRound }: Props) {
                     <span>{matchCount(map.matches)}</span>
                     <span className={`mapstat-card-pct ${tone(map.winPct)}`}>{pct(map.winPct, 0)}</span>
                   </span>
+                  {large && (
+                    <span className="mapstat-card-stats">
+                      <span>
+                        <small>ACS</small>
+                        {fmt(map.acs)}
+                      </span>
+                      <span>
+                        <small>K/D</small>
+                        {fmt(map.kd, 2)}
+                      </span>
+                      <span>
+                        <small>{t("Attaque", "Attack")}</small>
+                        {map.attackPlayed ? pct(rate(map.attackWon, map.attackPlayed), 0) : "-"}
+                      </span>
+                      <span>
+                        <small>{t("Défense", "Defense")}</small>
+                        {map.defensePlayed ? pct(rate(map.defenseWon, map.defensePlayed), 0) : "-"}
+                      </span>
+                    </span>
+                  )}
                 </span>
               </button>
             ))}
