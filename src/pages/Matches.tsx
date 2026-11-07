@@ -45,7 +45,7 @@ export function Matches({ account, refreshKey, onOpen }: Props) {
     <div className="content">
       <div className="stack">
         <h1 className="title">Matchs</h1>
-        <p className="muted">Compétitif et Premier. Clique sur un match pour voir son détail et revoir tes morts.</p>
+        <p className="muted">Tes matchs compétitifs. Clique sur un match pour voir son détail et revoir tes morts.</p>
       </div>
       {error && <p className="form-error">{error}</p>}
       {matches.length === 0 && !loading ? (

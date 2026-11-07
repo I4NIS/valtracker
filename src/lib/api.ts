@@ -243,7 +243,6 @@ export type HeatmapFilters = {
   mapId: string | null;
   season: string | null;
   agentId: string | null;
-  queue: string | null;
   limit: number | null;
 };
 

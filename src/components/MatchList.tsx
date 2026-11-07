@@ -28,7 +28,6 @@ export function MatchList({ matches, onOpen, startIndex = 0 }: Props) {
             <span className="stack" style={{ gap: 0 }}>
               <strong>{game.mapName ?? "Map inconnue"}</strong>
               <span className="faint" style={{ fontSize: 12 }}>
-                {game.queue === "premier" ? "Premier, " : ""}
                 {timeAgo(game.startedAt)}
               </span>
             </span>

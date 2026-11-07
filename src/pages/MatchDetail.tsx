@@ -63,7 +63,6 @@ export function MatchDetail({ account, matchId, onBack }: Props) {
   }
 
   const flaws = allFlaws ? detail.flaws : detail.flaws.slice(0, VISIBLE_FLAWS);
-  const queue = detail.queue === "premier" ? "Match Premier" : "Match compétitif";
 
   return (
     <div className="content">
@@ -72,7 +71,7 @@ export function MatchDetail({ account, matchId, onBack }: Props) {
       <header className="match-hero">
         {agentIcon(detail.agentId) && <img src={agentIcon(detail.agentId)} alt={detail.agentName ?? ""} />}
         <div className="stack" style={{ gap: 8, flex: "1 1 320px" }}>
-          <span className="eyebrow">{queue}</span>
+          <span className="eyebrow">Match compétitif</span>
           <h1 className="match-title">{detail.mapName ?? "Map inconnue"}</h1>
           <span className="muted">
             <strong className={detail.won ? "win" : "bad"}>

@@ -29,14 +29,7 @@ const PHASES: { id: Phase; label: string }[] = [
   { id: "post", label: "Après le plant" },
 ];
 
-type Queue = "all" | "competitive" | "premier";
 type Result = "all" | "win" | "loss";
-
-const QUEUES: { id: Queue; label: string }[] = [
-  { id: "all", label: "Tous" },
-  { id: "competitive", label: "Compétitif" },
-  { id: "premier", label: "Premier" },
-];
 
 const RESULTS: { id: Result; label: string }[] = [
   { id: "all", label: "Tous" },
@@ -50,13 +43,11 @@ function summary(
   season: string | null | undefined,
   data: Heatmap | null,
   agentId: string | null,
-  queue: Queue,
   result: Result,
   limit: number | null,
 ) {
   const parts = [season ? seasonLabel(season) : "Toutes les saisons"];
   parts.push(data?.agents.find((agent) => agent.id === agentId)?.name ?? "tous les agents");
-  if (queue !== "all") parts.push(queue === "premier" ? "Premier" : "compétitif");
   if (result !== "all") parts.push(result === "win" ? "victoires" : "défaites");
   parts.push(limit ? `${limit} derniers matchs` : "tous les matchs");
   return parts.join(", ");
@@ -79,7 +70,6 @@ export function Heatmaps({ account, refreshKey }: Props) {
   const [zone, setZone] = useState<string | null>(null);
   const [advanced, setAdvanced] = useState(false);
   const [agentId, setAgentId] = useState<string | null>(null);
-  const [queue, setQueue] = useState<Queue>("all");
   const [result, setResult] = useState<Result>("all");
   const [limit, setLimit] = useState<number | null>(null);
   const [limitDraft, setLimitDraft] = useState<number | null>(null);
@@ -100,18 +90,17 @@ export function Heatmaps({ account, refreshKey }: Props) {
     if (season === undefined) return;
     setError(null);
     api
-      .getHeatmap(account.puuid, { mapId, season, agentId, queue: queue === "all" ? null : queue, limit })
+      .getHeatmap(account.puuid, { mapId, season, agentId, limit })
       .then(setData)
       .catch((err) => setError(errorMessage(err)));
-  }, [account.puuid, mapId, season, agentId, queue, limit, refreshKey]);
+  }, [account.puuid, mapId, season, agentId, limit, refreshKey]);
 
   useEffect(() => {
     setZone(null);
-  }, [mapId, season, layer, side, phase, agentId, queue, result, limit, data?.mapId]);
+  }, [mapId, season, layer, side, phase, agentId, result, limit, data?.mapId]);
 
   const resetAdvanced = () => {
     setAgentId(null);
-    setQueue("all");
     setResult("all");
     setLimitDraft(null);
   };
@@ -122,7 +111,7 @@ export function Heatmaps({ account, refreshKey }: Props) {
     setLimitDraft(null);
   };
 
-  const activeFilters = [agentId !== null, queue !== "all", result !== "all", limit !== null].filter(Boolean).length;
+  const activeFilters = [agentId !== null, result !== "all", limit !== null].filter(Boolean).length;
   const available = data?.available ?? 0;
 
   const style = LAYERS.find((item) => item.id === layer) ?? LAYERS[0];
@@ -173,7 +162,7 @@ export function Heatmaps({ account, refreshKey }: Props) {
       </header>
 
       <div className="row wrap between">
-        <span className="muted">{summary(season, data, agentId, queue, result, limit)}</span>
+        <span className="muted">{summary(season, data, agentId, result, limit)}</span>
         <button
           type="button"
           className={`btn ${advanced ? "btn-primary" : "btn-secondary"}`}
@@ -219,10 +208,6 @@ export function Heatmaps({ account, refreshKey }: Props) {
             </div>
           </div>
           <div className="row wrap" style={{ gap: 24 }}>
-            <div className="filter-block">
-              <span className="label">Mode</span>
-              <Segmented label="Mode" options={QUEUES} value={queue} onChange={setQueue} />
-            </div>
             <div className="filter-block">
               <span className="label">Résultat</span>
               <Segmented label="Résultat" options={RESULTS} value={result} onChange={setResult} />
