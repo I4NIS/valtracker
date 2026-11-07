@@ -198,6 +198,7 @@ pub fn replace(live: &mut Connection, live_path: &Path, source: &Path) -> AppRes
     remove_with_journals(&temp);
     result?;
     db::migrate(live)?;
+    db::checkpoint(live)?;
     Ok(candidate)
 }
 

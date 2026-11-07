@@ -187,6 +187,7 @@ pub fn compact_existing(conn: &Connection) -> AppResult<usize> {
     }
     if !ids.is_empty() {
         conn.execute_batch("VACUUM;")?;
+        crate::db::checkpoint(conn)?;
     }
     Ok(ids.len())
 }

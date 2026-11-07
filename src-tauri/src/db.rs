@@ -144,17 +144,24 @@ CREATE INDEX IF NOT EXISTS idx_match_summaries_puuid ON match_summaries(puuid);
 CREATE INDEX IF NOT EXISTS idx_match_notes_puuid ON match_notes(puuid);
 "];
 
+const WAL_LIMIT: &str = "PRAGMA journal_size_limit = 4194304;";
+
 pub fn open(path: &Path) -> AppResult<Connection> {
     let conn = Connection::open(path)?;
-    conn.execute_batch("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;")?;
+    conn.execute_batch(&format!("PRAGMA journal_mode = WAL; {WAL_LIMIT} PRAGMA foreign_keys = ON;"))?;
     migrate(&conn)?;
     Ok(conn)
 }
 
 pub fn open_reader(path: &Path) -> AppResult<Connection> {
     let conn = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_NO_MUTEX)?;
-    conn.execute_batch("PRAGMA foreign_keys = ON;")?;
+    conn.execute_batch(&format!("{WAL_LIMIT} PRAGMA foreign_keys = ON;"))?;
     Ok(conn)
+}
+
+pub fn checkpoint(conn: &Connection) -> AppResult<()> {
+    conn.query_row("PRAGMA wal_checkpoint(TRUNCATE)", [], |_| Ok(()))?;
+    Ok(())
 }
 
 pub fn schema_version() -> i64 {
