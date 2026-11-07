@@ -16,7 +16,7 @@ const PAGE_SIZE: usize = 10;
 const MAX_MATCHES_PER_MODE: usize = 2000;
 const MAX_CONSECUTIVE_MISSING: usize = 5;
 const AUTO_SYNC_INTERVAL: Duration = Duration::from_secs(10 * 60);
-const MODES: [(&str, &str); 2] = [("competitive", "compétitifs"), ("premier", "Premier")];
+const COMPETITIVE: &str = "competitive";
 
 pub async fn run(app: &AppHandle, puuid: &str) -> AppResult<SyncReport> {
     let state = app.state::<AppState>();
@@ -58,15 +58,7 @@ async fn sync(app: &AppHandle, state: &AppState, puuid: &str) -> AppResult<SyncR
         repo::upsert_mmr_history(&mut conn, puuid, &history)?;
     }
 
-    let mut new_matches = 0;
-    for (mode, label) in MODES {
-        match sync_mode(app, state, &api, &account.region, &account.platform, puuid, mode, label, new_matches).await {
-            Ok(added) => new_matches += added,
-            Err(error) if mode == "competitive" => return Err(error),
-            Err(_) => {}
-        }
-    }
-
+    let mut new_matches = sync_mode(app, state, &api, region, platform, puuid, COMPETITIVE, "compétitifs", 0).await?;
     new_matches += backfill(app, state, &api, region, puuid, new_matches).await;
 
     let finished_at = now_iso();

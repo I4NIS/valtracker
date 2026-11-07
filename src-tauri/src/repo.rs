@@ -158,7 +158,7 @@ pub fn insert_match(conn: &mut Connection, game: &Value) -> AppResult<bool> {
         return Ok(false);
     };
     let rounds = game.pointer("/rounds").and_then(Value::as_array).map_or(0, Vec::len) as i64;
-    if rounds == 0 {
+    if rounds == 0 || text(game, "/metadata/queue/id") != Some("competitive") {
         return Ok(false);
     }
     let tx = conn.transaction()?;

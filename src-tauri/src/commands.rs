@@ -159,14 +159,13 @@ pub fn get_heatmap(
     map_id: Option<String>,
     season: Option<String>,
     agent_id: Option<String>,
-    queue: Option<String>,
     limit: Option<i64>,
 ) -> AppResult<Heatmap> {
     let filters = heatmap::Filters {
         map_id: map_id.as_deref(),
         season: season.as_deref(),
         agent_id: agent_id.as_deref(),
-        queue: queue.as_deref(),
+        queue: Some("competitive"),
         limit,
     };
     heatmap::heatmap(&*state.conn()?, &puuid, &filters)
