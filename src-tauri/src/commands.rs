@@ -128,6 +128,7 @@ pub fn set_combined_view(state: State<'_, AppState>, enabled: bool) -> AppResult
 pub fn remove_account(state: State<'_, AppState>, puuid: String) -> AppResult<()> {
     repo::delete_account(&*state.conn()?, &puuid)?;
     forget_combined(&state);
+    stats::forget_groups();
     Ok(())
 }
 

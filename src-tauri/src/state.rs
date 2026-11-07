@@ -83,6 +83,8 @@ impl AppState {
         let mut cache = self.cache();
         cache.generation += 1;
         cache.entries.clear();
+        drop(cache);
+        crate::stats::forget_groups();
     }
 
     pub fn forget(&self, matches: impl Fn(&str) -> bool) {
