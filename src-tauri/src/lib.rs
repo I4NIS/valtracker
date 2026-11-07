@@ -1,3 +1,8 @@
+mod journal;
+mod map_stats;
+mod weapon_stats;
+mod agent_stats;
+mod duels;
 mod analysis;
 mod assets;
 mod commands;
@@ -54,6 +59,14 @@ pub fn run() {
             commands::get_heatmap,
             commands::get_seasons,
             commands::set_preference,
+            agent_stats::get_agent_stats,
+            map_stats::get_map_stats,
+            weapon_stats::get_weapon_stats,
+            duels::get_duels,
+            journal::get_note,
+            journal::save_note,
+            journal::list_notes,
+            journal::list_tags,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

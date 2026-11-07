@@ -5,22 +5,18 @@ import { TitleBar } from "./components/TitleBar";
 import { Tour } from "./components/Tour";
 import { UpdateBanner } from "./components/UpdateBanner";
 import { api, errorMessage, onSyncProgress, type Account, type Bootstrap, type Theme } from "./lib/api";
+import { Agents } from "./pages/Agents";
+import { Duels } from "./pages/Duels";
 import { Heatmaps } from "./pages/Heatmaps";
 import { Home } from "./pages/Home";
+import { Journal } from "./pages/Journal";
+import { Maps } from "./pages/Maps";
 import { Progression } from "./pages/Progression";
 import { MatchDetail } from "./pages/MatchDetail";
 import { Matches } from "./pages/Matches";
 import { Onboarding } from "./pages/Onboarding";
 import { Settings } from "./pages/Settings";
-import { Soon } from "./pages/Soon";
-
-const SOON: Partial<Record<Page, { title: string; text: string }>> = {
-  agents: { title: "Agents", text: "Tes statistiques agent par agent." },
-  maps: { title: "Maps", text: "Tes statistiques map par map, en attaque et en défense." },
-  weapons: { title: "Armes", text: "Tes kills, ta précision et tes headshots par arme." },
-  duels: { title: "Duels", text: "Opening duels, clutchs, matchups contre chaque agent." },
-  journal: { title: "Journal", text: "Tes notes et tags sur tes matchs." },
-};
+import { Weapons } from "./pages/Weapons";
 
 const IDLE: SyncView = { running: false, stage: "", newMatches: 0, error: null, lastSyncAt: null };
 
@@ -148,8 +144,6 @@ export default function App() {
 
   if (needsSetup) return <Onboarding hasApiKey={boot.hasApiKey} onDone={finishSetup} />;
 
-  const soon = SOON[page];
-
   return (
     <>
       <Shell
@@ -167,6 +161,11 @@ export default function App() {
         {page === "matches" && account && !openMatch && <Matches account={account} refreshKey={refreshKey} onOpen={showMatch} />}
         {page === "heatmaps" && account && <Heatmaps account={account} refreshKey={refreshKey} />}
         {page === "progress" && account && <Progression account={account} refreshKey={refreshKey} />}
+        {page === "agents" && account && <Agents account={account} refreshKey={refreshKey} />}
+        {page === "maps" && account && <Maps account={account} refreshKey={refreshKey} />}
+        {page === "weapons" && account && <Weapons account={account} refreshKey={refreshKey} />}
+        {page === "duels" && account && <Duels account={account} refreshKey={refreshKey} />}
+        {page === "journal" && account && <Journal account={account} refreshKey={refreshKey} onOpenMatch={showMatch} />}
         {page === "matches" && account && openMatch && (
           <MatchDetail account={account} matchId={openMatch} onBack={() => setOpenMatch(null)} />
         )}
@@ -180,7 +179,6 @@ export default function App() {
             onReplayTour={() => setTourOpen(true)}
           />
         )}
-        {soon && <Soon title={soon.title} text={soon.text} />}
       </Shell>
       {tourOpen && <Tour onTarget={setTourTarget} onClose={closeTour} />}
       <CommandPalette
