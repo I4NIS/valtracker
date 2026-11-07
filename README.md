@@ -10,6 +10,11 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/I4NIS/valtracker/releases/latest/download/Valtracker-setup.exe"><img alt="Télécharger pour Windows" src="https://img.shields.io/badge/T%C3%A9l%C3%A9charger-Windows%20.exe-FF4655?style=for-the-badge"></a>
+</p>
+
+<p align="center">
+  <img alt="Dernière version" src="https://img.shields.io/github/v/release/I4NIS/valtracker?label=version&color=0E1116">
   <img alt="Statut" src="https://img.shields.io/badge/statut-en%20d%C3%A9veloppement-FF4655">
   <img alt="Plateforme" src="https://img.shields.io/badge/plateforme-Windows%2010%20%7C%2011-0E1116">
   <img alt="Tauri" src="https://img.shields.io/badge/Tauri-2-24C8DB">
@@ -55,7 +60,9 @@ Valtracker ne lit jamais le jeu ni le client Valorant, et ne tourne pas en paral
 
 ## Installation
 
-Les versions publiées seront disponibles dans l'onglet [Releases](https://github.com/I4NIS/valtracker/releases).
+**[Télécharger Valtracker pour Windows](https://github.com/I4NIS/valtracker/releases/latest/download/Valtracker-setup.exe)**, puis lance le fichier. Aucun droit administrateur n'est nécessaire. Toutes les versions sont listées dans l'onglet [Releases](https://github.com/I4NIS/valtracker/releases).
+
+À chaque lancement, Valtracker vérifie s'il existe une nouvelle version et propose de l'installer en un clic.
 
 Au premier lancement, Valtracker demande :
 1. ton Riot ID, par exemple `Pseudo#TAG` ;
@@ -88,7 +95,21 @@ La première compilation Rust prend quelques minutes, les suivantes sont rapides
 npm run tauri build
 ```
 
-L'installateur est généré dans `src-tauri/target/release/bundle/`.
+L'installateur est généré dans `src-tauri/target/release/bundle/nsis/`.
+
+### Publier une nouvelle version
+
+1. Change le numéro de version dans `package.json`. L'application le reprend automatiquement.
+2. Commite, puis crée et pousse un tag :
+
+```bash
+git tag v0.2.0
+git push origin v0.2.0
+```
+
+Le workflow GitHub Actions compile l'installateur, le signe, publie la release avec `Valtracker-setup.exe` et le fichier `latest.json` utilisé par la mise à jour automatique.
+
+Le dépôt doit contenir le secret `TAURI_SIGNING_PRIVATE_KEY` (clé privée de signature des mises à jour), et `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` si la clé est protégée par un mot de passe.
 
 ## Architecture
 
