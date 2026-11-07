@@ -9,10 +9,19 @@ import { fmt, formatDate, fullDate, pct, signed, tradeWindowText } from "../lib/
 import { t } from "../lib/i18n";
 import { useQuery } from "../lib/query";
 import { defaultSeason, queries } from "../lib/queries";
+import { Comparison, Habits, InsightsSkeleton } from "./ProgressionInsights";
 
 const RECENT = 20;
 const GAUGE_LENGTH = 283;
 const DAY_SHORT: Intl.DateTimeFormatOptions = { day: "numeric", month: "short" };
+
+type Tab = "overview" | "habits" | "compare";
+
+const TABS = (): { id: Tab; label: string }[] => [
+  { id: "overview", label: t("Vue d'ensemble", "Overview") },
+  { id: "habits", label: t("Habitudes", "Habits") },
+  { id: "compare", label: t("Comparaison", "Comparison") },
+];
 
 type Props = {
   account: Account;
@@ -27,6 +36,7 @@ export function Progression({ account }: Props) {
   const tradeWindow = useQuery(queries.thresholds()).data?.values.tradeWindowMs ?? 3000;
   const data = query.data ?? null;
   const error = query.error;
+  const [tab, setTab] = useState<Tab>("overview");
 
   const games = data?.games ?? [];
   const recent = games.slice(-RECENT);
@@ -39,11 +49,27 @@ export function Progression({ account }: Props) {
   return (
     <div className="content prog">
       <header className="page-head">
-        <h1 className="title">Progression</h1>
+        <div className="page-head-title" style={{ alignItems: "center" }}>
+          <h1 className="title">Progression</h1>
+          <div className="segmented" role="tablist" aria-label={t("Sections de la progression", "Progression sections")}>
+            {TABS().map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                role="tab"
+                aria-selected={tab === item.id}
+                className={tab === item.id ? "active" : undefined}
+                onClick={() => setTab(item.id)}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+        </div>
         <div className="page-head-tools">
           <SeasonPicker puuid={account.puuid} value={season} onChange={setSeason} />
           {season !== undefined && (
-            <ExportRecapButton kind="act" account={account} season={season} label={season ? t("Exporter le récap de l'acte", "Export Act recap") : t("Exporter le récap de l'acte en cours", "Export current Act recap")} />
+            <ExportRecapButton kind="act" className="prog-export" account={account} season={season} label={season ? t("Exporter le récap de l'acte", "Export Act recap") : t("Exporter le récap de l'acte en cours", "Export current Act recap")} />
           )}
         </div>
       </header>
@@ -51,9 +77,13 @@ export function Progression({ account }: Props) {
       {error && <p className="form-error">{error}</p>}
 
       {!data ? (
-        error ? null : <ProgressionSkeleton />
+        error ? null : tab === "overview" ? <ProgressionSkeleton /> : <InsightsSkeleton />
       ) : games.length === 0 ? (
         <div className="empty">{t("Aucun match compétitif synchronisé sur cette période.", "No competitive matches synced for this period.")}</div>
+      ) : tab === "habits" ? (
+        <Habits games={games} />
+      ) : tab === "compare" ? (
+        <Comparison puuid={account.puuid} season={season ?? null} games={games} />
       ) : (
         <>
           <div className="stat-grid prog-stats" style={{ alignItems: "start" }}>
@@ -326,7 +356,7 @@ function tickStep(count: number, pxPerTier: number) {
   return Math.ceil(needed / 3) * 3;
 }
 
-function rrScale(values: number[]) {
+function rrScale(values: number[], height: number) {
   const vmin = Math.min(...values);
   const vmax = Math.max(...values);
   const pad = Math.max(15, (vmax - vmin) * 0.08);
@@ -347,7 +377,7 @@ function rrScale(values: number[]) {
     lo = Math.min(lo, clamp(Math.floor(vmin / 100), FIRST_TIER, LAST_TIER) * 100 - pad);
     tiers = boundaries();
   }
-  const inner = CHART_HEIGHT - CHART_INSET * 2;
+  const inner = height - CHART_INSET * 2;
   const step = tickStep(tiers.length, (100 * inner) / (hi - lo));
   const y = (v: number) => CHART_INSET + (1 - (v - lo) / (hi - lo)) * inner;
   return { y, ticks: tiers.filter((tier) => (tier - FIRST_TIER) % step === 0) };
@@ -358,6 +388,7 @@ function RrChart({ points }: { points: RrPoint[] }) {
   const plotRef = useRef<HTMLDivElement>(null);
   const tipRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
+  const [height, setHeight] = useState(CHART_HEIGHT);
   const [tipWidth, setTipWidth] = useState(180);
   const [active, setActive] = useState<number | null>(null);
   const ready = valid.length >= 2;
@@ -366,12 +397,16 @@ function RrChart({ points }: { points: RrPoint[] }) {
     const node = plotRef.current;
     if (!node) return;
     setWidth(node.clientWidth);
-    const observer = new ResizeObserver((entries) => setWidth(entries[0].contentRect.width));
+    setHeight(node.clientHeight || CHART_HEIGHT);
+    const observer = new ResizeObserver((entries) => {
+      setWidth(entries[0].contentRect.width);
+      if (entries[0].contentRect.height > 0) setHeight(entries[0].contentRect.height);
+    });
     observer.observe(node);
     return () => observer.disconnect();
   }, [ready]);
 
-  const scale = useMemo(() => (ready ? rrScale(valid.map(value)) : null), [valid, ready]);
+  const scale = useMemo(() => (ready ? rrScale(valid.map(value), height) : null), [valid, ready, height]);
   const x = (i: number) => (valid.length > 1 ? (i / (valid.length - 1)) * width : 0);
   const line = useMemo(
     () =>
@@ -416,7 +451,7 @@ function RrChart({ points }: { points: RrPoint[] }) {
   const px = index === null ? 0 : x(index);
   const py = point ? scale.y(value(point)) : 0;
   const tipLeft = clamp(px + TIP_OFFSET + tipWidth > width ? px - TIP_OFFSET - tipWidth : px + TIP_OFFSET, 0, Math.max(0, width - tipWidth));
-  const below = py < CHART_HEIGHT / 2;
+  const below = py < height / 2;
   const change = point?.change ?? null;
   const first = new Date(valid[0].date);
   const last = new Date(valid[valid.length - 1].date);
@@ -446,14 +481,14 @@ function RrChart({ points }: { points: RrPoint[] }) {
           onPointerLeave={() => setActive(null)}
         >
           {width > 0 && (
-            <svg viewBox={`0 0 ${width} ${CHART_HEIGHT}`} preserveAspectRatio="none" role="img" aria-label={t("Courbe de RR", "RR graph")}>
+            <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" role="img" aria-label={t("Courbe de RR", "RR graph")}>
               {scale.ticks.map((tier) => (
                 <line key={tier} x1="0" x2={width} y1={scale.y(tier * 100)} y2={scale.y(tier * 100)} className="grid" />
               ))}
               <polyline points={line} className="rr-line" />
               {point && (
                 <>
-                  <line x1={px} x2={px} y1="0" y2={CHART_HEIGHT} className="rr-guide" />
+                  <line x1={px} x2={px} y1="0" y2={height} className="rr-guide" />
                   <circle cx={px} cy={py} r="5" className="rr-dot" />
                 </>
               )}

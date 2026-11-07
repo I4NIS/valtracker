@@ -316,6 +316,8 @@ export type GameSummary = {
   traded: number;
   firstDeaths: number;
   isolated: number;
+  rrChange?: number | null;
+  lengthMs?: number | null;
 };
 
 export type Progression = {

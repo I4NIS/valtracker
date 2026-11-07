@@ -41,6 +41,8 @@ pub struct GameSummary {
     pub traded: i64,
     pub first_deaths: i64,
     pub isolated: i64,
+    pub rr_change: Option<i64>,
+    pub length_ms: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -137,8 +139,9 @@ pub fn games(conn: &Connection, puuid: &str, season: Option<&str>, limit: Option
     let thresholds = Thresholds::load(conn)?;
     let mut stmt = conn.prepare(
         "SELECT m.match_id, m.started_at, m.map_name, p.agent_id, p.won, m.rounds, p.kills, p.deaths, p.assists,
-                p.score, p.headshots, p.headshots + p.bodyshots + p.legshots
+                p.score, p.headshots, p.headshots + p.bodyshots + p.legshots, h.last_change, m.game_length_ms
          FROM match_players p JOIN matches m ON m.match_id = p.match_id
+         LEFT JOIN mmr_history h ON h.puuid = p.puuid AND h.match_id = p.match_id
          WHERE p.puuid = ?1 AND m.queue = ?2 AND (?3 IS NULL OR m.season_short = ?3)
          ORDER BY m.started_at DESC
          LIMIT ?4",
@@ -158,13 +161,15 @@ pub fn games(conn: &Connection, puuid: &str, season: Option<&str>, limit: Option
                 row.get::<_, i64>(9)?,
                 row.get::<_, i64>(10)?,
                 row.get::<_, i64>(11)?,
+                row.get::<_, Option<i64>>(12)?,
+                row.get::<_, Option<i64>>(13)?,
             ))
         })?
         .collect::<Result<Vec<_>, _>>()?;
     drop(stmt);
 
     let mut games = Vec::with_capacity(rows.len());
-    for (match_id, started_at, map_name, agent_id, won, rounds, kills, deaths, assists, score, headshots, shots) in rows {
+    for (match_id, started_at, map_name, agent_id, won, rounds, kills, deaths, assists, score, headshots, shots, rr_change, length_ms) in rows {
         let analysis = summary(conn, &roles, &thresholds, puuid, &match_id)?;
         games.push(GameSummary {
             started_at,
@@ -182,6 +187,8 @@ pub fn games(conn: &Connection, puuid: &str, season: Option<&str>, limit: Option
             traded: analysis.as_ref().map_or(0, |s| s.traded),
             first_deaths: analysis.as_ref().map_or(0, |s| s.first_deaths),
             isolated: analysis.as_ref().map_or(0, |s| s.isolated),
+            rr_change,
+            length_ms,
             match_id,
         });
     }

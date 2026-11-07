@@ -1,7 +1,7 @@
 .rr-chart {
   display: grid;
   grid-template-columns: 90px minmax(0, 1fr);
-  height: 240px;
+  height: clamp(240px, calc(100vh - 660px), 600px);
   border-radius: 8px;
   outline: none;
 }
@@ -28,6 +28,12 @@
   text-align: right;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.rr-plot svg {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 .rr-plot {
@@ -120,8 +126,14 @@
 }
 
 .prog-main .records {
+  flex: 1 1 auto;
   grid-template-columns: minmax(0, 1fr);
+  grid-auto-rows: 1fr;
   gap: 8px;
+}
+
+.prog-main > section:last-child {
+  align-self: stretch;
 }
 
 .prog-main .records > div {
@@ -134,7 +146,7 @@
 }
 
 .prog .bars-chart {
-  height: 80px;
+  height: clamp(80px, calc(100vh - 1180px), 220px);
 }
 
 @container main (max-width: 900px) {
@@ -144,5 +156,327 @@
 
   .prog-main .records {
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  }
+}
+
+.habits {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+  gap: 24px 32px;
+  align-items: stretch;
+}
+
+.habit-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+  padding: 18px 20px;
+}
+
+.habit-streaks {
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.heat-grid {
+  display: grid;
+  grid-template-columns: 40px repeat(8, minmax(0, 1fr)) 84px;
+  grid-auto-rows: auto;
+  gap: 4px;
+}
+
+.heat-row {
+  display: contents;
+}
+
+.heat-head {
+  color: var(--text-3);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.heat-total-head {
+  text-align: right;
+}
+
+.heat-day {
+  align-self: center;
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.heat-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  height: clamp(32px, calc((100vh - 560px) / 8), 100px);
+  border-radius: 8px;
+  background: var(--field);
+  line-height: 1.15;
+}
+
+.heat-cell.none {
+  background: color-mix(in srgb, var(--field) 55%, transparent);
+}
+
+.heat-cell strong {
+  font-size: clamp(13px, 1.1vh, 16px);
+  font-weight: 700;
+}
+
+.heat-cell small {
+  color: var(--text-2);
+  font-size: 10px;
+}
+
+.heat-total {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  line-height: 1.2;
+}
+
+.heat-total strong {
+  font-size: 13px;
+}
+
+.heat-total small {
+  color: var(--text-3);
+  font-size: 11px;
+}
+
+.heat-foot {
+  align-items: center;
+  padding-top: 4px;
+}
+
+.session-chart {
+  flex: 1 1 auto;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+  min-height: 0;
+}
+
+.session-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.session-value {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.session-track {
+  position: relative;
+  flex: 1 1 auto;
+  display: flex;
+  align-items: flex-end;
+  width: min(56px, 100%);
+  min-height: 120px;
+  overflow: hidden;
+  border-radius: 8px;
+  background: var(--field);
+}
+
+.session-track > span {
+  width: 100%;
+  border-radius: 8px 8px 0 0;
+}
+
+.session-track > span.win {
+  background: var(--win);
+}
+
+.session-track > span.bad {
+  background: var(--bad);
+}
+
+.session-track > i {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 50%;
+  border-top: 1px dashed var(--text-3);
+  opacity: 0.6;
+}
+
+.session-label {
+  font-size: 13px;
+}
+
+.session-sub {
+  font-size: 12px;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.compare {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.compare-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 12px;
+}
+
+.compare-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 16px;
+  border-radius: 14px;
+  background: var(--raised);
+}
+
+.compare-value {
+  font-size: clamp(20px, 1.6vw, 28px);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+.compare-delta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  font-size: 12px;
+}
+
+.compare-chip {
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--field);
+  color: var(--text-2);
+  font-weight: 600;
+}
+
+.compare-chip.good {
+  background: color-mix(in srgb, var(--good) 16%, transparent);
+  color: var(--good);
+}
+
+.compare-chip.bad {
+  background: color-mix(in srgb, var(--bad) 16%, transparent);
+  color: var(--bad);
+}
+
+.rr-lists {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px 40px;
+}
+
+.rr-list-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.rr-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.rr-list-row {
+  display: grid;
+  grid-template-columns: 28px minmax(120px, 0.8fr) minmax(0, 2fr) 76px;
+  align-items: center;
+  gap: 12px;
+  min-height: clamp(42px, 4.2vh, 60px);
+  padding: 4px 8px;
+  border-radius: 10px;
+}
+
+.rr-list-row:hover {
+  background: var(--raised);
+}
+
+.rr-list-icon {
+  display: flex;
+  width: 28px;
+  height: 28px;
+  overflow: hidden;
+  border-radius: 8px;
+  background: var(--field);
+}
+
+.rr-list.wide .rr-list-row {
+  grid-template-columns: 56px minmax(120px, 0.8fr) minmax(0, 2fr) 76px;
+}
+
+.rr-list.wide .rr-list-icon {
+  width: 56px;
+}
+
+.rr-list-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.rr-diverge {
+  position: relative;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--field);
+}
+
+.rr-diverge::after {
+  content: "";
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  left: 50%;
+  width: 1px;
+  background: var(--text-3);
+}
+
+.rr-diverge > span {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+}
+
+.rr-diverge > .up {
+  left: 50%;
+  border-radius: 0 4px 4px 0;
+  background: var(--win);
+}
+
+.rr-diverge > .down {
+  right: 50%;
+  border-radius: 4px 0 0 4px;
+  background: var(--bad);
+}
+
+.rr-list-net {
+  text-align: right;
+}
+
+@container main (max-width: 1400px) {
+  .prog-export .btn-label {
+    display: none;
+  }
+}
+
+@container main (max-width: 1000px) {
+  .habits,
+  .rr-lists {
+    grid-template-columns: minmax(0, 1fr);
   }
 }

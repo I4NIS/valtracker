@@ -44,9 +44,10 @@ export function ExportRecapButton(props: Props) {
         className={props.className ? `btn btn-secondary ${props.className}` : "btn btn-secondary"}
         onClick={() => setOpen(true)}
         aria-haspopup="dialog"
+        title={props.label ?? t("Exporter l'image", "Export image")}
       >
         <Icon name="image" size={16} />
-        {props.label ?? t("Exporter l'image", "Export image")}
+        <span className="btn-label">{props.label ?? t("Exporter l'image", "Export image")}</span>
       </button>
       {open && <ExportDialog account={props.account} preset={preset} onClose={() => setOpen(false)} />}
     </>
