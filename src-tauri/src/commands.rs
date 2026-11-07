@@ -158,8 +158,18 @@ pub fn get_heatmap(
     puuid: String,
     map_id: Option<String>,
     season: Option<String>,
+    agent_id: Option<String>,
+    queue: Option<String>,
+    limit: Option<i64>,
 ) -> AppResult<Heatmap> {
-    heatmap::heatmap(&*state.conn()?, &puuid, map_id.as_deref(), season.as_deref())
+    let filters = heatmap::Filters {
+        map_id: map_id.as_deref(),
+        season: season.as_deref(),
+        agent_id: agent_id.as_deref(),
+        queue: queue.as_deref(),
+        limit,
+    };
+    heatmap::heatmap(&*state.conn()?, &puuid, &filters)
 }
 
 #[tauri::command]
