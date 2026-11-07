@@ -1,7 +1,7 @@
 import "../styles/ranked.css";
 import { tierLabel } from "../lib/assets";
 import { t } from "../lib/i18n";
-import { rrFacts, rrSummary, type RrDetail, type RrFact } from "../lib/ranked";
+import { rrFacts, rrSummary, tierFromName, type RrDetail, type RrFact } from "../lib/ranked";
 import { RankBadge } from "./RankBadge";
 
 export function FactList({ facts, label }: { facts: RrFact[]; label: string }) {
@@ -29,9 +29,9 @@ export function MatchRrDetail({ detail }: { detail: RrDetail | null }) {
       <div className="rr-detail-head">
         {tierChanged && (
           <span className="rr-detail-tiers">
-            <RankBadge tier={detail.tierBefore} size={28} label={tierLabel(detail.tierBeforeName)} />
+            <RankBadge tier={tierFromName(detail.tierBeforeName) ?? detail.tierBefore} size={28} label={tierLabel(detail.tierBeforeName)} />
             <span className="faint">{t("vers", "to")}</span>
-            <RankBadge tier={detail.tierAfter} size={28} label={tierLabel(detail.tierAfterName)} />
+            <RankBadge tier={tierFromName(detail.tierAfterName) ?? detail.tierAfter} size={28} label={tierLabel(detail.tierAfterName)} />
             <strong>{tierLabel(detail.tierAfterName)}</strong>
           </span>
         )}
