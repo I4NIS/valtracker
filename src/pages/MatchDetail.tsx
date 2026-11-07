@@ -154,7 +154,15 @@ export function MatchDetail({ account, matchId, initialRound, initialDeath, onBa
         />
       )}
       {tab === "rounds" && (
-        <RoundDetail puuid={account.puuid} matchId={matchId} rounds={detail.rounds} selected={roundIndex} onSelect={setRoundIndex} />
+        <RoundDetail
+          puuid={account.puuid}
+          matchId={matchId}
+          rounds={detail.rounds}
+          selected={roundIndex}
+          onSelect={setRoundIndex}
+          minimap={detail.minimap}
+          rotation={detail.rotation}
+        />
       )}
       {tab === "summary" && (
         <>

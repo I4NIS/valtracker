@@ -75,6 +75,8 @@ pub struct RoundEvent {
     pub weapon_id: Option<String>,
     pub weapon_kind: Option<String>,
     pub site: Option<String>,
+    pub position: Option<Position>,
+    pub actor_position: Option<Position>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -431,8 +433,14 @@ pub fn analyze(
                 .iter()
                 .filter(|kill| int(kill, "/round") as usize == index)
                 .map(|kill| {
-                    let (actor, actor_agent_id, actor_ally, actor_me) =
-                        person(text(kill, "/killer/puuid").unwrap_or_default(), text(kill, "/killer/name"));
+                    let killer_id = text(kill, "/killer/puuid").unwrap_or_default();
+                    let actor_position = kill
+                        .pointer("/player_locations")
+                        .and_then(Value::as_array)
+                        .and_then(|list| list.iter().find(|entry| text(entry, "/player/puuid") == Some(killer_id)))
+                        .and_then(|entry| point(entry, "/location"))
+                        .and_then(|spot| projector.position(spot));
+                    let (actor, actor_agent_id, actor_ally, actor_me) = person(killer_id, text(kill, "/killer/name"));
                     let (target, target_agent_id, target_ally, target_me) =
                         person(text(kill, "/victim/puuid").unwrap_or_default(), text(kill, "/victim/name"));
                     RoundEvent {
@@ -450,6 +458,8 @@ pub fn analyze(
                         weapon_id: kill_weapon_id(kill),
                         weapon_kind: weapon_kind(kill),
                         site: None,
+                        position: point(kill, "/location").and_then(|spot| projector.position(spot)),
+                        actor_position,
                     }
                 })
                 .collect();
@@ -474,6 +484,8 @@ pub fn analyze(
                     weapon_id: None,
                     weapon_kind: None,
                     site: text(action, "/site").map(str::to_string),
+                    position: point(action, "/location").and_then(|spot| projector.position(spot)),
+                    actor_position: None,
                 });
             }
             events.sort_by(|a, b| a.time_s.total_cmp(&b.time_s));
@@ -954,6 +966,34 @@ mod tests {
         assert_eq!(death.positives, ["Dernier joueur en vie de ton équipe"]);
         assert_eq!(detail.team_level, "Faible");
         assert_eq!(detail.rounds[0].result, "Élimination");
+    }
+
+    #[test]
+    fn places_round_events_on_the_minimap() {
+        let mut game = sample();
+        game["kills"][0]["location"] = json!({ "x": 100, "y": 200 });
+        game["kills"][0]["player_locations"] = json!([{ "player": { "puuid": "foe" }, "location": { "x": 300, "y": 400 } }]);
+        game["rounds"][0]["plant"] =
+            json!({ "round_time_in_ms": 2000, "site": "A", "player": { "puuid": "foe" }, "location": { "x": 0, "y": 0 } });
+        let map = MapData {
+            display_icon: None,
+            splash: None,
+            x_multiplier: 0.001,
+            y_multiplier: 0.001,
+            x_scalar: 0.5,
+            y_scalar: 0.5,
+            callouts: Vec::new(),
+        };
+        let detail = analyze(&game, "me", Some(&map), &HashMap::new(), &Thresholds::default()).expect("sample match");
+        let spots: Vec<(&str, Option<(f64, f64)>, Option<(f64, f64)>)> = detail.rounds[0]
+            .events
+            .iter()
+            .map(|event| {
+                let round = |spot: &Option<Position>| spot.as_ref().map(|spot| ((spot.x * 100.0).round(), (spot.y * 100.0).round()));
+                (event.kind, round(&event.position), round(&event.actor_position))
+            })
+            .collect();
+        assert_eq!(spots, [("plant", Some((50.0, 50.0)), None), ("kill", Some((70.0, 60.0)), Some((90.0, 80.0)))]);
     }
 
     #[test]

@@ -161,6 +161,8 @@ export type RoundEvent = {
   weaponId?: string | null;
   weaponKind?: string | null;
   site: string | null;
+  position?: Position | null;
+  actorPosition?: Position | null;
 };
 
 export type EconomyLine = {

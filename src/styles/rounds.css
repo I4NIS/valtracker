@@ -102,3 +102,186 @@
   border-radius: 0;
   object-fit: contain;
 }
+
+.round-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 32px;
+  align-items: start;
+}
+
+.round-map {
+  max-width: none;
+  overflow: visible;
+}
+
+.round-map > img {
+  border-radius: 16px;
+}
+
+.round-map svg {
+  pointer-events: none;
+}
+
+.round-map line {
+  stroke-width: 0.3;
+  stroke-dasharray: 1 0.7;
+  opacity: 0.75;
+  transition: opacity 0.15s ease;
+}
+
+.round-map line.ally {
+  stroke: #5ea8ff;
+}
+
+.round-map line.enemy {
+  stroke: #b4663f;
+}
+
+.round-map line.on {
+  stroke-width: 0.5;
+  opacity: 1;
+}
+
+.round-map-mark,
+.round-map-from {
+  position: absolute;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.round-map-mark {
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  margin: -9px 0 0 -9px;
+  padding: 0;
+  border: 2px solid #15171b;
+  border-radius: 50%;
+  color: #f2f3f5;
+}
+
+.round-map-mark.ally {
+  background: #5ea8ff;
+}
+
+.round-map-mark.enemy {
+  background: #b4663f;
+}
+
+.round-map-mark.me {
+  width: 22px;
+  height: 22px;
+  margin: -11px 0 0 -11px;
+  border-color: #f2f3f5;
+}
+
+.round-map-mark.plant,
+.round-map-mark.defuse {
+  width: 26px;
+  height: 26px;
+  margin: -13px 0 0 -13px;
+  border-color: currentColor;
+  background: #15171b;
+  color: var(--accent);
+}
+
+.round-map-mark.defuse {
+  color: var(--good);
+}
+
+.round-map-mark.plant.me,
+.round-map-mark.defuse.me {
+  box-shadow: 0 0 0 2px #f2f3f5;
+}
+
+.round-map-mark:hover,
+.round-map-mark:focus-visible,
+.round-map-mark.on {
+  z-index: 3;
+  transform: scale(1.25);
+}
+
+.round-map-from {
+  width: 8px;
+  height: 8px;
+  margin: -4px 0 0 -4px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1.5px #15171b;
+  pointer-events: none;
+}
+
+.round-map-from.ally {
+  background: #5ea8ff;
+}
+
+.round-map-from.enemy {
+  background: #b4663f;
+}
+
+.round-map-from.me {
+  width: 10px;
+  height: 10px;
+  margin: -5px 0 0 -5px;
+  box-shadow: 0 0 0 2px #f2f3f5;
+}
+
+.round-map.has-focus line:not(.on),
+.round-map.has-focus .round-map-mark:not(.on),
+.round-map.has-focus .round-map-from:not(.on) {
+  opacity: 0.2;
+}
+
+.round-map-tip {
+  position: absolute;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  color: var(--text);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+  font-size: 13px;
+  white-space: nowrap;
+  transform: translate(18px, -50%);
+  pointer-events: none;
+}
+
+.round-map-tip.flip {
+  transform: translate(calc(-100% - 18px), -50%);
+}
+
+.round-map-tip .faint {
+  font-size: 12px;
+}
+
+.round-map-tip-face {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  object-fit: cover;
+}
+
+.round-feed .event.on {
+  background: var(--field);
+  border-top-color: transparent;
+}
+
+.round-feed .event.on + .event {
+  border-top-color: transparent;
+}
+
+@container main (max-width: 1000px) {
+  .round-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .round-map {
+    max-width: min(100%, 480px);
+  }
+}
