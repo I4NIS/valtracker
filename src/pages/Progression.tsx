@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import "../styles/progression.css";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { SeasonPicker } from "../components/SeasonPicker";
 import { api, errorMessage, type Account, type GameSummary, type Progression as Data, type RrPoint } from "../lib/api";
 import { seasonLabel, tierNameById } from "../lib/assets";
@@ -226,38 +227,178 @@ function recordsOf(games: GameSummary[], rr: RrPoint[]) {
 
 const value = (point: RrPoint) => (point.tier ?? 0) * 100 + (point.rr ?? 0);
 
+const CHART_HEIGHT = 240;
+const CHART_INSET = 12;
+const MAX_TICKS = 6;
+const TICK_GAP = 28;
+const TIP_OFFSET = 14;
+const FIRST_TIER = 3;
+const LAST_TIER = 27;
+
+const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n));
+
+function tickStep(count: number, pxPerTier: number) {
+  const needed = Math.max(1, Math.ceil(count / MAX_TICKS), Math.ceil(TICK_GAP / pxPerTier));
+  if (needed <= 3) return needed;
+  return Math.ceil(needed / 3) * 3;
+}
+
+function rrScale(values: number[]) {
+  const vmin = Math.min(...values);
+  const vmax = Math.max(...values);
+  const pad = Math.max(15, (vmax - vmin) * 0.08);
+  let lo = vmin - pad;
+  let hi = vmax + pad;
+  if (hi - lo < 120) {
+    const mid = (vmin + vmax) / 2;
+    lo = mid - 60;
+    hi = mid + 60;
+  }
+  const boundaries = () => {
+    const list: number[] = [];
+    for (let tier = Math.max(FIRST_TIER, Math.ceil(lo / 100)); tier <= Math.min(LAST_TIER, Math.floor(hi / 100)); tier++) list.push(tier);
+    return list;
+  };
+  let tiers = boundaries();
+  if (tiers.length === 0) {
+    lo = Math.min(lo, clamp(Math.floor(vmin / 100), FIRST_TIER, LAST_TIER) * 100 - pad);
+    tiers = boundaries();
+  }
+  const inner = CHART_HEIGHT - CHART_INSET * 2;
+  const step = tickStep(tiers.length, (100 * inner) / (hi - lo));
+  const y = (v: number) => CHART_INSET + (1 - (v - lo) / (hi - lo)) * inner;
+  return { y, ticks: tiers.filter((tier) => (tier - FIRST_TIER) % step === 0) };
+}
+
 function RrChart({ points }: { points: RrPoint[] }) {
-  const valid = points.filter((point) => point.tier !== null);
-  if (valid.length < 2) return <span className="hint">Pas encore assez de matchs classés.</span>;
-  const values = valid.map(value);
-  const min = Math.floor((Math.min(...values) - 10) / 100) * 100;
-  const max = Math.ceil((Math.max(...values) + 10) / 100) * 100;
-  const span = Math.max(max - min, 100);
-  const x = (i: number) => (i / (valid.length - 1)) * 1000;
-  const y = (v: number) => 230 - ((v - min) / span) * 220;
-  const line = values.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
-  const tiers: number[] = [];
-  for (let level = min; level <= max; level += 100) tiers.push(level);
+  const valid = useMemo(() => points.filter((point) => point.tier !== null && point.tier >= FIRST_TIER), [points]);
+  const plotRef = useRef<HTMLDivElement>(null);
+  const tipRef = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(0);
+  const [tipWidth, setTipWidth] = useState(180);
+  const [active, setActive] = useState<number | null>(null);
+  const ready = valid.length >= 2;
+
+  useEffect(() => {
+    const node = plotRef.current;
+    if (!node) return;
+    setWidth(node.clientWidth);
+    const observer = new ResizeObserver((entries) => setWidth(entries[0].contentRect.width));
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [ready]);
+
+  const scale = useMemo(() => (ready ? rrScale(valid.map(value)) : null), [valid, ready]);
+  const x = (i: number) => (valid.length > 1 ? (i / (valid.length - 1)) * width : 0);
+  const line = useMemo(
+    () =>
+      scale && width > 0
+        ? valid.map((point, i) => `${((i / (valid.length - 1)) * width).toFixed(1)},${scale.y(value(point)).toFixed(1)}`).join(" ")
+        : "",
+    [valid, scale, width],
+  );
+
+  const index = active === null || valid.length === 0 ? null : clamp(active, 0, valid.length - 1);
+
+  useLayoutEffect(() => {
+    if (tipRef.current) setTipWidth(tipRef.current.offsetWidth);
+  }, [index]);
+
+  if (!scale || !ready) return <span className="hint">Pas encore assez de matchs classés.</span>;
+
+  const pick = (clientX: number) => {
+    const rect = plotRef.current?.getBoundingClientRect();
+    if (!rect || rect.width === 0) return;
+    setActive(Math.round(clamp((clientX - rect.left) / rect.width, 0, 1) * (valid.length - 1)));
+  };
+
+  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    const step = event.shiftKey ? 10 : 1;
+    const last = valid.length - 1;
+    let next: number | null = null;
+    if (event.key === "ArrowLeft") next = index === null ? last : index - step;
+    else if (event.key === "ArrowRight") next = index === null ? last : index + step;
+    else if (event.key === "Home") next = 0;
+    else if (event.key === "End") next = last;
+    else if (event.key === "Escape") {
+      setActive(null);
+      return;
+    }
+    if (next === null) return;
+    event.preventDefault();
+    setActive(clamp(next, 0, last));
+  };
+
+  const point = index === null ? null : valid[index];
+  const px = index === null ? 0 : x(index);
+  const py = point ? scale.y(value(point)) : 0;
+  const tipLeft = clamp(px + TIP_OFFSET + tipWidth > width ? px - TIP_OFFSET - tipWidth : px + TIP_OFFSET, 0, Math.max(0, width - tipWidth));
+  const below = py < CHART_HEIGHT / 2;
+  const change = point?.change ?? null;
   const first = new Date(valid[0].date);
   const last = new Date(valid[valid.length - 1].date);
   const short = (date: Date) => date.toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
 
   return (
     <div className="stack" style={{ gap: 8 }}>
-      <div className="rr-chart">
-        <svg viewBox="0 0 1000 240" preserveAspectRatio="none" role="img" aria-label="Courbe de RR">
-          {tiers.map((level) => (
-            <line key={level} x1="0" x2="1000" y1={y(level)} y2={y(level)} className="grid" />
+      <div
+        className="rr-chart"
+        tabIndex={0}
+        aria-label="Courbe de RR, flèches gauche et droite pour parcourir les matchs"
+        onKeyDown={onKeyDown}
+        onBlur={() => setActive(null)}
+      >
+        <div className="rr-axis" aria-hidden="true">
+          {scale.ticks.map((tier) => (
+            <span key={tier} className="rr-tick" style={{ top: scale.y(tier * 100) }}>
+              {tierNameById(tier)}
+            </span>
           ))}
-          <polyline points={line} className="rr-line" />
-        </svg>
-        {tiers.slice(0, -1).map((level) => (
-          <span key={level} className="rr-label" style={{ top: `${(y(level) / 240) * 100}%` }}>
-            {tierNameById(level / 100)}
-          </span>
-        ))}
+        </div>
+        <div
+          ref={plotRef}
+          className="rr-plot"
+          onPointerMove={(event) => pick(event.clientX)}
+          onPointerDown={(event) => pick(event.clientX)}
+          onPointerLeave={() => setActive(null)}
+        >
+          {width > 0 && (
+            <svg viewBox={`0 0 ${width} ${CHART_HEIGHT}`} preserveAspectRatio="none" role="img" aria-label="Courbe de RR">
+              {scale.ticks.map((tier) => (
+                <line key={tier} x1="0" x2={width} y1={scale.y(tier * 100)} y2={scale.y(tier * 100)} className="grid" />
+              ))}
+              <polyline points={line} className="rr-line" />
+              {point && (
+                <>
+                  <line x1={px} x2={px} y1="0" y2={CHART_HEIGHT} className="rr-guide" />
+                  <circle cx={px} cy={py} r="5" className="rr-dot" />
+                </>
+              )}
+            </svg>
+          )}
+          {point && (
+            <div
+              ref={tipRef}
+              className="rr-tip"
+              role="status"
+              style={{
+                left: tipLeft,
+                top: below ? py + TIP_OFFSET : py - TIP_OFFSET,
+                transform: below ? undefined : "translateY(-100%)",
+              }}
+            >
+              <span className="rr-tip-date">{fullDate(point.date)}</span>
+              <strong>
+                {tierNameById(point.tier)}, {point.rr ?? 0} RR
+              </strong>
+              {change !== null && (
+                <span className={`rr-tip-change ${change > 0 ? "up" : change < 0 ? "down" : ""}`}>{signed(change)} RR</span>
+              )}
+            </div>
+          )}
+        </div>
       </div>
-      <div className="row between faint" style={{ fontSize: 12 }}>
+      <div className="row between faint rr-dates">
         <span>{short(first)}</span>
         <span>{short(last)}</span>
       </div>
