@@ -20,11 +20,26 @@ pub struct AppState {
     cache: Mutex<Cache>,
     pub db_path: PathBuf,
     pub sync_lock: tokio::sync::Mutex<()>,
+    import_source: Mutex<Option<PathBuf>>,
 }
 
 impl AppState {
     pub fn new(conn: Connection, db_path: PathBuf) -> Self {
-        Self { db: Mutex::new(conn), cache: Mutex::default(), db_path, sync_lock: tokio::sync::Mutex::new(()) }
+        Self {
+            db: Mutex::new(conn),
+            cache: Mutex::default(),
+            db_path,
+            sync_lock: tokio::sync::Mutex::new(()),
+            import_source: Mutex::default(),
+        }
+    }
+
+    pub fn set_import_source(&self, path: Option<PathBuf>) {
+        *self.import_source.lock().unwrap_or_else(|poisoned| poisoned.into_inner()) = path;
+    }
+
+    pub fn import_source(&self) -> Option<PathBuf> {
+        self.import_source.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).clone()
     }
 
     pub fn conn(&self) -> AppResult<MutexGuard<'_, Connection>> {

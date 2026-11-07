@@ -3,7 +3,7 @@ use rusqlite::config::DbConfig;
 use rusqlite::{Connection, OpenFlags, params};
 use serde::Serialize;
 use std::collections::BTreeSet;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf, Prefix};
 use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_dialog::{DialogExt, FileDialogBuilder, FilePath};
@@ -201,6 +201,24 @@ pub fn replace(live: &mut Connection, live_path: &Path, source: &Path) -> AppRes
     Ok(candidate)
 }
 
+fn is_remote(path: &Path) -> bool {
+    match path.components().next() {
+        Some(Component::Prefix(prefix)) => {
+            matches!(prefix.kind(), Prefix::UNC(..) | Prefix::VerbatimUNC(..) | Prefix::Verbatim(..) | Prefix::DeviceNS(..))
+        }
+        _ => {
+            let text = path.as_os_str().to_string_lossy();
+            text.starts_with(r"\\") || text.starts_with("//")
+        }
+    }
+}
+
+fn remote_location() -> AppError {
+    AppError::Invalid(
+        tr("Copie d'abord la base sur ce PC pour l'importer", "Copy the database to this PC first to import it").into(),
+    )
+}
+
 fn dialog(app: &AppHandle) -> FileDialogBuilder<tauri::Wry> {
     let builder = app.dialog().file().add_filter(tr("Base Valtracker", "Valtracker database"), &["db"]);
     match app.get_webview_window("main") {
@@ -243,25 +261,41 @@ pub async fn pick_database_import(app: AppHandle) -> AppResult<Option<ImportCand
     dialog(&app).set_title(tr("Importer une base", "Import a database")).pick_file(move |path| {
         let _ = sender.send(path);
     });
+    let state = app.state::<AppState>();
+    state.set_import_source(None);
     let Some(source) = chosen(receiver).await? else {
         return Ok(None);
     };
-    blocking(move || inspect(&source)).await.map(Some)
+    if is_remote(&source) {
+        return Err(remote_location());
+    }
+    let path = source.clone();
+    let candidate = blocking(move || inspect(&path)).await?;
+    state.set_import_source(Some(source));
+    Ok(Some(candidate))
 }
 
 #[tauri::command]
 pub async fn import_database(app: AppHandle, path: String) -> AppResult<()> {
     let state = app.state::<AppState>();
+    let source = state
+        .import_source()
+        .filter(|source| source.display().to_string() == path)
+        .ok_or_else(|| AppError::Invalid(tr("Choisis d'abord la base à importer", "Choose the database to import first").into()))?;
+    if is_remote(&source) {
+        return Err(remote_location());
+    }
     let _sync = state.sync_lock.lock().await;
     let handle = app.clone();
     let active = blocking(move || {
         let state = handle.state::<AppState>();
         let mut live = state.conn()?;
-        replace(&mut live, &state.db_path, Path::new(&path))?;
+        replace(&mut live, &state.db_path, &source)?;
         crate::i18n::load(&live);
         db::get_setting(&live, ACTIVE_ACCOUNT_SETTING)
     })
     .await?;
+    state.set_import_source(None);
     crate::tray::relabel(&app);
     state.invalidate();
     let _ = app.emit("data-changed", active.clone().unwrap_or_default());
@@ -491,6 +525,15 @@ mod tests {
             .filter(|entry| entry.file_name().to_string_lossy().contains(".tmp"))
             .collect();
         assert!(leftovers.is_empty());
+    }
+
+    #[test]
+    fn spots_network_locations() {
+        assert!(is_remote(Path::new(r"\\serveur\partage\valtracker.db")));
+        assert!(is_remote(Path::new(r"\\?\UNC\serveur\partage\valtracker.db")));
+        assert!(is_remote(Path::new("//serveur/partage/valtracker.db")));
+        assert!(!is_remote(Path::new(r"C:\Users\joueur\valtracker.db")));
+        assert!(!is_remote(Path::new(r"\\?\C:\Users\joueur\valtracker.db")));
     }
 
     #[test]
