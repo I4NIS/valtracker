@@ -12,6 +12,7 @@ mod assets;
 mod backup;
 mod career;
 mod commands;
+mod crosshair;
 mod db;
 mod error;
 mod extras;
@@ -129,6 +130,9 @@ pub fn run() {
             career::get_accolades,
             career::get_agent_mastery,
             rotation::get_map_rotation,
+            crosshair::add_crosshair,
+            crosshair::delete_crosshair,
+            crosshair::list_crosshairs,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

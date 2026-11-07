@@ -1,5 +1,6 @@
 import { getAgentStats } from "./agents";
 import { api, type HeatmapFilters, type OverviewFilters } from "./api";
+import { crosshairs } from "./crosshairs";
 import { getDuels } from "./duels";
 import { whenIdle } from "./idle";
 import { favorites } from "./favorites";
@@ -62,6 +63,7 @@ export const queries = {
   acts: (puuid: string) => ({ key: `acts|${puuid}`, fetch: () => getActs(puuid) }),
   accolades: (puuid: string) => ({ key: `accolades|${puuid}`, fetch: () => getAccolades(puuid) }),
   mastery: (puuid: string) => ({ key: `mastery|${puuid}`, fetch: () => getAgentMastery(puuid) }),
+  crosshairs: (puuid: string) => ({ key: `journal|crosshairs|${puuid}`, fetch: () => crosshairs.list(puuid) }),
 } satisfies Record<string, (...args: never[]) => Query<unknown>>;
 
 export function defaultSeason(puuid: string): Season | undefined {
@@ -116,6 +118,7 @@ function accountOnly(puuid: string, current: Season): Query<unknown>[] {
     queries.notes(puuid),
     queries.tags(puuid),
     queries.favorites(puuid),
+    queries.crosshairs(puuid),
     queries.agents(puuid, current),
     queries.maps(puuid, current),
     queries.weapons(puuid, current),

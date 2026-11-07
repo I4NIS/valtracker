@@ -1,0 +1,150 @@
+.xhair-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.xhair-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 2.2fr) minmax(0, 1fr) minmax(0, 170px) auto;
+  align-items: end;
+  gap: 12px;
+}
+
+.xhair-fields .field label {
+  color: var(--text-2);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.xhair-fields .input {
+  min-height: 42px;
+  font-size: 14px;
+}
+
+.xhair-code-input {
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+
+.xhair-submit {
+  min-height: 42px;
+}
+
+.xhair-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+  gap: 14px;
+}
+
+.xhair-card {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-width: 0;
+  padding: 18px;
+  border-radius: 16px;
+  background: var(--raised);
+}
+
+.xhair-head {
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+}
+
+.xhair-image {
+  display: grid;
+  place-items: center;
+  width: 88px;
+  height: 88px;
+  border-radius: 12px;
+  background: radial-gradient(circle at 50% 40%, #2a2d34 0%, #15171b 75%);
+  color: rgba(242, 243, 245, 0.45);
+  object-fit: contain;
+}
+
+.xhair-title {
+  gap: 4px;
+  min-width: 0;
+  font-size: 13px;
+}
+
+.xhair-title strong {
+  font-size: 16px;
+  letter-spacing: -0.02em;
+}
+
+.xhair-code {
+  overflow: hidden;
+  color: var(--text-3);
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font-size: 12px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  user-select: all;
+}
+
+.xhair-badge {
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--text);
+  color: var(--panel);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.xhair-actions {
+  display: flex;
+  align-self: flex-start;
+  gap: 6px;
+}
+
+.xhair-delete {
+  color: var(--bad);
+}
+
+.xhair-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.xhair-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  font-size: 12px;
+}
+
+.xhair-stat strong {
+  font-size: 20px;
+  letter-spacing: -0.03em;
+}
+
+.xhair-stat small {
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+@media (max-width: 1100px) {
+  .xhair-fields {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .xhair-field-code {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 720px) {
+  .xhair-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .xhair-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

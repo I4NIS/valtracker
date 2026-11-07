@@ -271,6 +271,23 @@ CREATE TABLE match_accolades (
     act_record INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY (puuid, match_id, accolade)
 ) WITHOUT ROWID;
+", "
+", "
+CREATE TABLE crosshair_images (
+    code TEXT PRIMARY KEY,
+    png BLOB NOT NULL
+) WITHOUT ROWID;
+
+CREATE TABLE crosshairs (
+    id INTEGER PRIMARY KEY,
+    puuid TEXT NOT NULL,
+    code TEXT NOT NULL,
+    label TEXT NOT NULL DEFAULT '',
+    since_date TEXT NOT NULL,
+    since_at TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX idx_crosshairs_puuid ON crosshairs(puuid, since_at);
 "];
 
 const REBUILT_AT: i64 = 10;

@@ -6,7 +6,7 @@ use tauri::{AppHandle, Manager};
 use crate::error::{AppError, AppResult};
 use crate::state::{AppState, Claim};
 use crate::stats::Filters;
-use crate::{agent_stats, duels, favorites, journal, map_detail, map_stats, progression, scan, stats, weapon_stats};
+use crate::{agent_stats, crosshair, duels, favorites, journal, map_detail, map_stats, progression, scan, stats, weapon_stats};
 
 #[derive(Debug, Clone)]
 pub enum Report {
@@ -23,6 +23,7 @@ pub enum Report {
     Notes,
     Tags,
     Favorites,
+    Crosshairs,
 }
 
 fn json<T: Serialize>(value: AppResult<T>) -> AppResult<String> {
@@ -53,6 +54,7 @@ impl Report {
             Report::Notes => json(journal::entries(conn, puuid)),
             Report::Tags => json(journal::tag_stats(conn, puuid)),
             Report::Favorites => json(favorites::entries(conn, puuid)),
+            Report::Crosshairs => json(crosshair::report(conn, puuid)),
         }
     }
 
@@ -225,7 +227,7 @@ pub fn run(state: &AppState, puuid: &str, newer: &dyn Fn() -> bool) {
     }
     drop(season_claims);
     drop(total_claims);
-    let mut list = vec![Report::Overview(Filters::default()), Report::Progression(None)];
+    let mut list = vec![Report::Overview(Filters::default()), Report::Progression(None), Report::Crosshairs];
     list.extend(state.read(|conn| Ok(played_maps(conn, puuid))).unwrap_or_default().into_iter().map(Report::MapHistory));
     compute(state, puuid, list, &cancelled);
 }

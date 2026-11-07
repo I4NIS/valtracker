@@ -1,5 +1,6 @@
 import "../styles/journal.css";
 import { useEffect, useMemo, useState } from "react";
+import { CrosshairJournal } from "../components/CrosshairJournal";
 import { FavoriteButton } from "../components/FavoriteButton";
 import { fadeIn } from "../components/GameArt";
 import { repeat, SkeletonBlock, SkeletonGroup, SkeletonLine } from "../components/Skeleton";
@@ -19,7 +20,7 @@ type Props = {
   onOpenMatch: (matchId: string, round?: number, puuid?: string, death?: boolean) => void;
 };
 
-type View = "notes" | "favorites";
+type View = "notes" | "favorites" | "crosshairs";
 
 const SMALL_SAMPLE = 3;
 
@@ -43,7 +44,9 @@ export function Journal({ account, onOpenMatch }: Props) {
           <span className="faint">
             {view === "notes"
               ? t("Tes notes et tags, et tes résultats avec et sans chaque tag", "Your notes and tags, and your results with and without each tag")
-              : t("Les matchs, rounds et morts que tu as mis en favori", "The matches, rounds and deaths you marked as favorites")}
+              : view === "crosshairs"
+                ? t("Tes viseurs et tes stats en compétitif entre chaque changement", "Your crosshairs and your competitive stats between each change")
+                : t("Les matchs, rounds et morts que tu as mis en favori", "The matches, rounds and deaths you marked as favorites")}
           </span>
         </div>
         <div className="segmented" role="tablist" aria-label={t("Sections du journal", "Journal sections")}>
@@ -59,11 +62,22 @@ export function Journal({ account, onOpenMatch }: Props) {
           >
             {t("Favoris", "Favorites")}
           </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={view === "crosshairs"}
+            className={view === "crosshairs" ? "active" : undefined}
+            onClick={() => setView("crosshairs")}
+          >
+            {t("Viseurs", "Crosshairs")}
+          </button>
         </div>
       </header>
 
       {view === "notes" ? (
         <NotesView account={account} onOpenMatch={onOpenMatch} />
+      ) : view === "crosshairs" ? (
+        <CrosshairJournal puuid={account.puuid} />
       ) : (
         <FavoritesView account={account} onOpenMatch={onOpenMatch} />
       )}

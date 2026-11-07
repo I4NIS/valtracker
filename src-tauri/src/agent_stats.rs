@@ -116,7 +116,7 @@ fn ratio(numerator: f64, denominator: f64) -> f64 {
 
 pub type FirstKills = (i64, i64, i64);
 
-fn stored_first_kills(conn: &Connection, match_id: &str, puuid: &str) -> AppResult<Option<FirstKills>> {
+pub fn stored_first_kills(conn: &Connection, match_id: &str, puuid: &str) -> AppResult<Option<FirstKills>> {
     let mut stmt = conn.prepare_cached("SELECT raw FROM matches WHERE match_id = ?1")?;
     let mut rows = stmt.query(params![match_id])?;
     let Some(row) = rows.next()? else {

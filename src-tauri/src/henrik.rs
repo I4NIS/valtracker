@@ -75,6 +75,10 @@ impl Henrik {
         self.get(&["v1", "queue-status", region], &[]).await
     }
 
+    pub async fn crosshair(&self, code: &str) -> AppResult<Vec<u8>> {
+        self.fetch(&["v1", "crosshair", "generate"], &[("id", code.to_string())]).await
+    }
+
     async fn get(&self, segments: &[&str], query: &[(&str, String)]) -> AppResult<Value> {
         let body = self.fetch(segments, query).await?;
         Ok(match serde_json::from_slice(&body).unwrap_or(Value::Null) {
