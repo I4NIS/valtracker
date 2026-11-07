@@ -1,5 +1,6 @@
 mod db;
 mod error;
+mod henrik;
 
 #[tauri::command]
 fn greet(name: &str) -> String {
