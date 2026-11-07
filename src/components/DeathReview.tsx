@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Death } from "../lib/api";
 import { fmt } from "../lib/format";
+import { rotatePoint, rotationStyle } from "../lib/minimap";
 import { Icon } from "./Icon";
 
 type Order = "gravity" | "chrono";
@@ -8,11 +9,12 @@ type Order = "gravity" | "chrono";
 type Props = {
   deaths: Death[];
   minimap: string | null;
+  rotation: number;
 };
 
 const pctOf = (value: number) => `${value * 100}%`;
 
-export function DeathReview({ deaths, minimap }: Props) {
+export function DeathReview({ deaths, minimap, rotation }: Props) {
   const [order, setOrder] = useState<Order>("gravity");
   const [index, setIndex] = useState(0);
 
@@ -32,6 +34,10 @@ export function DeathReview({ deaths, minimap }: Props) {
   }, [list.length]);
 
   if (!death) return <div className="empty">Aucune mort sur ce match. Rien à revoir.</div>;
+
+  const position = death.position ? rotatePoint(death.position, rotation) : null;
+  const killerPosition = death.killerPosition ? rotatePoint(death.killerPosition, rotation) : null;
+  const others = death.others.map((marker) => ({ ally: marker.ally, ...rotatePoint(marker, rotation) }));
 
   const facts: [string, string][] = [
     ["Tué par", `${death.killerName}${death.killerAgent ? `, ${death.killerAgent}` : ""}`],
@@ -58,34 +64,29 @@ export function DeathReview({ deaths, minimap }: Props) {
       <div className="review">
         <div className="stack" style={{ gap: 12 }}>
           <div className="minimap">
-            {minimap && <img src={minimap} alt="Minimap" />}
-            {death.position ? (
+            {minimap && <img src={minimap} alt="Minimap" style={rotationStyle(rotation)} />}
+            {position ? (
               <>
-                {death.killerPosition && (
+                {killerPosition && (
                   <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-                    <line
-                      x1={death.killerPosition.x * 100}
-                      y1={death.killerPosition.y * 100}
-                      x2={death.position.x * 100}
-                      y2={death.position.y * 100}
-                    />
+                    <line x1={killerPosition.x * 100} y1={killerPosition.y * 100} x2={position.x * 100} y2={position.y * 100} />
                   </svg>
                 )}
-                {death.others.map((marker, i) => (
+                {others.map((marker, i) => (
                   <span key={i} className={`marker ${marker.ally ? "ally" : "enemy"}`} style={{ left: pctOf(marker.x), top: pctOf(marker.y) }} />
                 ))}
-                {death.killerPosition && (
+                {killerPosition && (
                   <>
-                    <span className="marker killer" style={{ left: pctOf(death.killerPosition.x), top: pctOf(death.killerPosition.y) }} />
-                    <span className="marker-label killer" style={{ left: pctOf(death.killerPosition.x), top: pctOf(death.killerPosition.y) }}>
+                    <span className="marker killer" style={{ left: pctOf(killerPosition.x), top: pctOf(killerPosition.y) }} />
+                    <span className="marker-label killer" style={{ left: pctOf(killerPosition.x), top: pctOf(killerPosition.y) }}>
                       {death.killerName}
                     </span>
                   </>
                 )}
-                <span className="marker me" style={{ left: pctOf(death.position.x), top: pctOf(death.position.y) }}>
+                <span className="marker me" style={{ left: pctOf(position.x), top: pctOf(position.y) }}>
                   <Icon name="close" size={11} strokeWidth={3} />
                 </span>
-                <span className="marker-label" style={{ left: pctOf(death.position.x), top: pctOf(death.position.y) }}>
+                <span className="marker-label" style={{ left: pctOf(position.x), top: pctOf(position.y) }}>
                   Toi
                 </span>
               </>
