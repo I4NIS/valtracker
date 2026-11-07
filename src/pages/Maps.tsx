@@ -65,7 +65,6 @@ export function Maps({ account, refreshKey }: Props) {
 
   const choose = (id: string) => {
     setSelectedId(id);
-    window.requestAnimationFrame(() => detailRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
   };
 
   return (
