@@ -4,7 +4,8 @@ use tauri::{AppHandle, Emitter, Manager};
 use crate::assets;
 use crate::db;
 use crate::error::{AppError, AppResult};
-use crate::henrik::{Henrik, NOT_FOUND};
+use crate::henrik::Henrik;
+use crate::i18n::{english, tr};
 use crate::models::{SyncProgress, SyncReport};
 use crate::notify;
 use crate::repo;
@@ -26,7 +27,7 @@ pub async fn run(app: &AppHandle, puuid: &str) -> AppResult<SyncReport> {
     let result = sync(app, &state, puuid).await;
     let error = result.as_ref().err().map(ToString::to_string);
     let new_matches = result.as_ref().map_or(0, |report| report.new_matches);
-    emit(app, puuid, "Terminé", new_matches, false, error);
+    emit(app, puuid, tr("Terminé", "Done"), new_matches, false, error);
     result
 }
 
@@ -35,32 +36,34 @@ async fn sync(app: &AppHandle, state: &AppState, puuid: &str) -> AppResult<SyncR
         let conn = state.conn()?;
         let key = db::get_setting(&conn, API_KEY_SETTING)?
             .filter(|key| !key.is_empty())
-            .ok_or_else(|| AppError::Invalid("Ajoute ta clé API HenrikDev dans les paramètres".into()))?;
+            .ok_or_else(|| {
+                AppError::Invalid(tr("Ajoute ta clé API HenrikDev dans les paramètres", "Add your HenrikDev API key in Settings").into())
+            })?;
         let account = repo::get_account(&conn, puuid)?
-            .ok_or_else(|| AppError::Invalid("Compte introuvable".into()))?;
+            .ok_or_else(|| AppError::Invalid(tr("Compte introuvable", "Account not found").into()))?;
         (key, account, notify::has_matches(&conn, puuid)?)
     };
     let api = Henrik::new(key);
     let (region, platform) = (account.region.as_str(), account.platform.as_str());
 
-    emit(app, puuid, "Données des maps", 0, true, None);
+    emit(app, puuid, tr("Données des maps", "Map data"), 0, true, None);
     let _ = assets::refresh_if_needed(state).await;
 
-    emit(app, puuid, "Rang", 0, true, None);
+    emit(app, puuid, tr("Rang", "Rank"), 0, true, None);
     let mmr = api.mmr(region, platform, puuid).await?;
     {
         let conn = state.conn()?;
         repo::update_rank(&conn, puuid, &mmr)?;
     }
 
-    emit(app, puuid, "Historique de RR", 0, true, None);
+    emit(app, puuid, tr("Historique de RR", "RR history"), 0, true, None);
     let history = api.mmr_history(region, platform, puuid).await?;
     {
         let mut conn = state.conn()?;
         repo::upsert_mmr_history(&mut conn, puuid, &history)?;
     }
 
-    let mut new_matches = sync_mode(app, state, &api, region, platform, puuid, COMPETITIVE, "compétitifs", 0).await?;
+    let mut new_matches = sync_mode(app, state, &api, region, platform, puuid, COMPETITIVE, tr("Matchs compétitifs", "Competitive matches"), 0).await?;
     if new_matches > 0 {
         refreshed(app, state, puuid);
         if had_matches {
@@ -98,7 +101,7 @@ async fn sync_mode(
     let mut added_total = 0;
     let mut start = 0;
     while start < MAX_MATCHES_PER_MODE {
-        emit(app, puuid, &format!("Matchs {label}"), already + added_total, true, None);
+        emit(app, puuid, label, already + added_total, true, None);
         let page = api.matches(region, platform, puuid, mode, start, PAGE_SIZE).await?;
         let games = page.as_array().cloned().unwrap_or_default();
         if games.is_empty() {
@@ -129,14 +132,12 @@ async fn backfill(app: &AppHandle, state: &AppState, api: &Henrik, region: &str,
     let mut added = 0;
     let mut consecutive_missing = 0;
     for (index, match_id) in missing.iter().enumerate() {
-        emit(
-            app,
-            puuid,
-            &format!("Matchs plus anciens, {} sur {}", index + 1, missing.len()),
-            already + added,
-            true,
-            None,
-        );
+        let stage = if english() {
+            format!("Older matches, {} of {}", index + 1, missing.len())
+        } else {
+            format!("Matchs plus anciens, {} sur {}", index + 1, missing.len())
+        };
+        emit(app, puuid, &stage, already + added, true, None);
         match api.match_detail(region, match_id).await {
             Ok(game) => {
                 consecutive_missing = 0;
@@ -150,7 +151,7 @@ async fn backfill(app: &AppHandle, state: &AppState, api: &Henrik, region: &str,
                     }
                 }
             }
-            Err(AppError::Api(message)) if message == NOT_FOUND => {
+            Err(AppError::NotFound) => {
                 if let Ok(conn) = state.conn() {
                     let _ = repo::mark_unavailable(&conn, match_id);
                 }

@@ -8,11 +8,11 @@ use tauri_plugin_dialog::{DialogExt, FileDialogBuilder, FilePath};
 
 use crate::db;
 use crate::error::{AppError, AppResult};
+use crate::i18n::tr;
 use crate::state::AppState;
 use crate::sync::{ACTIVE_ACCOUNT_SETTING, API_KEY_SETTING};
 
 const REQUIRED_TABLES: [&str; 5] = ["settings", "accounts", "matches", "match_players", "mmr_history"];
-const FILTER_NAME: &str = "Base Valtracker";
 const PAGES_PER_STEP: i32 = 512;
 
 #[derive(Debug, Clone, Serialize)]
@@ -24,7 +24,7 @@ pub struct ImportCandidate {
 }
 
 fn not_valtracker() -> AppError {
-    AppError::Invalid("Ce fichier n'est pas une base Valtracker".into())
+    AppError::Invalid(tr("Ce fichier n'est pas une base Valtracker", "This file is not a Valtracker database").into())
 }
 
 pub fn inspect(path: &Path) -> AppResult<ImportCandidate> {
@@ -35,7 +35,9 @@ pub fn inspect(path: &Path) -> AppResult<ImportCandidate> {
         return Err(not_valtracker());
     }
     if version > db::schema_version() {
-        return Err(AppError::Invalid("Cette base vient d'une version plus récente de Valtracker".into()));
+        return Err(AppError::Invalid(
+            tr("Cette base vient d'une version plus récente de Valtracker", "This database comes from a newer version of Valtracker").into(),
+        ));
     }
     for table in REQUIRED_TABLES {
         let found: i64 = conn
@@ -55,7 +57,9 @@ pub fn inspect(path: &Path) -> AppResult<ImportCandidate> {
 
 pub fn export_to(source: &Path, target: &Path) -> AppResult<()> {
     if same_file(source, target) {
-        return Err(AppError::Invalid("Choisis un autre emplacement que la base actuelle".into()));
+        return Err(AppError::Invalid(
+            tr("Choisis un autre emplacement que la base actuelle", "Choose a location other than the current database").into(),
+        ));
     }
     if target.exists() {
         std::fs::remove_file(target)?;
@@ -98,7 +102,9 @@ fn prepare(source: &Path, temp: &Path, page_size: i64, api_key: Option<&str>) ->
 
 pub fn replace(live: &mut Connection, live_path: &Path, source: &Path) -> AppResult<ImportCandidate> {
     if same_file(live_path, source) {
-        return Err(AppError::Invalid("Ce fichier est déjà ta base actuelle".into()));
+        return Err(AppError::Invalid(
+            tr("Ce fichier est déjà ta base actuelle", "This file is already your current database").into(),
+        ));
     }
     let candidate = inspect(source)?;
     let api_key = db::get_setting(live, API_KEY_SETTING)?.filter(|key| !key.is_empty());
@@ -117,7 +123,7 @@ pub fn replace(live: &mut Connection, live_path: &Path, source: &Path) -> AppRes
 }
 
 fn dialog(app: &AppHandle) -> FileDialogBuilder<tauri::Wry> {
-    let builder = app.dialog().file().add_filter(FILTER_NAME, &["db"]);
+    let builder = app.dialog().file().add_filter(tr("Base Valtracker", "Valtracker database"), &["db"]);
     match app.get_webview_window("main") {
         Some(window) => builder.set_parent(&window),
         None => builder,
@@ -128,7 +134,7 @@ async fn chosen(receiver: tokio::sync::oneshot::Receiver<Option<FilePath>>) -> A
     let Some(path) = receiver.await.ok().flatten() else {
         return Ok(None);
     };
-    path.into_path().map(Some).map_err(|_| AppError::Invalid("Emplacement invalide".into()))
+    path.into_path().map(Some).map_err(|_| AppError::Invalid(tr("Emplacement invalide", "Invalid location").into()))
 }
 
 async fn blocking<T: Send + 'static>(task: impl FnOnce() -> AppResult<T> + Send + 'static) -> AppResult<T> {
@@ -140,7 +146,7 @@ async fn blocking<T: Send + 'static>(task: impl FnOnce() -> AppResult<T> + Send 
 #[tauri::command]
 pub async fn export_database(app: AppHandle, file_name: String) -> AppResult<Option<String>> {
     let (sender, receiver) = tokio::sync::oneshot::channel();
-    dialog(&app).set_title("Exporter la base").set_file_name(file_name).save_file(move |path| {
+    dialog(&app).set_title(tr("Exporter la base", "Export the database")).set_file_name(file_name).save_file(move |path| {
         let _ = sender.send(path);
     });
     let Some(target) = chosen(receiver).await? else {
@@ -155,7 +161,7 @@ pub async fn export_database(app: AppHandle, file_name: String) -> AppResult<Opt
 #[tauri::command]
 pub async fn pick_database_import(app: AppHandle) -> AppResult<Option<ImportCandidate>> {
     let (sender, receiver) = tokio::sync::oneshot::channel();
-    dialog(&app).set_title("Importer une base").pick_file(move |path| {
+    dialog(&app).set_title(tr("Importer une base", "Import a database")).pick_file(move |path| {
         let _ = sender.send(path);
     });
     let Some(source) = chosen(receiver).await? else {
@@ -173,9 +179,11 @@ pub async fn import_database(app: AppHandle, path: String) -> AppResult<()> {
         let state = handle.state::<AppState>();
         let mut live = state.conn()?;
         replace(&mut live, &state.db_path, Path::new(&path))?;
+        crate::i18n::load(&live);
         db::get_setting(&live, ACTIVE_ACCOUNT_SETTING)
     })
     .await?;
+    crate::tray::relabel(&app);
     state.invalidate();
     let _ = app.emit("data-changed", active.clone().unwrap_or_default());
     if let Some(puuid) = active {

@@ -4,6 +4,7 @@ use tauri_plugin_notification::NotificationExt;
 
 use crate::db;
 use crate::error::AppResult;
+use crate::i18n::{decimal, english, tr};
 
 pub const NOTIFY_SETTING: &str = "notify_matches";
 
@@ -53,27 +54,27 @@ fn latest(conn: &Connection, puuid: &str) -> AppResult<Option<Latest>> {
 
 fn describe(game: &Latest) -> String {
     let result = if game.won {
-        "victoire"
+        tr("victoire", "win")
     } else if game.rounds_won == game.rounds_lost {
-        "égalité"
+        tr("égalité", "draw")
     } else {
-        "défaite"
+        tr("défaite", "loss")
     };
     let kd = game.kills as f64 / game.deaths.max(1) as f64;
     format!(
         "{}, {result} {}-{}, K/D {}",
-        game.map.as_deref().unwrap_or("Map inconnue"),
+        game.map.as_deref().unwrap_or(tr("Map inconnue", "Unknown map")),
         game.rounds_won,
         game.rounds_lost,
-        format!("{kd:.2}").replace('.', ",")
+        decimal(kd, 2)
     )
 }
 
 fn message(count: usize, game: &Latest) -> (String, String) {
-    if count > 1 {
-        (format!("{count} nouveaux matchs analysés"), format!("Dernier match : {}", describe(game)))
-    } else {
-        ("Nouveau match analysé".to_string(), describe(game))
+    match (count > 1, english()) {
+        (true, false) => (format!("{count} nouveaux matchs analysés"), format!("Dernier match : {}", describe(game))),
+        (true, true) => (format!("{count} new matches analyzed"), format!("Last match: {}", describe(game))),
+        (false, _) => (tr("Nouveau match analysé", "New match analyzed").to_string(), describe(game)),
     }
 }
 
@@ -109,5 +110,17 @@ mod tests {
         let (title, body) = message(3, &game(false, 7, 13, 10, 0));
         assert_eq!(title, "3 nouveaux matchs analysés");
         assert_eq!(body, "Dernier match : Ascent, défaite 7-13, K/D 10,00");
+    }
+
+    #[test]
+    fn english_messages() {
+        crate::i18n::set("en");
+        let (title, body) = message(1, &game(true, 13, 9, 21, 14));
+        let (several, last) = message(3, &game(false, 7, 13, 10, 0));
+        crate::i18n::set("fr");
+        assert_eq!(title, "New match analyzed");
+        assert_eq!(body, "Ascent, win 13-9, K/D 1.50");
+        assert_eq!(several, "3 new matches analyzed");
+        assert_eq!(last, "Last match: Ascent, loss 7-13, K/D 10.00");
     }
 }

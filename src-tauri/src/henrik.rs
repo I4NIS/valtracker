@@ -3,10 +3,10 @@ use serde_json::Value;
 use std::time::Duration;
 
 use crate::error::{AppError, AppResult};
+use crate::i18n::{english, tr};
 
 const BASE_URL: &str = "https://api.henrikdev.xyz/valorant/";
 const MAX_ATTEMPTS: usize = 4;
-pub const NOT_FOUND: &str = "Joueur ou match introuvable";
 
 pub struct Henrik {
     client: Client,
@@ -83,7 +83,7 @@ impl Henrik {
 fn build_url(segments: &[&str], query: &[(&str, String)]) -> AppResult<Url> {
     let mut url = Url::parse(BASE_URL).map_err(|e| AppError::Invalid(e.to_string()))?;
     url.path_segments_mut()
-        .map_err(|_| AppError::Invalid("URL invalide".into()))?
+        .map_err(|_| AppError::Invalid(tr("URL invalide", "Invalid URL").into()))?
         .pop_if_empty()
         .extend(segments);
     if !query.is_empty() {
@@ -101,10 +101,13 @@ fn api_error(status: StatusCode, body: &Value) -> AppError {
         .pointer("/errors/0/message")
         .and_then(Value::as_str)
         .unwrap_or_default();
+    let english = english();
     let message = match status.as_u16() {
-        401 | 403 => "Clé API HenrikDev invalide ou expirée".to_string(),
-        404 => NOT_FOUND.to_string(),
+        401 | 403 => tr("Clé API HenrikDev invalide ou expirée", "HenrikDev API key invalid or expired").to_string(),
+        404 => return AppError::NotFound,
+        code if detail.is_empty() && english => format!("The HenrikDev API returned error {code}"),
         code if detail.is_empty() => format!("L'API HenrikDev a répondu avec l'erreur {code}"),
+        code if english => format!("The HenrikDev API returned error {code}: {detail}"),
         code => format!("L'API HenrikDev a répondu avec l'erreur {code} : {detail}"),
     };
     AppError::Api(message)

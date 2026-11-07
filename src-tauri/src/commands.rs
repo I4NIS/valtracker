@@ -10,6 +10,7 @@ use crate::db;
 use crate::error::{AppError, AppResult};
 use crate::heatmap;
 use crate::henrik::Henrik;
+use crate::i18n::tr;
 use crate::models::{Account, Season, SyncReport};
 use crate::notify;
 use crate::reports::Report;
@@ -60,7 +61,7 @@ pub fn bootstrap(state: State<'_, AppState>) -> AppResult<Bootstrap> {
 pub fn save_api_key(state: State<'_, AppState>, key: String) -> AppResult<()> {
     let key = key.trim();
     if key.is_empty() {
-        return Err(AppError::Invalid("La clé API est vide".into()));
+        return Err(AppError::Invalid(tr("La clé API est vide", "The API key is empty").into()));
     }
     db::set_setting(&*state.conn()?, API_KEY_SETTING, key)
 }
@@ -77,20 +78,22 @@ pub async fn add_account(state: State<'_, AppState>, riot_id: String, region: St
         .rsplit_once('#')
         .map(|(name, tag)| (name.trim().to_string(), tag.trim().to_string()))
         .filter(|(name, tag)| !name.is_empty() && !tag.is_empty())
-        .ok_or_else(|| AppError::Invalid("Le Riot ID doit être au format Pseudo#TAG".into()))?;
+        .ok_or_else(|| {
+            AppError::Invalid(tr("Le Riot ID doit être au format Pseudo#TAG", "The Riot ID must use the Name#TAG format").into())
+        })?;
     let region = region.trim().to_lowercase();
     if !REGIONS.contains(&region.as_str()) {
-        return Err(AppError::Invalid("Région inconnue".into()));
+        return Err(AppError::Invalid(tr("Région inconnue", "Unknown region").into()));
     }
     let key = db::get_setting(&*state.conn()?, API_KEY_SETTING)?
-        .ok_or_else(|| AppError::Invalid("Ajoute d'abord ta clé API HenrikDev".into()))?;
+        .ok_or_else(|| AppError::Invalid(tr("Ajoute d'abord ta clé API HenrikDev", "Add your HenrikDev API key first").into()))?;
     let data = Henrik::new(key).account(&name, &tag).await?;
     let conn = state.conn()?;
     let puuid = repo::upsert_account(&conn, &data, &region)?
-        .ok_or_else(|| AppError::Api("Réponse inattendue de l'API HenrikDev".into()))?;
+        .ok_or_else(|| AppError::Api(tr("Réponse inattendue de l'API HenrikDev", "Unexpected response from the HenrikDev API").into()))?;
     db::set_setting(&conn, ACTIVE_ACCOUNT_SETTING, &puuid)?;
     forget_combined(&state);
-    repo::get_account(&conn, &puuid)?.ok_or_else(|| AppError::Invalid("Compte introuvable".into()))
+    repo::get_account(&conn, &puuid)?.ok_or_else(|| AppError::Invalid(tr("Compte introuvable", "Account not found").into()))
 }
 
 #[tauri::command]
@@ -104,7 +107,9 @@ pub fn set_active_account(state: State<'_, AppState>, puuid: String) -> AppResul
 pub fn set_combined_view(state: State<'_, AppState>, enabled: bool) -> AppResult<()> {
     let conn = state.conn()?;
     if enabled && repo::list_accounts(&conn)?.len() < 2 {
-        return Err(AppError::Invalid("La vue combinée demande au moins deux comptes".into()));
+        return Err(AppError::Invalid(
+            tr("La vue combinée demande au moins deux comptes", "The combined view needs at least two accounts").into(),
+        ));
     }
     db::set_setting(&conn, COMBINED_SETTING, if enabled { "true" } else { "false" })
 }
@@ -160,13 +165,14 @@ pub fn get_match(state: State<'_, AppState>, puuid: String, match_id: String) ->
 }
 
 fn match_detail(conn: &Connection, puuid: &str, match_id: &str) -> AppResult<MatchDetail> {
-    let game = storage::load_game(conn, match_id)?.ok_or_else(|| AppError::Invalid("Match introuvable".into()))?;
+    let game =
+        storage::load_game(conn, match_id)?.ok_or_else(|| AppError::Invalid(tr("Match introuvable", "Match not found").into()))?;
     let map_id = game.pointer("/metadata/map/id").and_then(Value::as_str).unwrap_or_default();
     let map = assets::load_map(conn, map_id)?;
     let roles = assets::agent_roles(conn)?;
     let thresholds = Thresholds::load(conn)?;
     let mut detail = analysis::analyze(&game, puuid, map.as_ref(), &roles, &thresholds)
-        .ok_or_else(|| AppError::Invalid("Impossible d'analyser ce match".into()))?;
+        .ok_or_else(|| AppError::Invalid(tr("Impossible d'analyser ce match", "Could not analyze this match").into()))?;
     if let Some((change, rr)) = conn
         .query_row(
             "SELECT last_change, rr FROM mmr_history WHERE puuid = ?1 AND match_id = ?2",
@@ -222,12 +228,13 @@ pub fn get_seasons(state: State<'_, AppState>, puuid: String) -> AppResult<Vec<S
 #[tauri::command]
 pub fn set_preference(app: AppHandle, state: State<'_, AppState>, key: String, value: String) -> AppResult<()> {
     if !PREFERENCES.contains(&key.as_str()) {
-        return Err(AppError::Invalid(crate::i18n::tr("Préférence inconnue", "Unknown preference").into()));
+        return Err(AppError::Invalid(tr("Préférence inconnue", "Unknown preference").into()));
     }
     let conn = state.conn()?;
     db::set_setting(&conn, &key, &value)?;
     if key == crate::i18n::LANGUAGE_SETTING {
         crate::i18n::set(&value);
+        crate::tray::relabel(&app);
         let active = db::get_setting(&conn, ACTIVE_ACCOUNT_SETTING)?;
         drop(conn);
         state.invalidate();

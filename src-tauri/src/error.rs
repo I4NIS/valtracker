@@ -1,19 +1,28 @@
 use serde::{Serialize, Serializer};
+use std::fmt::Display;
+
+use crate::i18n::{english, tr};
 
 #[derive(Debug, thiserror::Error)]
 pub enum AppError {
-    #[error("Erreur de base de données : {0}")]
+    #[error("{}", labeled("Erreur de base de données", "Database error", .0))]
     Db(#[from] rusqlite::Error),
-    #[error("Erreur réseau : {0}")]
+    #[error("{}", labeled("Erreur réseau", "Network error", .0))]
     Http(#[from] reqwest::Error),
-    #[error("Erreur de fichier : {0}")]
+    #[error("{}", labeled("Erreur de fichier", "File error", .0))]
     Io(#[from] std::io::Error),
     #[error("{0}")]
     Api(String),
-    #[error("Limite de requêtes atteinte, réessaie dans une minute")]
+    #[error("{}", tr("Joueur ou match introuvable", "Player or match not found"))]
+    NotFound,
+    #[error("{}", tr("Limite de requêtes atteinte, réessaie dans une minute", "Rate limit reached, try again in a minute"))]
     RateLimited,
     #[error("{0}")]
     Invalid(String),
+}
+
+fn labeled(fr: &str, en: &str, detail: &dyn Display) -> String {
+    if english() { format!("{en}: {detail}") } else { format!("{fr} : {detail}") }
 }
 
 impl Serialize for AppError {

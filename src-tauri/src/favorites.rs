@@ -3,6 +3,7 @@ use serde::Serialize;
 use tauri::State;
 
 use crate::error::{AppError, AppResult};
+use crate::i18n::tr;
 use crate::reports::Report;
 use crate::state::AppState;
 
@@ -30,12 +31,12 @@ pub struct FavoriteEntry {
 
 fn key(kind: &str, round_index: Option<i64>) -> AppResult<i64> {
     if !KINDS.contains(&kind) {
-        return Err(AppError::Invalid("Type de favori inconnu".into()));
+        return Err(AppError::Invalid(tr("Type de favori inconnu", "Unknown favorite type").into()));
     }
     match (kind, round_index) {
         ("match", _) => Ok(WHOLE_MATCH),
         (_, Some(index)) if index >= 0 => Ok(index),
-        _ => Err(AppError::Invalid("Round manquant".into())),
+        _ => Err(AppError::Invalid(tr("Round manquant", "Missing round").into())),
     }
 }
 
@@ -50,7 +51,7 @@ pub fn toggle(conn: &Connection, puuid: &str, match_id: &str, kind: &str, round_
         .optional()?
         .is_some();
     if !known {
-        return Err(AppError::Invalid("Match introuvable".into()));
+        return Err(AppError::Invalid(tr("Match introuvable", "Match not found").into()));
     }
     let removed = conn.execute(
         "DELETE FROM favorites WHERE puuid = ?1 AND match_id = ?2 AND kind = ?3 AND round_index = ?4",
