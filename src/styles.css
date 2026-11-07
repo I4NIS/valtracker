@@ -643,7 +643,7 @@ a {
 
 .track {
   display: grid;
-  grid-template-columns: 24px 40px minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.7fr) 48px;
+  grid-template-columns: 24px 40px minmax(0, 1.4fr) minmax(0, 1fr) 84px minmax(0, 1fr) minmax(0, 0.7fr) 48px;
   align-items: center;
   gap: 16px;
   padding: 8px 12px;
@@ -670,6 +670,23 @@ a {
   background: var(--raised);
 }
 
+.match-rank {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.track .match-rank img {
+  width: 28px;
+  height: 28px;
+  border-radius: 0;
+  object-fit: contain;
+  background: transparent;
+}
+
 .list-scroll {
   container-type: inline-size;
 }
@@ -680,12 +697,12 @@ a {
 
 @container (max-width: 600px) {
   .track {
-    grid-template-columns: 36px minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 0.9fr) 40px;
+    grid-template-columns: 36px minmax(0, 1.3fr) minmax(0, 1fr) 72px minmax(0, 0.9fr) 40px;
     gap: 12px;
   }
 
   .track > :nth-child(1),
-  .track > :nth-child(6) {
+  .track > :nth-child(7) {
     display: none;
   }
 

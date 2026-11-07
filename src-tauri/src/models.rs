@@ -83,6 +83,8 @@ pub struct RecentMatch {
     pub rounds_won: i64,
     pub rounds_lost: i64,
     pub place: i64,
+    pub tier: Option<i64>,
+    pub rr_change: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize)]

@@ -92,6 +92,8 @@ export type RecentMatch = {
   roundsWon: number;
   roundsLost: number;
   place: number;
+  tier: number | null;
+  rrChange: number | null;
 };
 
 export type Season = {

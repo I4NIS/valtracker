@@ -265,8 +265,9 @@ pub fn recent_matches(conn: &Connection, puuid: &str, filters: &Filters, limit: 
         "SELECT m.match_id, m.started_at, m.map_name, m.queue, p.agent_id, p.agent_name,
                 p.kills, p.deaths, p.assists, p.score * 1.0 / m.rounds, p.won, p.rounds_won, p.rounds_lost,
                 (SELECT COUNT(*) + 1 FROM match_players q WHERE q.match_id = p.match_id AND q.score > p.score),
-                p.puuid
+                p.puuid, p.tier, h.last_change
          FROM match_players p JOIN matches m ON m.match_id = p.match_id
+         LEFT JOIN mmr_history h ON h.puuid = p.puuid AND h.match_id = p.match_id
          WHERE p.puuid IN (SELECT ?1 UNION ALL SELECT puuid FROM accounts WHERE ?1 = 'all') AND m.queue = ?4
            AND (?5 IS NULL OR m.season_short = ?5)
            AND (?6 IS NULL OR m.map_id = ?6)
@@ -306,6 +307,8 @@ pub fn recent_matches(conn: &Connection, puuid: &str, filters: &Filters, limit: 
                     rounds_lost: row.get(12)?,
                     place: row.get(13)?,
                     puuid: row.get(14)?,
+                    tier: row.get(15)?,
+                    rr_change: row.get(16)?,
                 })
             },
         )?
@@ -526,6 +529,21 @@ mod tests {
         assert_eq!(ids(Filters { party: Some(Party::Solo), ..Filters::default() }, 10, 0), ["b", "c"]);
         assert_eq!(ids(Filters { party: Some(Party::Solo), ..Filters::default() }, 1, 1), ["c"]);
         assert_eq!(ids(Filters { party: Some(Party::Group), ..Filters::default() }, 10, 0), ["a"]);
+        drop(conn);
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn recent_matches_carry_rank_and_rr() {
+        let (conn, path) = database();
+        conn.execute_batch(
+            "UPDATE match_players SET tier = 17 WHERE match_id = 'a' AND puuid = 'me';
+             INSERT INTO mmr_history (puuid, match_id, date, tier, last_change) VALUES ('me', 'a', 'x', 17, 18), ('me', 'b', 'x', 17, -24);",
+        )
+        .unwrap();
+        let recent = recent_matches(&conn, ME, &Filters::default(), 10, 0).unwrap();
+        let found = recent.iter().map(|game| (game.tier, game.rr_change)).collect::<Vec<_>>();
+        assert_eq!(found, [(Some(17), Some(18)), (None, Some(-24)), (None, None)]);
         drop(conn);
         let _ = std::fs::remove_file(path);
     }

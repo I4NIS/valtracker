@@ -1,6 +1,6 @@
 import type { Account, RecentMatch } from "../lib/api";
-import { agentIcon } from "../lib/assets";
-import { fmt, placeLabel, timeAgo } from "../lib/format";
+import { agentIcon, tierIcon, tierNameById } from "../lib/assets";
+import { fmt, placeLabel, signed, timeAgo } from "../lib/format";
 import { t } from "../lib/i18n";
 import { Art } from "./GameArt";
 
@@ -20,6 +20,7 @@ export function MatchList({ matches, onOpen, startIndex = 0, accounts }: Props) 
           <span />
           <span>{t("Map", "Map")}</span>
           <span>{t("Résultat", "Result")}</span>
+          <span>{t("Rang", "Rank")}</span>
           <span>K / D / A</span>
           <span>ACS</span>
           <span style={{ textAlign: "right" }}>{t("Place", "Place")}</span>
@@ -37,6 +38,7 @@ export function MatchList({ matches, onOpen, startIndex = 0, accounts }: Props) 
             <strong className={game.won ? "win" : "bad"}>
               {game.won ? t("Victoire", "Victory") : t("Défaite", "Defeat")} {game.roundsWon}-{game.roundsLost}
             </strong>
+            <MatchRank tier={game.tier} change={game.rrChange} />
             <span className="muted">
               {game.kills} / {game.deaths} / {game.assists}
             </span>
@@ -46,6 +48,22 @@ export function MatchList({ matches, onOpen, startIndex = 0, accounts }: Props) 
         ))}
       </div>
     </div>
+  );
+}
+
+function MatchRank({ tier, change }: { tier: number | null; change: number | null }) {
+  const ranked = tier !== null && tier >= 3;
+  const name = ranked ? tierNameById(tier) : "";
+  const tone = change === null ? "" : change > 0 ? "win" : change < 0 ? "bad" : "muted";
+  return (
+    <span className="match-rank">
+      {ranked && <img src={tierIcon(tier)} alt={name} title={name} />}
+      {change !== null && (
+        <strong className={tone} title={t(`${signed(change)} RR sur ce match`, `${signed(change)} RR on this match`)}>
+          {signed(change)}
+        </strong>
+      )}
+    </span>
   );
 }
 
