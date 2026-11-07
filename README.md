@@ -44,6 +44,16 @@ Les trackers en ligne donnent des chiffres. Valtracker va plus loin sur un point
 - Tes morts, tes kills et la position de tes tueurs, par map.
 - Filtres par côté et par moment du round, avec le nom officiel des zones.
 
+**Agents, maps, armes et duels**
+- Stats par agent et par rôle, avec le détail de chaque agent : ouvertures et résultats par map.
+- Win rate, RR net, attaque et défense, plants par site, pistols et retakes sur chaque map.
+- Kills par arme, distance des duels, répartition tête, corps, jambes et armes qui te tuent.
+- Duels d'ouverture, clutchs de 1v1 à 1v5, matchups contre chaque agent, distance des duels et rivaux.
+
+**Journal**
+- Une note et des tags sur chaque match.
+- Tes résultats avec et sans chaque tag.
+
 **Progression**
 - Courbe de RR, jauge de forme, projection de rang.
 - Détection du tilt selon l'heure et les séries de défaites.
@@ -52,12 +62,13 @@ Les trackers en ligne donnent des chiffres. Valtracker va plus loin sur un point
 **Confort**
 - Premier lancement guidé en trois étapes, puis une visite de l'application, relançable depuis les paramètres.
 - Synchronisation automatique au lancement puis toutes les 10 minutes, en remontant le plus loin possible dans ton historique compétitif.
+- Recherche rapide avec Ctrl+K : pages, actions et matchs.
 - Plusieurs comptes Riot, thème sombre et clair.
 - Mises à jour proposées au lancement et installées en un clic.
 
 **À venir**
-- Pages Agents, Maps, Armes et Duels.
-- Journal de notes et de tags sur tes matchs.
+- Seuils d'analyse réglables.
+- Export et import de la base locale.
 - Filtres par map, agent, rôle et période sur l'accueil.
 - Version anglaise.
 
