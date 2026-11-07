@@ -1,5 +1,5 @@
 import type { Account } from "../lib/api";
-import { tierIcon, tierNameById } from "../lib/assets";
+import { tierIcon, tierLabel, tierNameById } from "../lib/assets";
 import { fmt } from "../lib/format";
 import type { RankPoint } from "../lib/recap";
 
@@ -65,7 +65,7 @@ export function loadImage(url: string | null | undefined): Promise<HTMLImageElem
       window.clearTimeout(timer);
       resolve(null);
     };
-    image.src = url;
+    image.src = `${url}${url.includes("?") ? "&" : "?"}export=1`;
   });
 }
 
@@ -256,7 +256,7 @@ export function header(ctx: Ctx, kind: string) {
   label(ctx, kind, W - M, 68, C.text2, "right");
 }
 
-export function footer(ctx: Ctx, account: Account, dateText: string, card: HTMLImageElement | null) {
+export function footer(ctx: Ctx, account: Account, dateText: string, card: HTMLImageElement | null, rank: HTMLImageElement | null = null) {
   const y = H - 92;
   ctx.fillStyle = C.line;
   ctx.fillRect(M, y, W - M * 2, 1);
@@ -265,8 +265,15 @@ export function footer(ctx: Ctx, account: Account, dateText: string, card: HTMLI
     clipRounded(ctx, x, y + 24, 152, 44, 8, () => cover(ctx, card, x, y + 24, 152, 44));
     x += 152 + 18;
   }
+  if (rank) {
+    contain(ctx, rank, x, y + 26, 40);
+    x += 40 + 14;
+  }
   const name = text(ctx, account.name, x, y + 55, { font: font(700, 22) });
-  text(ctx, `#${account.tag}`, x + name + 6, y + 55, { font: font(500, 22), color: C.text3 });
+  const tag = text(ctx, `#${account.tag}`, x + name + 6, y + 55, { font: font(500, 22), color: C.text3 });
+  if (account.tierName) {
+    text(ctx, tierLabel(account.tierName), x + name + 6 + tag + 18, y + 55, { font: font(600, 20), color: C.text2 });
+  }
   text(ctx, dateText, W - M, y + 55, { font: font(500, 20), color: C.text3, align: "right" });
 }
 

@@ -174,6 +174,7 @@ export async function renderActRecap(recap: ActRecap, account: Account): Promise
       nemesis: agentBust(recap.nemesis?.agentId),
       victim: agentBust(recap.victim?.agentId),
       card: cardArt(account.cardId),
+      own: rankArt(account.tier),
     }),
   ]);
   const { canvas, ctx } = createCanvas();
@@ -240,6 +241,6 @@ export async function renderActRecap(recap: ActRecap, account: Account): Promise
   }
   rankPanel(ctx, recap, art, rightX, 590, rightW, H - 116 - 590);
 
-  footer(ctx, account, today(), art.card);
+  footer(ctx, account, today(), art.card, art.own);
   return canvas;
 }
