@@ -122,6 +122,11 @@ export default function App() {
     api.setPreference("theme", next).catch(() => undefined);
   };
 
+  const changeNotify = (next: boolean) => {
+    setBoot((current) => (current ? { ...current, notifyMatches: next } : current));
+    api.setPreference("notify_matches", next ? "true" : "false").catch(() => undefined);
+  };
+
   const closeTour = useCallback(() => {
     setTourOpen(false);
     setTourTarget(null);
@@ -191,6 +196,8 @@ export default function App() {
             activePuuid={boot.activePuuid}
             theme={theme}
             onTheme={changeTheme}
+            notifyMatches={boot.notifyMatches}
+            onNotifyMatches={changeNotify}
             onAccountsChanged={accountsChanged}
             onReplayTour={() => setTourOpen(true)}
           />

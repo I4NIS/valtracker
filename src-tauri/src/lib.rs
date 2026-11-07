@@ -11,6 +11,7 @@ mod error;
 mod heatmap;
 mod henrik;
 mod models;
+mod notify;
 mod progression;
 mod recap;
 mod reports;
@@ -32,6 +33,7 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(tauri_plugin_notification::init())
         .setup(|app| {
             let dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&dir)?;

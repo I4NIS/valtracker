@@ -6,6 +6,7 @@ use crate::db;
 use crate::error::{AppError, AppResult};
 use crate::henrik::{Henrik, NOT_FOUND};
 use crate::models::{SyncProgress, SyncReport};
+use crate::notify;
 use crate::repo;
 use crate::state::AppState;
 
@@ -29,14 +30,14 @@ pub async fn run(app: &AppHandle, puuid: &str) -> AppResult<SyncReport> {
 }
 
 async fn sync(app: &AppHandle, state: &AppState, puuid: &str) -> AppResult<SyncReport> {
-    let (key, account) = {
+    let (key, account, had_matches) = {
         let conn = state.conn()?;
         let key = db::get_setting(&conn, API_KEY_SETTING)?
             .filter(|key| !key.is_empty())
             .ok_or_else(|| AppError::Invalid("Ajoute ta clé API HenrikDev dans les paramètres".into()))?;
         let account = repo::get_account(&conn, puuid)?
             .ok_or_else(|| AppError::Invalid("Compte introuvable".into()))?;
-        (key, account)
+        (key, account, notify::has_matches(&conn, puuid)?)
     };
     let api = Henrik::new(key);
     let (region, platform) = (account.region.as_str(), account.platform.as_str());
@@ -61,6 +62,11 @@ async fn sync(app: &AppHandle, state: &AppState, puuid: &str) -> AppResult<SyncR
     let mut new_matches = sync_mode(app, state, &api, region, platform, puuid, COMPETITIVE, "compétitifs", 0).await?;
     if new_matches > 0 {
         refreshed(app, state, puuid);
+        if had_matches {
+            if let Ok(conn) = state.conn() {
+                let _ = notify::new_matches(app, &conn, puuid, new_matches);
+            }
+        }
     }
     let older = backfill(app, state, &api, region, puuid, new_matches).await;
     if older > 0 {

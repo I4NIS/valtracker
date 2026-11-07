@@ -10,11 +10,13 @@ type Props = {
   activePuuid: string | null;
   theme: Theme;
   onTheme: (theme: Theme) => void;
+  notifyMatches: boolean;
+  onNotifyMatches: (enabled: boolean) => void;
   onAccountsChanged: (activePuuid?: string) => void;
   onReplayTour: () => void;
 };
 
-export function Settings({ accounts, activePuuid, theme, onTheme, onAccountsChanged, onReplayTour }: Props) {
+export function Settings({ accounts, activePuuid, theme, onTheme, notifyMatches, onNotifyMatches, onAccountsChanged, onReplayTour }: Props) {
   const [key, setKey] = useState("");
   const [keyMessage, setKeyMessage] = useState<string | null>(null);
   const [riotId, setRiotId] = useState("");
@@ -70,6 +72,26 @@ export function Settings({ accounts, activePuuid, theme, onTheme, onAccountsChan
           </button>
           <button type="button" className={theme === "light" ? "active" : undefined} onClick={() => onTheme("light")}>
             Clair
+          </button>
+        </div>
+      </section>
+
+      <section className="stack" style={{ gap: 14 }}>
+        <h2 className="section-title">Notifications</h2>
+        <div className="panel settings-toggle">
+          <span className="stack" style={{ gap: 2, minWidth: 0 }}>
+            <strong id="settings-notify">Notifications après chaque nouveau match</strong>
+            <span className="hint">Une notification Windows avec la map, le score et ton K/D quand la synchro trouve un nouveau match.</span>
+          </span>
+          <button
+            type="button"
+            role="switch"
+            className="switch"
+            aria-checked={notifyMatches}
+            aria-labelledby="settings-notify"
+            onClick={() => onNotifyMatches(!notifyMatches)}
+          >
+            <span />
           </button>
         </div>
       </section>

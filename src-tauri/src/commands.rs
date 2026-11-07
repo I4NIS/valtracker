@@ -11,6 +11,7 @@ use crate::error::{AppError, AppResult};
 use crate::heatmap;
 use crate::henrik::Henrik;
 use crate::models::{Account, Season, SyncReport};
+use crate::notify;
 use crate::reports::Report;
 use crate::repo;
 use crate::state::AppState;
@@ -19,7 +20,7 @@ use crate::storage;
 use crate::sync::{self, ACTIVE_ACCOUNT_SETTING, API_KEY_SETTING};
 
 const REGIONS: [&str; 6] = ["eu", "na", "ap", "kr", "latam", "br"];
-const PREFERENCES: [&str; 3] = ["theme", "language", "tutorial_done"];
+const PREFERENCES: [&str; 4] = ["theme", "language", "tutorial_done", notify::NOTIFY_SETTING];
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -30,6 +31,7 @@ pub struct Bootstrap {
     theme: String,
     language: String,
     tutorial_done: bool,
+    notify_matches: bool,
 }
 
 #[tauri::command]
@@ -46,6 +48,7 @@ pub fn bootstrap(state: State<'_, AppState>) -> AppResult<Bootstrap> {
         theme: db::get_setting(&conn, "theme")?.unwrap_or_else(|| "dark".into()),
         language: db::get_setting(&conn, "language")?.unwrap_or_else(|| "fr".into()),
         tutorial_done: db::get_setting(&conn, "tutorial_done")?.as_deref() == Some("true"),
+        notify_matches: notify::enabled(&conn)?,
     })
 }
 
