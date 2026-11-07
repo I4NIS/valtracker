@@ -1,18 +1,20 @@
 import { useEffect, useState } from "react";
 import { DeathReview } from "../components/DeathReview";
 import { Icon } from "../components/Icon";
+import { NoteEditor } from "../components/NoteEditor";
 import { api, errorMessage, type Account, type MatchDetail as Detail, type RoundLine } from "../lib/api";
 import { RankBadge } from "../components/RankBadge";
 import { RoundDetail } from "../components/RoundDetail";
 import { agentIcon } from "../lib/assets";
 import { duration, fmt, fullDate, pct, placeLabel, roleLabel, scoreTone, signed } from "../lib/format";
 
-type Tab = "summary" | "rounds" | "review";
+type Tab = "summary" | "rounds" | "review" | "note";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "summary", label: "Résumé" },
   { id: "rounds", label: "Rounds" },
   { id: "review", label: "Revue des morts" },
+  { id: "note", label: "Note" },
 ];
 
 type Props = {
@@ -119,6 +121,7 @@ export function MatchDetail({ account, matchId, onBack }: Props) {
         ))}
       </div>
 
+      {tab === "note" && <NoteEditor puuid={account.puuid} matchId={matchId} />}
       {tab === "review" && <DeathReview deaths={detail.deathReviews} minimap={detail.minimap} rotation={detail.rotation} />}
       {tab === "rounds" && <RoundDetail rounds={detail.rounds} selected={roundIndex} onSelect={setRoundIndex} />}
       {tab === "summary" && (

@@ -121,6 +121,15 @@ CREATE TABLE unavailable_matches (
 );
 ", "
 DELETE FROM matches WHERE queue IS NOT 'competitive';
+", "
+CREATE TABLE match_notes (
+    match_id TEXT NOT NULL,
+    puuid TEXT NOT NULL,
+    note TEXT NOT NULL DEFAULT '',
+    tags TEXT NOT NULL DEFAULT '[]',
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (match_id, puuid)
+);
 "];
 
 pub fn open(path: &Path) -> AppResult<Connection> {
