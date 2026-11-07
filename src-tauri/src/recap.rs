@@ -2,6 +2,8 @@ use rusqlite::{Connection, Row, params};
 use serde::Serialize;
 use serde_json::Value;
 use std::collections::{HashMap, HashSet};
+use std::fs::{File, OpenOptions};
+use std::io::{ErrorKind, Write};
 use std::path::{Path, PathBuf};
 use tauri::ipc::{InvokeBody, Request, Response};
 use tauri::{AppHandle, Manager, State};
@@ -22,6 +24,7 @@ const SESSION_GAP_SECS: i64 = 3600;
 const UNITS_PER_METER: f64 = 100.0;
 const PNG_SIGNATURE: &[u8] = b"\x89PNG\r\n\x1a\n";
 const MAX_IMAGE_BYTES: usize = 32 * 1024 * 1024;
+const MAX_NAME_ATTEMPTS: usize = 1000;
 
 #[derive(Debug, Clone, Default, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -860,14 +863,17 @@ fn safe_name(raw: &str) -> String {
     if stem.trim_matches('-').is_empty() { "valtracker".into() } else { stem }
 }
 
-fn free_path(folder: &Path, stem: &str) -> PathBuf {
-    let mut path = folder.join(format!("{stem}.png"));
-    let mut index = 2;
-    while path.exists() {
-        path = folder.join(format!("{stem}-{index}.png"));
-        index += 1;
+fn create_free(folder: &Path, stem: &str) -> AppResult<(PathBuf, File)> {
+    for index in 1..=MAX_NAME_ATTEMPTS {
+        let name = if index == 1 { format!("{stem}.png") } else { format!("{stem}-{index}.png") };
+        let path = folder.join(name);
+        match OpenOptions::new().write(true).create_new(true).open(&path) {
+            Ok(file) => return Ok((path, file)),
+            Err(err) if err.kind() == ErrorKind::AlreadyExists => continue,
+            Err(err) => return Err(err.into()),
+        }
     }
-    path
+    Err(AppError::Invalid(tr("Aucun nom de fichier libre", "No free file name").into()))
 }
 
 fn png<'a>(request: &'a Request<'_>) -> AppResult<&'a [u8]> {
@@ -891,8 +897,12 @@ pub fn save_recap_image(app: AppHandle, request: Request<'_>) -> AppResult<Strin
     let name = request.headers().get("x-file-name").and_then(|value| value.to_str().ok()).unwrap_or_default();
     let folder = downloads(&app)?;
     std::fs::create_dir_all(&folder)?;
-    let path = free_path(&folder, &safe_name(name));
-    std::fs::write(&path, bytes)?;
+    let (path, mut file) = create_free(&folder, &safe_name(name))?;
+    if let Err(err) = file.write_all(bytes) {
+        drop(file);
+        let _ = std::fs::remove_file(&path);
+        return Err(err.into());
+    }
     Ok(path.to_string_lossy().into_owned())
 }
 
@@ -972,5 +982,19 @@ mod tests {
         assert_eq!(list(&conn, "me").unwrap().first().map(|game| game.match_id.as_str()), Some("c"));
         drop(conn);
         let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn never_overwrites_a_saved_image() {
+        let folder = std::env::temp_dir().join(format!("valtracker-recap-save-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&folder);
+        std::fs::create_dir_all(&folder).unwrap();
+        std::fs::write(folder.join("recap.png"), b"ancien").unwrap();
+        let (second, _) = create_free(&folder, "recap").unwrap();
+        let (third, _) = create_free(&folder, "recap").unwrap();
+        assert_eq!(second.file_name().unwrap(), "recap-2.png");
+        assert_eq!(third.file_name().unwrap(), "recap-3.png");
+        assert_eq!(std::fs::read(folder.join("recap.png")).unwrap(), b"ancien");
+        let _ = std::fs::remove_dir_all(&folder);
     }
 }
