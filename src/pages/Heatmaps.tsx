@@ -1,7 +1,8 @@
 import "../styles/heatmap.css";
 import { useEffect, useMemo, useState } from "react";
-import { ThumbArt } from "../components/GameArt";
+import { fadeIn, ThumbArt } from "../components/GameArt";
 import { PointCanvas } from "../components/PointCanvas";
+import { repeat, SkeletonBlock, SkeletonLine } from "../components/Skeleton";
 import { SeasonPicker } from "../components/SeasonPicker";
 import type { Account, HeatPoint, Heatmap } from "../lib/api";
 import { agentIcon, seasonLabel } from "../lib/assets";
@@ -92,6 +93,7 @@ export function Heatmaps({ account }: Props) {
   const query = useQuery(season === undefined ? null : queries.heatmap(account.puuid, { mapId, season, agentId, limit }));
   const data = query.data ?? null;
   const error = query.error;
+  const loading = !data && !error;
 
   useEffect(() => {
     setZone(null);
@@ -193,7 +195,7 @@ export function Heatmaps({ account }: Props) {
                   className={`chip agent-chip${agentId === agent.id ? " active" : ""}`}
                   onClick={() => setAgentId(agent.id)}
                 >
-                  {agentIcon(agent.id) && <img src={agentIcon(agent.id)} alt="" width={22} height={22} loading="lazy" decoding="async" />}
+                  {agentIcon(agent.id) && <img src={agentIcon(agent.id)} alt="" width={22} height={22} loading="lazy" decoding="async" {...fadeIn} />}
                   {agent.name} <span className="chip-count">{agent.matches}</span>
                 </button>
               ))}
@@ -242,6 +244,7 @@ export function Heatmaps({ account }: Props) {
       ) : (
         <>
           <div className="map-cards" role="group" aria-label="Map">
+            {loading && repeat(6, (index) => <SkeletonBlock key={index} height={60} radius={14} />)}
             {data?.maps.map((map) => (
               <button
                 key={map.id}
@@ -261,7 +264,8 @@ export function Heatmaps({ account }: Props) {
 
           <div className="review heat-layout">
             <div className={`minimap${zone ? " has-focus" : ""}`}>
-              {data?.minimap && <img src={data.minimap} alt={t(`Minimap de ${mapName}`, `${mapName} minimap`)} width={1024} height={1024} decoding="async" style={rotationStyle(rotation)} />}
+              {data?.minimap && <img src={data.minimap} alt={t(`Minimap de ${mapName}`, `${mapName} minimap`)} width={1024} height={1024} decoding="async" {...fadeIn} style={rotationStyle(rotation)} />}
+              {loading && <SkeletonBlock className="sk-fill" radius="inherit" />}
               <PointCanvas points={points} focus={zone} color={`rgb(${style.color})`} glow={style.color} focusScale={1.8} ring />
               {zone && zoneLabel && (
                 <span className="zone-pill" style={{ left: `${zoneLabel.x * 100}%`, top: `${zoneLabel.y * 100}%` }}>
@@ -278,14 +282,24 @@ export function Heatmaps({ account }: Props) {
                 <Segmented label={t("Moment", "Timing")} options={phaseOptions()} value={phase} onChange={setPhase} />
               </div>
               <div className="row" style={{ gap: 12, alignItems: "baseline" }}>
-                <span className="heat-count">{points.length}</span>
+                {loading ? <SkeletonLine width={48} size={34} lineHeight={1} /> : <span className="heat-count">{points.length}</span>}
                 <span className="muted">{t(`${style.unit} avec ces filtres`, `${style.unit} with these filters`)}</span>
               </div>
               <div className="stack" style={{ gap: 2 }}>
                 <span style={{ fontSize: 16, fontWeight: 700, letterSpacing: "-0.02em", paddingBottom: 4 }}>
                   {t("Par zone", "By zone")}
                 </span>
-                {zones.length === 0 && <span className="faint">{t("Rien à afficher avec ces filtres.", "Nothing to show with these filters.")}</span>}
+                {loading &&
+                  repeat(5, (index) => (
+                    <span className="zone-row" key={index} style={{ padding: "6px 10px" }} aria-hidden="true">
+                      <span className="row between">
+                        <SkeletonLine width={`${56 - index * 6}%`} size={14} />
+                        <SkeletonLine width={52} size={14} />
+                      </span>
+                      <SkeletonBlock height={6} radius={999} width={`${100 - index * 16}%`} />
+                    </span>
+                  ))}
+                {!loading && zones.length === 0 && <span className="faint">{t("Rien à afficher avec ces filtres.", "Nothing to show with these filters.")}</span>}
                 {zones.map(([name, count]) => (
                   <button
                     type="button"

@@ -38,3 +38,19 @@
   flex-shrink: 0;
   color: var(--accent);
 }
+
+@keyframes art-in {
+  from {
+    opacity: 0;
+  }
+}
+
+.art-in {
+  animation: art-in 0.32s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .art-in {
+    animation: none;
+  }
+}

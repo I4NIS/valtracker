@@ -118,13 +118,6 @@
   text-transform: uppercase;
 }
 
-.palette-loading {
-  text-transform: none;
-  letter-spacing: 0;
-  font-weight: 500;
-  animation: pulse 1.2s ease-in-out infinite;
-}
-
 .palette-item {
   display: flex;
   align-items: center;
@@ -339,8 +332,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .palette-backdrop,
-  .palette,
-  .palette-loading {
+  .palette {
     animation: none;
   }
 }

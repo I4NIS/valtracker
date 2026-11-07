@@ -1,0 +1,96 @@
+.sk {
+  --sk-base: color-mix(in srgb, var(--text) 7%, transparent);
+  --sk-shine: color-mix(in srgb, var(--text) 7%, transparent);
+  position: relative;
+  display: block;
+  flex-shrink: 0;
+  max-width: 100%;
+  overflow: hidden;
+  border-radius: 10px;
+  background: var(--sk-base);
+  isolation: isolate;
+}
+
+.sk::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 0%, var(--sk-shine) 50%, transparent 100%);
+  transform: translateX(-100%);
+  animation: sk-shimmer 1.6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+:root[data-theme="light"] .sk {
+  --sk-base: color-mix(in srgb, var(--text) 8%, transparent);
+  --sk-shine: rgba(255, 255, 255, 0.65);
+}
+
+@keyframes sk-shimmer {
+  60%,
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.sk-text {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  max-width: 100%;
+}
+
+.sk-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.sk-row-lines {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.sk-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.sk-card {
+  padding: 16px;
+  border-radius: 16px;
+  background: var(--raised);
+}
+
+.sk-fill {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+}
+
+.sk.sk-sheen {
+  background: transparent;
+}
+
+.sk-late {
+  animation: sk-appear 0.2s ease-out 0.15s both;
+}
+
+@keyframes sk-appear {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sk::after {
+    display: none;
+  }
+}

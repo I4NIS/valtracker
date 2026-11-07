@@ -1,8 +1,9 @@
 import "../styles/game.css";
-import { useState, type ReactNode } from "react";
+import { useState, type ReactNode, type SyntheticEvent } from "react";
 import { findAbility, MELEE_ID, weaponArt, type Ability, type Catalog } from "../lib/gameAssets";
 import { t } from "../lib/i18n";
 import { useThumb } from "../lib/thumbs";
+import { SkeletonBlock } from "./Skeleton";
 
 type ArtProps = {
   src: string | undefined;
@@ -15,6 +16,22 @@ type ArtProps = {
   title?: string;
   fallback?: ReactNode;
 };
+
+const shown = new Set<string>();
+
+function hideUntilLoaded(node: HTMLImageElement | null) {
+  if (node && !node.complete && !shown.has(node.src)) node.style.opacity = "0";
+}
+
+function reveal(event: SyntheticEvent<HTMLImageElement>) {
+  const node = event.currentTarget;
+  shown.add(node.src);
+  if (node.style.opacity !== "0") return;
+  node.style.opacity = "";
+  node.classList.add("art-in");
+}
+
+export const fadeIn = { ref: hideUntilLoaded, onLoad: reveal };
 
 export function Art({ src, width, height, alt, className, mono, eager, title, fallback }: ArtProps) {
   const [failed, setFailed] = useState<string | null>(null);
@@ -32,6 +49,8 @@ export function Art({ src, width, height, alt, className, mono, eager, title, fa
       loading={eager ? "eager" : "lazy"}
       decoding="async"
       className={classes}
+      ref={hideUntilLoaded}
+      onLoad={reveal}
       onError={() => setFailed(src)}
     />
   );
@@ -39,7 +58,7 @@ export function Art({ src, width, height, alt, className, mono, eager, title, fa
 
 export function ThumbArt(props: ArtProps) {
   const small = useThumb(props.src, props.width, props.height);
-  if (props.src && small === undefined) return null;
+  if (props.src && small === undefined) return <SkeletonBlock className="sk-fill sk-late" radius="inherit" />;
   return <Art {...props} src={small} />;
 }
 

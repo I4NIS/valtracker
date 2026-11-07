@@ -7,7 +7,7 @@ import { t } from "../lib/i18n";
 import type { MapAction, MapGame, MapHistory } from "../lib/mapStats";
 import { rotatePoint, rotationStyle, type Point } from "../lib/minimap";
 import { FilterPill, type PillOption } from "./FilterPill";
-import { Art, KillMeans, meansLabel } from "./GameArt";
+import { Art, fadeIn, KillMeans, meansLabel } from "./GameArt";
 import { Icon } from "./Icon";
 import { PointCanvas } from "./PointCanvas";
 
@@ -173,7 +173,7 @@ export function MapHistoryView({ history, mapName, season, onOpenRound }: Props)
       <div className="maphist-side">
         <div className={`minimap maphist-map${filters.zone ? " has-focus" : ""}`}>
           {history.minimap && (
-            <img src={history.minimap} alt={t(`Minimap de ${mapName}`, `${mapName} minimap`)} width={1024} height={1024} decoding="async" style={rotationStyle(history.rotation)} />
+            <img src={history.minimap} alt={t(`Minimap de ${mapName}`, `${mapName} minimap`)} width={1024} height={1024} decoding="async" {...fadeIn} style={rotationStyle(history.rotation)} />
           )}
           <PointCanvas points={dots} focus={filters.zone} className={`maphist-dots ${kind}`} opacity={0.75} focusScale={1.6} bleed={4} />
           {bubbles.map((zone) => {
@@ -421,7 +421,7 @@ function ActionModal({ action, game, minimap, rotation, position, count, catalog
         <div className="maphist-modal-body">
           <div className="stack" style={{ gap: 10 }}>
             <div className="minimap maphist-modal-map">
-              {minimap && <img src={minimap} alt={t("Minimap", "Minimap")} width={1024} height={1024} decoding="async" style={rotationStyle(rotation)} />}
+              {minimap && <img src={minimap} alt={t("Minimap", "Minimap")} width={1024} height={1024} decoding="async" {...fadeIn} style={rotationStyle(rotation)} />}
               {me || opponent ? (
                 <>
                   {me && opponent && (

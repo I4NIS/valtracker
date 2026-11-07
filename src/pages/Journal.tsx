@@ -1,6 +1,8 @@
 import "../styles/journal.css";
 import { useEffect, useMemo, useState } from "react";
 import { FavoriteButton } from "../components/FavoriteButton";
+import { fadeIn } from "../components/GameArt";
+import { repeat, SkeletonBlock, SkeletonGroup, SkeletonLine } from "../components/Skeleton";
 import type { Account } from "../lib/api";
 import { agentIcon } from "../lib/assets";
 import { favoriteLabel, type FavoriteEntry, type FavoriteKind } from "../lib/favorites";
@@ -79,7 +81,7 @@ function FavoritesView({ account, onOpenMatch }: Pick<Props, "account" | "onOpen
   };
 
   if (query.error) return <p className="form-error">{query.error}</p>;
-  if (list === null) return <div className="empty">{t("Chargement des favoris...", "Loading favorites...")}</div>;
+  if (list === null) return <JournalSkeleton label={t("Chargement des favoris", "Loading favorites")} />;
   if (list.length === 0) {
     return (
       <div className="empty journal-empty">
@@ -125,7 +127,7 @@ function FavoritesView({ account, onOpenMatch }: Pick<Props, "account" | "onOpen
         {visible.map((entry) => (
           <div className="fav-item" key={`${entry.kind}-${entry.matchId}-${entry.roundIndex ?? "all"}`}>
             <button type="button" className="journal-row" onClick={() => open(entry)}>
-              {agentIcon(entry.agentId) ? <img src={agentIcon(entry.agentId)} alt={entry.agentName ?? ""} width={44} height={44} loading="lazy" decoding="async" /> : <span className="journal-row-icon" />}
+              {agentIcon(entry.agentId) ? <img src={agentIcon(entry.agentId)} alt={entry.agentName ?? ""} width={44} height={44} loading="lazy" decoding="async" {...fadeIn} /> : <span className="journal-row-icon" />}
               <span className="stack journal-row-main">
                 <span className="row wrap" style={{ gap: 4, columnGap: 10 }}>
                   <strong>{entry.mapName ?? t("Map inconnue", "Unknown map")}</strong>
@@ -179,7 +181,7 @@ function NotesView({ account, onOpenMatch }: Pick<Props, "account" | "onOpenMatc
       {error && <p className="form-error">{error}</p>}
 
       {notes === null ? (
-        <div className="empty">{t("Chargement du journal...", "Loading the journal...")}</div>
+        <JournalSkeleton label={t("Chargement du journal", "Loading the journal")} />
       ) : notes.length === 0 ? (
         <div className="empty journal-empty">
           <strong>{t("Aucune note pour l'instant", "No notes yet")}</strong>
@@ -331,7 +333,7 @@ function NoteRow({ entry, onOpen }: { entry: NoteEntry; onOpen: () => void }) {
   const line = firstLine(entry.note);
   return (
     <button type="button" className="journal-row" onClick={onOpen}>
-      {agentIcon(entry.agentId) ? <img src={agentIcon(entry.agentId)} alt={entry.agentName ?? ""} width={44} height={44} loading="lazy" decoding="async" /> : <span className="journal-row-icon" />}
+      {agentIcon(entry.agentId) ? <img src={agentIcon(entry.agentId)} alt={entry.agentName ?? ""} width={44} height={44} loading="lazy" decoding="async" {...fadeIn} /> : <span className="journal-row-icon" />}
       <span className="stack journal-row-main">
         <span className="row wrap" style={{ gap: 4, columnGap: 10 }}>
           <strong>{entry.mapName ?? t("Map inconnue", "Unknown map")}</strong>
@@ -361,5 +363,25 @@ function NoteRow({ entry, onOpen }: { entry: NoteEntry; onOpen: () => void }) {
         </span>
       </span>
     </button>
+  );
+}
+
+function JournalSkeleton({ label }: { label: string }) {
+  return (
+    <SkeletonGroup className="journal-list" label={label}>
+      {repeat(6, (index) => (
+        <div className="journal-row" key={index} aria-hidden="true">
+          <SkeletonBlock width={44} height={44} radius={10} />
+          <span className="stack journal-row-main">
+            <SkeletonLine width={index % 2 ? "38%" : "46%"} size={15} />
+            <SkeletonLine width={index % 3 ? "72%" : "58%"} size={13} />
+          </span>
+          <span className="stack" style={{ gap: 4, alignItems: "flex-end" }}>
+            <SkeletonLine width={52} size={15} />
+            <SkeletonLine width={36} size={12} />
+          </span>
+        </div>
+      ))}
+    </SkeletonGroup>
   );
 }

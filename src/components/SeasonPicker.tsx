@@ -6,6 +6,7 @@ import { useQuery } from "../lib/query";
 import { queries } from "../lib/queries";
 import { useMenu } from "./FilterPill";
 import { Icon } from "./Icon";
+import { repeat, SkeletonBlock } from "./Skeleton";
 
 type Props = {
   puuid: string;
@@ -37,6 +38,7 @@ export function SeasonPicker({ puuid, value, onChange }: Props) {
 
   return (
     <div className="chips" role="group" aria-label={t("Acte", "Act")}>
+      {query.data === undefined && query.error === null && repeat(SHOWN, (index) => <SkeletonBlock key={index} width={index ? 150 : 160} height={34} radius={999} />)}
       {recent.map((season) => (
         <button
           key={season.short}

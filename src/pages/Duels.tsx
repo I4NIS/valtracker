@@ -2,6 +2,7 @@ import "../styles/duels.css";
 import { useMemo, useState } from "react";
 import { Art } from "../components/GameArt";
 import { SeasonPicker } from "../components/SeasonPicker";
+import { repeat, SkeletonBlock, SkeletonGroup, SkeletonLine } from "../components/Skeleton";
 import type { Account } from "../lib/api";
 import { agentIcon } from "../lib/assets";
 import type { ClutchEntry, ClutchSize, DistanceBucket, DuelReport, Matchup, OpeningSide, Rival } from "../lib/duels";
@@ -85,7 +86,11 @@ export function Duels({ account, onOpenRound }: Props) {
       {error && !data && <p className="form-error">{error}</p>}
 
       {!data ? (
-        <div className="empty">{error ? t("Impossible de charger tes duels.", "Couldn't load your duels.") : t("Chargement de tes duels...", "Loading your duels...")}</div>
+        error ? (
+          <div className="empty">{t("Impossible de charger tes duels.", "Couldn't load your duels.")}</div>
+        ) : (
+          <DuelsSkeleton />
+        )
       ) : data.matches === 0 ? (
         <div className="empty">{t("Aucun match compétitif synchronisé sur cette période.", "No competitive matches synced for this period.")}</div>
       ) : (
@@ -98,6 +103,56 @@ export function Duels({ account, onOpenRound }: Props) {
         </>
       )}
     </div>
+  );
+}
+
+function DuelsSkeleton() {
+  return (
+    <SkeletonGroup className="stack" style={{ gap: 24 }} label={t("Chargement de tes duels", "Loading your duels")}>
+      <SkeletonBlock width={430} height={36} radius={999} />
+      <SkeletonLine width={200} size={19} />
+      <div className="duel-opening-hero">
+        <div className="row" style={{ gap: 18 }}>
+          <SkeletonBlock width={104} height={104} radius="50%" />
+          <div className="stack" style={{ gap: 6, flex: 1 }}>
+            <SkeletonLine width="80%" size={17} />
+            <SkeletonLine width="64%" size={13} />
+          </div>
+        </div>
+        {repeat(2, (index) => (
+          <div className="duel-figure" key={index}>
+            <SkeletonLine width={70} size={12} />
+            <SkeletonLine width={64} size={52} lineHeight={1} />
+            <SkeletonLine width="78%" size={13} />
+          </div>
+        ))}
+      </div>
+      <div className="duel-sides">
+        {repeat(2, (index) => (
+          <div className="panel stack" style={{ gap: 16 }} key={index}>
+            <div className="row between" style={{ alignItems: "center" }}>
+              <SkeletonLine width={96} size={17} />
+              <SkeletonLine width={52} size={26} />
+            </div>
+            <div className="stack" style={{ gap: 8 }}>
+              <SkeletonBlock height={10} radius={999} />
+              <div className="row between">
+                <SkeletonLine width={90} size={13} />
+                <SkeletonLine width={90} size={13} />
+              </div>
+            </div>
+            <div className="duel-facts">
+              {repeat(2, (fact) => (
+                <div className="stack" style={{ gap: 4 }} key={fact}>
+                  <SkeletonLine width="80%" size={12} />
+                  <SkeletonLine width={48} size={17} />
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </SkeletonGroup>
   );
 }
 

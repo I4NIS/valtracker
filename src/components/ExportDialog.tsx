@@ -11,6 +11,7 @@ import { recapApi, type RecapMatch } from "../lib/recap";
 import { toBlob } from "../recap/draw";
 import type { ExportMode, ExportPreset } from "./ExportRecap";
 import { Art } from "./GameArt";
+import { repeat, SkeletonBlock, SkeletonGroup, SkeletonLine } from "./Skeleton";
 import { Icon } from "./Icon";
 import "../styles/recap.css";
 
@@ -105,6 +106,27 @@ async function render(account: Account, choice: Choice): Promise<{ canvas: HTMLC
   }
   const [recap, { renderActRecap }] = await Promise.all([recapApi.getActRecap(puuid, choice.season), import("../recap/act")]);
   return { canvas: await renderActRecap(recap, account), name: t(`valtracker-acte-${recap.season ?? "global"}`, `valtracker-act-${recap.season ?? "global"}`) };
+}
+
+function MatchListSkeleton() {
+  return (
+    <SkeletonGroup className="export-list" label={t("Chargement de tes parties", "Loading your matches")}>
+      {repeat(6, (index) => (
+        <div className="export-match" key={index} aria-hidden="true">
+          <SkeletonBlock width={18} height={18} radius={6} />
+          <SkeletonBlock width={72} height={34} radius={8} />
+          <span className="export-match-main">
+            <SkeletonLine width={index % 2 ? "52%" : "64%"} size={13} />
+            <SkeletonLine width="78%" size={12} />
+          </span>
+          <span className="export-match-side">
+            <SkeletonLine width={40} size={13} />
+            <SkeletonLine width={56} size={12} />
+          </span>
+        </div>
+      ))}
+    </SkeletonGroup>
+  );
 }
 
 function MatchRow({ game, checked, multiple, onToggle }: { game: RecapMatch; checked: boolean; multiple: boolean; onToggle: () => void }) {
@@ -312,7 +334,7 @@ export function ExportDialog({ account, preset, onClose }: { account: Account; p
                 {matchesQuery.error && !matches ? (
                   <span className="form-error">{matchesQuery.error}</span>
                 ) : !matches ? (
-                  <span className="faint">{t("Chargement de tes parties...", "Loading your matches...")}</span>
+                  <MatchListSkeleton />
                 ) : matches.length === 0 ? (
                   <span className="faint">{t("Aucune partie compétitive synchronisée.", "No competitive match synced.")}</span>
                 ) : (
@@ -413,10 +435,9 @@ export function ExportDialog({ account, preset, onClose }: { account: Account; p
               {preview && <img src={preview.url} alt={t("Aperçu de l'image", "Image preview")} />}
               {!preview && !rendering && <span className="export-frame-note">{blocked ?? failure ?? ""}</span>}
               {rendering && (
-                <span className="export-frame-wait" role="status">
-                  <Icon name="running" size={16} className="spin" />
-                  {t("Préparation de l'aperçu", "Preparing preview")}
-                </span>
+                <SkeletonGroup className="sk-fill" label={t("Préparation de l'aperçu", "Preparing preview")}>
+                  <SkeletonBlock className={preview ? "sk-fill sk-sheen" : "sk-fill"} radius={0} />
+                </SkeletonGroup>
               )}
             </div>
             {preview && failure === null && blocked === null && !rendering && (

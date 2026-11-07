@@ -8,7 +8,9 @@ import { t } from "../lib/i18n";
 import { useQuery } from "../lib/query";
 import { queries } from "../lib/queries";
 import { useSyncRunning } from "../lib/sync";
+import { fadeIn } from "./GameArt";
 import { Icon, type IconName } from "./Icon";
+import { repeat, SkeletonBlock, SkeletonGroup, SkeletonLine } from "./Skeleton";
 import type { Page } from "./Shell";
 
 type Props = {
@@ -320,7 +322,6 @@ function PaletteDialog({ onClose, account, onNavigate, onOpenMatch, onToggleThem
             <div className="palette-section" role="group" aria-labelledby={`${baseId}-${section.id}`} key={section.id}>
               <div className="palette-section-title" id={`${baseId}-${section.id}`} role="presentation">
                 <span>{section.title}</span>
-                {section.id === "matches" && loading && <span className="palette-loading">{t("Chargement", "Loading")}</span>}
               </div>
               {section.items.map((item) => {
                 index += 1;
@@ -347,6 +348,24 @@ function PaletteDialog({ onClose, account, onNavigate, onOpenMatch, onToggleThem
               })}
             </div>
           ))}
+          {loading && (
+            <SkeletonGroup className="palette-section" label={t("Chargement des matchs", "Loading matches")}>
+              <div className="palette-section-title" aria-hidden="true">
+                <span>{t("Matchs", "Matches")}</span>
+              </div>
+              {repeat(4, (row) => (
+                <div className="palette-item" key={row} aria-hidden="true">
+                  <SkeletonBlock width={30} height={30} radius={8} />
+                  <span className="palette-match-main" style={{ gap: 4 }}>
+                    <SkeletonLine width={row % 2 ? "34%" : "42%"} size={14} />
+                    <SkeletonLine width="24%" size={12} />
+                  </span>
+                  <SkeletonLine width={84} size={13} />
+                  <SkeletonLine width={60} size={13} />
+                </div>
+              ))}
+            </SkeletonGroup>
+          )}
           {!loading && failed && recent.length === 0 && (
             <div className="palette-note" role="presentation">
               {t("Impossible de charger les matchs récents.", "Couldn't load recent matches.")}
@@ -395,7 +414,7 @@ function MatchRow({ game }: { game: RecentMatch }) {
   return (
     <>
       <span className="palette-agent">
-        {icon ? <img src={icon} alt="" width={32} height={32} loading="lazy" decoding="async" /> : <Icon name="agents" size={16} />}
+        {icon ? <img src={icon} alt="" width={32} height={32} loading="lazy" decoding="async" {...fadeIn} /> : <Icon name="agents" size={16} />}
       </span>
       <span className="palette-match-main">
         <strong>{game.mapName ?? t("Map inconnue", "Unknown map")}</strong>

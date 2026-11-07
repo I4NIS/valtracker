@@ -7,7 +7,7 @@ import { findAbility, useAgentCatalog } from "../lib/gameAssets";
 import { t } from "../lib/i18n";
 import { rotatePoint, rotationStyle } from "../lib/minimap";
 import { FavoriteButton } from "./FavoriteButton";
-import { Art, KillMeans, meansLabel } from "./GameArt";
+import { Art, fadeIn, KillMeans, meansLabel } from "./GameArt";
 import { Icon } from "./Icon";
 
 type Order = "gravity" | "chrono";
@@ -82,7 +82,7 @@ export function DeathReview({ puuid, matchId, deaths, minimap, rotation, focusRo
       <div className="review">
         <div className="stack" style={{ gap: 12 }}>
           <div className="minimap">
-            {minimap && <img src={minimap} alt={t("Minimap", "Minimap")} width={1024} height={1024} decoding="async" style={rotationStyle(rotation)} />}
+            {minimap && <img src={minimap} alt={t("Minimap", "Minimap")} width={1024} height={1024} decoding="async" {...fadeIn} style={rotationStyle(rotation)} />}
             {position ? (
               <>
                 {killerPosition && (
