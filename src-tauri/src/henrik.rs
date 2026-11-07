@@ -45,6 +45,10 @@ impl Henrik {
         self.get(&["v1", "by-puuid", "accolades", region, platform, puuid], &[]).await
     }
 
+    pub async fn agent_mastery(&self, region: &str, platform: &str, puuid: &str) -> AppResult<Value> {
+        self.get(&["v1", "by-puuid", "agent-mastery", region, platform, puuid], &[]).await
+    }
+
     pub async fn matches(
         &self,
         region: &str,

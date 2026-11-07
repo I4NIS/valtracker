@@ -7,6 +7,7 @@ import { Icon } from "../components/Icon";
 import { SeasonPicker } from "../components/SeasonPicker";
 import type { Account } from "../lib/api";
 import type { AgentStat } from "../lib/agents";
+import type { AgentMastery } from "../lib/career";
 import { agentIcon, seasonLabel } from "../lib/assets";
 import { fmt, pct, roleLabel, scoreTone, signed } from "../lib/format";
 import { agentArt, agentColor, useAgentCatalog, type AgentInfo } from "../lib/gameAssets";
@@ -54,7 +55,10 @@ const winTone = (winPct: number) => (winPct >= 50 ? "win" : "bad");
 export function Agents({ account, onOpenMatch }: Props) {
   const [season, setSeason] = useState<string | null | undefined>(() => defaultSeason(account.puuid));
   const query = useQuery(season === undefined ? null : queries.agents(account.puuid, season));
-  const data = query.data ?? null;
+  const masteryQuery = useQuery(queries.mastery(account.puuid));
+  const masteryPending = masteryQuery.pending && masteryQuery.error === null;
+  const masteries = useMemo(() => new Map((masteryQuery.data ?? []).map((item) => [item.agentId, item])), [masteryQuery.data]);
+  const data = masteryPending ? null : (query.data ?? null);
   const error = query.error;
   const [role, setRole] = useState<RoleFilter>(null);
   const [selected, setSelected] = useState<string | null>(null);
@@ -91,6 +95,7 @@ export function Agents({ account, onOpenMatch }: Props) {
         <AgentDetail
           agent={current}
           info={catalog?.agents.get(current.agentId.toLowerCase()) ?? null}
+          mastery={masteries.get(current.agentId.toLowerCase()) ?? null}
           puuid={account.puuid}
           season={season ?? null}
           onOpenMatch={onOpenMatch}
@@ -150,6 +155,7 @@ export function Agents({ account, onOpenMatch }: Props) {
               agent={agent}
               share={totalMatches ? (agent.matches * 100) / totalMatches : 0}
               info={large ? (catalog?.agents.get(agent.agentId.toLowerCase()) ?? null) : null}
+              mastery={masteries.get(agent.agentId.toLowerCase()) ?? null}
               large={large}
               onSelect={() => setSelected(agent.agentId)}
             />
@@ -227,9 +233,20 @@ function WinRing({ value, size }: { value: number; size: number }) {
   );
 }
 
-type CardProps = { agent: AgentStat; share: number; info: AgentInfo | null; large: boolean; onSelect: () => void };
+type CardProps = { agent: AgentStat; share: number; info: AgentInfo | null; mastery: AgentMastery | null; large: boolean; onSelect: () => void };
 
-function AgentCard({ agent, share, info, large, onSelect }: CardProps) {
+const masteryTitle = (level: number) => t(`Maîtrise niveau ${level}`, `Mastery level ${level}`);
+
+function MasteryPill({ mastery }: { mastery: AgentMastery | null }) {
+  if (mastery?.level === null || mastery?.level === undefined) return null;
+  return (
+    <span className="agent-mastery-pill" title={masteryTitle(mastery.level)} aria-label={masteryTitle(mastery.level)}>
+      {t(`Niv. ${mastery.level}`, `Lv. ${mastery.level}`)}
+    </span>
+  );
+}
+
+function AgentCard({ agent, share, info, mastery, large, onSelect }: CardProps) {
   const tint = large ? agentColor(info, 0) : null;
   const openings = agent.firstBloods + agent.firstDeaths;
   return (
@@ -252,7 +269,10 @@ function AgentCard({ agent, share, info, large, onSelect }: CardProps) {
           </span>
         )}
         <div className="stack agent-card-name">
-          <strong className="ellipsis">{agent.name}</strong>
+          <span className="agent-card-title">
+            <strong className="ellipsis">{agent.name}</strong>
+            <MasteryPill mastery={mastery} />
+          </span>
           <span className="faint">{roleLabel(agent.role) || t("Rôle inconnu", "Unknown role")}</span>
           <span className="muted agent-card-matches ellipsis" title={t(`${fmt(share)} % de tes matchs`, `${fmt(share)}% of your matches`)}>
             {matchCount(agent.matches)}
@@ -307,9 +327,27 @@ function AgentCard({ agent, share, info, large, onSelect }: CardProps) {
   );
 }
 
-type DetailProps = { agent: AgentStat; info: AgentInfo | null; puuid: string; season: string | null; onOpenMatch?: (matchId: string) => void };
+type DetailProps = {
+  agent: AgentStat;
+  info: AgentInfo | null;
+  mastery: AgentMastery | null;
+  puuid: string;
+  season: string | null;
+  onOpenMatch?: (matchId: string) => void;
+};
 
-function AgentDetail({ agent, info, puuid, season, onOpenMatch }: DetailProps) {
+function MasteryLine({ mastery }: { mastery: AgentMastery | null }) {
+  if (mastery?.level === null || mastery?.level === undefined) return null;
+  const tracks = mastery.tracks.filter((track) => track.name && track.level !== null);
+  return (
+    <span className="agent-hero-mastery">
+      <strong>{masteryTitle(mastery.level)}</strong>
+      {tracks.length > 1 && <span>{tracks.map((track) => `${track.name} ${track.level}`).join(", ")}</span>}
+    </span>
+  );
+}
+
+function AgentDetail({ agent, info, mastery, puuid, season, onOpenMatch }: DetailProps) {
   const viewport = useViewport();
   const rows = Math.min(MAX_RECENT, Math.floor((viewport.height - RECENT_OFFSET - agent.maps.length * MAP_ROW) / RECENT_ROW));
   const showRecent = viewport.height >= RECENT_MIN_HEIGHT && rows >= 3;
@@ -341,6 +379,7 @@ function AgentDetail({ agent, info, puuid, season, onOpenMatch }: DetailProps) {
               {matchCount(agent.matches)}, <span className="agent-hero-win">{agent.wins} {t("V", "W")}</span>{" "}
               <span className="agent-hero-loss">{agent.losses} {t("D", "L")}</span>, {agent.rounds} {t("rounds", agent.rounds === 1 ? "round" : "rounds")}
             </span>
+            <MasteryLine mastery={mastery} />
             {abilities.length > 0 && (
               <ul className="agent-abilities" aria-label={t("Capacités", "Abilities")}>
                 {abilities.map((ability) => (

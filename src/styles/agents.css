@@ -527,3 +527,35 @@
 .agent-grid.large .agent-card-stats .label {
   white-space: nowrap;
 }
+
+.agent-card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.agent-mastery-pill {
+  flex-shrink: 0;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--field);
+  color: var(--text-2);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 16px;
+}
+
+.agent-hero-mastery {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  color: rgba(242, 243, 245, 0.78);
+  font-size: 13px;
+}
+
+.agent-hero-mastery strong {
+  color: #f2f3f5;
+  font-weight: 600;
+}

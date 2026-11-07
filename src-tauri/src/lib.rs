@@ -125,6 +125,7 @@ pub fn run() {
             thresholds::set_thresholds,
             ranked::get_acts,
             career::get_accolades,
+            career::get_agent_mastery,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

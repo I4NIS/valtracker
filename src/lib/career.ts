@@ -12,7 +12,20 @@ export type MatchAccolade = { id: string; kind: string | null; value: number; ac
 
 export const getAccolades = (puuid: string) => invoke<Accolades>("get_accolades", { puuid });
 
-export const CAREER_PREFIXES = ["accolades|"];
+export type MasteryTrack = { id: string; name: string | null; level: number | null };
+
+export type AgentMastery = {
+  agentId: string;
+  agentName: string | null;
+  level: number | null;
+  tracks: MasteryTrack[];
+  flourishShort: number | null;
+  flourishLong: number | null;
+};
+
+export const getAgentMastery = (puuid: string) => invoke<AgentMastery[]>("get_agent_mastery", { puuid });
+
+export const CAREER_PREFIXES = ["accolades|", "mastery|"];
 
 listen<string>("career-changed", (event) => {
   for (const prefix of CAREER_PREFIXES) invalidate(`${prefix}${event.payload}`);

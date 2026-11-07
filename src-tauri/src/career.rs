@@ -15,7 +15,8 @@ use crate::sync::API_KEY_SETTING;
 
 const REFRESH_SECS: i64 = 24 * 60 * 60;
 const ACCOLADES: &str = "accolades";
-const KINDS: [&str; 1] = [ACCOLADES];
+const MASTERY: &str = "agent_mastery";
+const KINDS: [&str; 2] = [MASTERY, ACCOLADES];
 
 static RUNNING: Mutex<BTreeSet<String>> = Mutex::new(BTreeSet::new());
 
@@ -178,6 +179,76 @@ pub fn get_accolades(state: tauri::State<'_, AppState>, puuid: String) -> AppRes
     })
 }
 
+pub fn store_mastery(conn: &Connection, puuid: &str, at: i64, data: &Value) -> AppResult<()> {
+    let agents: Vec<Value> = data
+        .get("agents")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .map(|agent| json!({ "agent": agent.get("agent"), "tracks": agent.get("tracks"), "flourish": agent.get("flourish") }))
+        .collect();
+    store_body(conn, puuid, MASTERY, at, &json!({ "agents": agents }))
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MasteryTrack {
+    pub id: String,
+    pub name: Option<String>,
+    pub level: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentMastery {
+    pub agent_id: String,
+    pub agent_name: Option<String>,
+    pub level: Option<i64>,
+    pub tracks: Vec<MasteryTrack>,
+    pub flourish_short: Option<i64>,
+    pub flourish_long: Option<i64>,
+}
+
+fn agent_mastery(value: &Value) -> Option<AgentMastery> {
+    let tracks: Vec<MasteryTrack> = value
+        .get("tracks")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(|track| {
+            Some(MasteryTrack {
+                id: track.get("id")?.as_str()?.to_string(),
+                name: track.get("name").and_then(Value::as_str).map(str::to_string),
+                level: track.get("level").and_then(Value::as_i64),
+            })
+        })
+        .collect();
+    Some(AgentMastery {
+        agent_id: value.pointer("/agent/id")?.as_str()?.to_lowercase(),
+        agent_name: value.pointer("/agent/name").and_then(Value::as_str).map(str::to_string),
+        level: tracks.iter().filter_map(|track| track.level).max(),
+        tracks,
+        flourish_short: value.pointer("/flourish/short_level").and_then(Value::as_i64),
+        flourish_long: value.pointer("/flourish/long_level").and_then(Value::as_i64),
+    })
+}
+
+pub fn mastery(conn: &Connection, puuid: &str) -> AppResult<Vec<AgentMastery>> {
+    let Some(body) = body(conn, puuid, MASTERY)? else {
+        return Ok(Vec::new());
+    };
+    let mut agents: Vec<AgentMastery> = body.get("agents").and_then(Value::as_array).into_iter().flatten().filter_map(agent_mastery).collect();
+    agents.sort_by(|a, b| b.level.cmp(&a.level).then_with(|| a.agent_id.cmp(&b.agent_id)));
+    Ok(agents)
+}
+
+#[tauri::command(async)]
+pub fn get_agent_mastery(state: tauri::State<'_, AppState>, puuid: String) -> AppResult<tauri::ipc::Response> {
+    state.cached(report_key(&puuid, MASTERY), |conn| {
+        serde_json::to_string(&mastery(conn, &puuid)?).map_err(|err| AppError::Invalid(err.to_string()))
+    })
+}
+
 pub fn spawn_refresh(app: &AppHandle, puuid: &str) {
     let app = app.clone();
     let puuid = puuid.to_string();
@@ -196,6 +267,7 @@ pub fn spawn_refresh(app: &AppHandle, puuid: &str) {
 async fn fetch(api: &Henrik, kind: &str, region: &str, platform: &str, puuid: &str) -> AppResult<Value> {
     match kind {
         ACCOLADES => api.accolades(region, platform, puuid).await,
+        MASTERY => api.agent_mastery(region, platform, puuid).await,
         _ => Err(AppError::NotFound),
     }
 }
@@ -231,7 +303,7 @@ async fn refresh(app: &AppHandle, puuid: &str) -> AppResult<bool> {
             Ok(data) if data.is_object() => {
                 match kind {
                     ACCOLADES => store_accolades(&conn, puuid, at, &data)?,
-                    _ => store_body(&conn, puuid, kind, at, &data)?,
+                    _ => store_mastery(&conn, puuid, at, &data)?,
                 }
                 changed = true;
             }
@@ -286,5 +358,30 @@ mod tests {
         assert!(found[0].act_record);
         assert_eq!(found[0].kind.as_deref(), Some("kills"));
         assert!(match_accolades(&conn, "other", "m1").unwrap().is_empty());
+    }
+
+    #[test]
+    fn reads_the_mastery_of_every_agent() {
+        let conn = conn();
+        assert!(mastery(&conn, "me").unwrap().is_empty());
+        let data = json!({
+            "account": {"puuid": "me", "name": "Moi", "tag": "EUW"},
+            "agents": [
+                {"agent": {"id": "AAA", "name": "Jett"}, "flourish": {"short_level": 2, "long_level": 1},
+                 "tracks": [{"id": "t1", "name": "Mastery", "level": 7}, {"id": "t2", "name": null, "level": null}],
+                 "customization": {"background": null}, "modules": null},
+                {"agent": {"id": "bbb", "name": null}, "flourish": {}, "tracks": [{"id": "t1", "level": 12}], "customization": {}},
+                {"agent": {"name": "missing id"}, "flourish": {}, "tracks": [], "customization": {}}
+            ]
+        });
+        store_mastery(&conn, "me", 10, &data).unwrap();
+        let list = mastery(&conn, "me").unwrap();
+        assert_eq!(list.len(), 2);
+        assert_eq!(list[0].agent_id, "bbb");
+        assert_eq!(list[0].level, Some(12));
+        assert_eq!(list[1].agent_id, "aaa");
+        assert_eq!(list[1].level, Some(7));
+        assert_eq!(list[1].tracks.len(), 2);
+        assert_eq!(list[1].flourish_short, Some(2));
     }
 }
