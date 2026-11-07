@@ -171,9 +171,10 @@ pub fn get_recent_matches(
 
 #[tauri::command(async)]
 pub fn get_match(state: State<'_, AppState>, puuid: String, match_id: String) -> AppResult<Response> {
-    state.cached(format!("{puuid}|Match({match_id})"), |conn| {
+    state.read(|conn| {
         let detail = match_detail(conn, &puuid, &match_id)?;
-        serde_json::to_string(&detail).map_err(|err| AppError::Invalid(err.to_string()))
+        let json = serde_json::to_string(&detail).map_err(|err| AppError::Invalid(err.to_string()))?;
+        Ok(Response::new(json))
     })
 }
 

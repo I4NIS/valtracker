@@ -9,7 +9,7 @@ use crate::db;
 use crate::error::{AppError, AppResult};
 use crate::i18n::tr;
 
-const CACHE_LIMIT: usize = 400;
+const CACHE_BYTES: usize = 24 * 1024 * 1024;
 const READERS: usize = 2;
 
 fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
@@ -66,11 +66,115 @@ enum Slot<'a> {
     Busy(Arc<Flight>),
 }
 
-#[derive(Default)]
+struct Entry {
+    json: String,
+    used: u64,
+}
+
+const ENTRY_OVERHEAD: usize = 64;
+const HISTORY_GROUP: &str = "|WeaponHistories(";
+const LIST_REPORTS: [&str; 6] = ["FilterOptions", "Recent(", "Flaws", "Notes", "Tags", "Favorites"];
+const SEASON_REPORTS: [&str; 6] = ["Overview(", "Progression(", "Agents(", "Maps(", "Weapons(", "Duels("];
+
+fn size(key: &str, json: &str) -> usize {
+    key.len() + json.len() + ENTRY_OVERHEAD
+}
+
+fn group(key: &str) -> Option<&str> {
+    let start = key.find(HISTORY_GROUP)? + 1;
+    Some(key[start..].find('|').map_or(key, |end| &key[..start + end]))
+}
+
+struct Entries {
+    limit: usize,
+    bytes: usize,
+    clock: u64,
+    map: HashMap<String, Entry>,
+    seasons: HashMap<String, String>,
+}
+
+impl Entries {
+    fn new(limit: usize) -> Self {
+        Self { limit, bytes: 0, clock: 0, map: HashMap::new(), seasons: HashMap::new() }
+    }
+
+    fn get(&mut self, key: &str) -> Option<String> {
+        self.clock += 1;
+        let entry = self.map.get_mut(key)?;
+        entry.used = self.clock;
+        Some(entry.json.clone())
+    }
+
+    fn insert(&mut self, key: String, json: String) {
+        self.remove(&key);
+        self.clock += 1;
+        self.bytes += size(&key, &json);
+        self.map.insert(key.clone(), Entry { json, used: self.clock });
+        while self.bytes > self.limit {
+            let Some(victim) = self.victim(&key) else {
+                break;
+            };
+            match group(&victim).map(str::to_string) {
+                Some(prefix) => self.retain(|candidate| !candidate.starts_with(&prefix)),
+                None => self.remove(&victim),
+            }
+        }
+    }
+
+    fn victim(&self, keep: &str) -> Option<String> {
+        let kept_group = group(keep);
+        self.map
+            .iter()
+            .filter(|(key, _)| key.as_str() != keep && (kept_group.is_none() || group(key) != kept_group))
+            .min_by_key(|(key, entry)| (self.protected(key), entry.used))
+            .map(|(key, _)| key.clone())
+    }
+
+    fn protected(&self, key: &str) -> bool {
+        let Some((puuid, report)) = key.split_once('|') else {
+            return false;
+        };
+        if LIST_REPORTS.iter().any(|name| report.starts_with(name)) {
+            return true;
+        }
+        SEASON_REPORTS.iter().any(|name| report.starts_with(name))
+            && self.seasons.get(puuid).is_some_and(|season| report.contains(&format!("Some({season:?})")))
+    }
+
+    fn remove(&mut self, key: &str) {
+        if let Some(entry) = self.map.remove(key) {
+            self.bytes -= size(key, &entry.json);
+        }
+    }
+
+    fn retain(&mut self, keep: impl Fn(&str) -> bool) {
+        let mut bytes = self.bytes;
+        self.map.retain(|key, entry| {
+            let kept = keep(key);
+            if !kept {
+                bytes -= size(key, &entry.json);
+            }
+            kept
+        });
+        self.bytes = bytes;
+    }
+
+    fn clear(&mut self) {
+        self.map.clear();
+        self.bytes = 0;
+    }
+}
+
 struct Cache {
     generation: u64,
-    entries: HashMap<String, String>,
+    entries: Entries,
     flights: HashMap<String, Arc<Flight>>,
+}
+
+impl Default for Cache {
+    fn default() -> Self {
+        Self { generation: 0, entries: Entries::new(CACHE_BYTES), flights: HashMap::new() }
+    }
 }
 
 pub struct AppState {
@@ -145,7 +249,7 @@ impl AppState {
     }
 
     pub fn cached_json(&self, key: &str) -> Option<String> {
-        self.cache().entries.get(key).cloned()
+        self.cache().entries.get(key)
     }
 
     pub fn store_json(&self, key: String, json: String, generation: u64) {
@@ -153,16 +257,22 @@ impl AppState {
         if cache.generation != generation {
             return;
         }
-        if cache.entries.len() >= CACHE_LIMIT {
-            cache.entries.clear();
-        }
         cache.entries.insert(key, json);
+    }
+
+    pub fn set_current_season(&self, puuid: &str, season: Option<&str>) {
+        let mut cache = self.cache();
+        let seasons = &mut cache.entries.seasons;
+        match season {
+            Some(season) => seasons.insert(puuid.to_string(), season.to_string()),
+            None => seasons.remove(puuid),
+        };
     }
 
     fn slot(&self, key: &str) -> Slot<'_> {
         let mut cache = self.cache();
         if let Some(json) = cache.entries.get(key) {
-            return Slot::Cached(json.clone());
+            return Slot::Cached(json);
         }
         if let Some(flight) = cache.flights.get(key) {
             return Slot::Busy(flight.clone());
@@ -194,7 +304,7 @@ impl AppState {
     }
 
     pub fn forget(&self, matches: impl Fn(&str) -> bool) {
-        self.cache().entries.retain(|key, _| !matches(key));
+        self.cache().entries.retain(|key| !matches(key));
     }
 }
 
@@ -231,6 +341,50 @@ mod tests {
         assert_eq!(state.cached_json("key").as_deref(), Some("value"));
         drop(state);
         let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn evicts_the_least_recently_used_entries_past_the_byte_limit() {
+        let mut entries = Entries::new(3 * size("p|MapHistory(a)", &"x".repeat(100)));
+        entries.insert("p|MapHistory(a)".into(), "x".repeat(100));
+        entries.insert("p|MapHistory(b)".into(), "x".repeat(100));
+        entries.insert("p|MapHistory(c)".into(), "x".repeat(100));
+        assert!(entries.get("p|MapHistory(a)").is_some());
+        entries.insert("p|MapHistory(d)".into(), "x".repeat(100));
+        assert!(entries.get("p|MapHistory(b)").is_none());
+        assert!(entries.get("p|MapHistory(a)").is_some());
+        assert!(entries.bytes <= entries.limit);
+    }
+
+    #[test]
+    fn keeps_current_season_reports_longer() {
+        let mut entries = Entries::new(3 * size("p|Agents(Some(\"e1\"))", &"x".repeat(100)));
+        entries.seasons.insert("p".into(), "e1".into());
+        entries.insert("p|Agents(Some(\"e1\"))".into(), "x".repeat(100));
+        entries.insert("p|Agents(None)".into(), "x".repeat(100));
+        entries.insert("p|Agents(Some(\"e0\"))".into(), "x".repeat(100));
+        entries.insert("p|Duels(Some(\"e1\"))".into(), "x".repeat(100));
+        entries.insert("p|Recent(x)".into(), "x".repeat(100));
+        assert!(entries.get("p|Agents(Some(\"e1\"))").is_some());
+        assert!(entries.get("p|Duels(Some(\"e1\"))").is_some());
+        assert!(entries.get("p|Recent(x)").is_some());
+        assert!(entries.get("p|Agents(None)").is_none());
+    }
+
+    #[test]
+    fn evicts_weapon_histories_as_a_whole() {
+        let ready = "p|WeaponHistories(None)";
+        let mut entries = Entries::new(4 * size(ready, &"x".repeat(100)));
+        entries.insert(ready.into(), "x".repeat(100));
+        entries.insert(format!("{ready}|\"Vandal\"|false"), "x".repeat(100));
+        entries.insert(format!("{ready}|\"Odin\"|true"), "x".repeat(100));
+        entries.insert("p|MapHistory(a)".into(), "x".repeat(100));
+        entries.insert("p|MapHistory(b)".into(), "x".repeat(100));
+        assert!(entries.get(ready).is_none());
+        assert!(entries.get(&format!("{ready}|\"Vandal\"|false")).is_none());
+        assert!(entries.get(&format!("{ready}|\"Odin\"|true")).is_none());
+        assert!(entries.get("p|MapHistory(b)").is_some());
+        assert_eq!(entries.bytes, 2 * size("p|MapHistory(a)", &"x".repeat(100)));
     }
 
     #[test]

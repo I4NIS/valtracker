@@ -66,6 +66,7 @@ pub fn warm(app: &AppHandle, puuid: String) {
         let state = app.state::<AppState>();
         let Ok(conn) = db::open(&state.db_path) else { return };
         let current = stats::seasons(&conn, &puuid).ok().and_then(|list| list.first().map(|season| season.short.clone()));
+        state.set_current_season(&puuid, current.as_deref());
         let mut list = vec![
             Report::Overview(Filters::season(current.as_deref())),
             Report::FilterOptions,

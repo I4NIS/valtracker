@@ -493,7 +493,7 @@ pub fn histories(conn: &Connection, puuid: &str, season: Option<&str>) -> AppRes
 }
 
 fn history_key(puuid: &str, season: Option<&str>, weapon: &str, deaths: bool) -> String {
-    format!("{puuid}|WeaponHistory({season:?},{weapon:?},{deaths})")
+    format!("{}|{weapon:?}|{deaths}", ready_key(puuid, season))
 }
 
 fn ready_key(puuid: &str, season: Option<&str>) -> String {
