@@ -82,7 +82,7 @@ export function Warmup({ puuid, season }: { puuid: string; season: string | null
         <Figure label="HS" value={sums.hsPct !== null ? pct(sums.hsPct) : "-"} />
         <Figure label="K/D" value={fmt(sums.kd, 2)} />
         <Figure label={t("Kills par partie", "Kills per game")} value={fmt(sums.kills, 1)} />
-        <Figure label={t("Dégâts par partie", "Damage per game")} value={fmt(sums.damage)} />
+        <Figure label={t("Dégâts par partie", "Damage per game")} value={sums.damage !== null ? fmt(sums.damage) : "-"} />
       </div>
 
       <div className="warmup-charts">
@@ -121,8 +121,8 @@ export function Warmup({ puuid, season }: { puuid: string; season: string | null
             {link.warmed.days > 0 && (
               <p className="warmup-sentence">
                 {t(
-                  `Ces ${dayCount(link.warmed.days)} : ${link.warmupHsPct !== null ? pct(link.warmupHsPct) : "-"} de HS à l'échauffement, ${link.rankedHsPct !== null ? pct(link.rankedHsPct) : "-"} sur les matchs classés qui suivent.`,
-                  `On these ${dayCount(link.warmed.days)}: ${link.warmupHsPct !== null ? pct(link.warmupHsPct) : "-"} HS while warming up, ${link.rankedHsPct !== null ? pct(link.rankedHsPct) : "-"} in the ranked matches that follow.`,
+                  `${link.warmed.days > 1 ? `Ces ${dayCount(link.warmed.days)}` : "Ce jour"} : ${link.warmupHsPct !== null ? pct(link.warmupHsPct) : "-"} de HS à l'échauffement, ${link.rankedHsPct !== null ? pct(link.rankedHsPct) : "-"} sur les matchs classés qui suivent.`,
+                  `${link.warmed.days > 1 ? `On these ${dayCount(link.warmed.days)}` : "On that day"}: ${link.warmupHsPct !== null ? pct(link.warmupHsPct) : "-"} HS while warming up, ${link.rankedHsPct !== null ? pct(link.rankedHsPct) : "-"} in the ranked matches that follow.`,
                 )}
               </p>
             )}

@@ -43,7 +43,7 @@ export function getWarmup(puuid: string, season: string | null): Promise<WarmupR
 
 export type DayPoint = { day: string; matches: number; hsPct: number | null; kd: number };
 
-export type Totals = { matches: number; hsPct: number | null; kd: number; kills: number; damage: number };
+export type Totals = { matches: number; hsPct: number | null; kd: number; kills: number; damage: number | null };
 
 export type DaySide = { days: number; matches: number; wins: number };
 
@@ -74,13 +74,14 @@ export function totals(games: WarmupGame[]): Totals {
   const deaths = games.reduce((sum, game) => sum + game.deaths, 0);
   const heads = games.reduce((sum, game) => sum + game.headshots, 0);
   const shots = games.reduce((sum, game) => sum + shotsOf(game), 0);
-  const damage = games.reduce((sum, game) => sum + game.damageMade, 0);
+  const measured = games.filter((game) => game.damageMade > 0 || shotsOf(game) > 0);
+  const damage = measured.reduce((sum, game) => sum + game.damageMade, 0);
   return {
     matches: games.length,
     hsPct: share(heads, shots),
     kd: kills / Math.max(1, deaths),
     kills: games.length ? kills / games.length : 0,
-    damage: games.length ? damage / games.length : 0,
+    damage: measured.length ? damage / measured.length : null,
   };
 }
 
