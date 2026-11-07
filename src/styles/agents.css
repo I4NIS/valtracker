@@ -72,12 +72,6 @@
   object-fit: cover;
 }
 
-.agent-portrait.large {
-  width: 112px;
-  height: 112px;
-  border-radius: 24px;
-}
-
 .agent-card-name {
   flex: 1 1 auto;
   min-width: 0;
@@ -134,11 +128,121 @@
   container-type: inline-size;
 }
 
-.agent-detail-head {
+.agent-hero {
+  --agent-tint: #3a3f4b;
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  min-height: 300px;
+  overflow: hidden;
+  border-radius: 18px;
+  background:
+    radial-gradient(110% 130% at 82% 18%, color-mix(in srgb, var(--agent-tint) 80%, transparent) 0%, transparent 64%),
+    #111318;
+  color: #f2f3f5;
+  isolation: isolate;
+}
+
+.agent-hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background: linear-gradient(90deg, rgba(10, 11, 14, 0.86) 0%, rgba(10, 11, 14, 0.5) 42%, rgba(10, 11, 14, 0) 72%);
+  pointer-events: none;
+}
+
+.agent-hero-word {
+  position: absolute;
+  top: 50%;
+  right: 6%;
+  z-index: 0;
+  width: auto;
+  height: 130%;
+  max-width: none;
+  opacity: 0.14;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.agent-hero-portrait {
+  position: absolute;
+  top: 0;
+  right: 2%;
+  z-index: 1;
+  width: auto;
+  height: 132%;
+  max-width: none;
+  object-position: top center;
+  pointer-events: none;
+}
+
+.agent-hero-text {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: min(560px, 64%);
+  padding: 28px;
+}
+
+.agent-hero-role {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: rgba(242, 243, 245, 0.78);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.agent-hero-meta {
+  color: rgba(242, 243, 245, 0.78);
+}
+
+.agent-hero-win {
+  color: #3fcf8e;
+}
+
+.agent-hero-loss {
+  color: #ff8a4c;
+}
+
+.agent-abilities {
   display: flex;
   flex-wrap: wrap;
+  gap: 8px;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.agent-ability {
+  display: flex;
   align-items: center;
-  gap: 24px;
+  gap: 8px;
+  min-width: 0;
+  padding: 6px 12px 6px 6px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.agent-ability-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: rgba(8, 9, 12, 0.35);
+}
+
+.agent-ability-name {
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .agent-detail-name {
@@ -314,10 +418,23 @@
     font-size: 34px;
   }
 
-  .agent-portrait.large {
-    width: 84px;
-    height: 84px;
-    border-radius: 20px;
+  .agent-hero {
+    min-height: 380px;
+  }
+
+  .agent-hero-text {
+    max-width: 100%;
+    padding: 22px;
+  }
+
+  .agent-hero-portrait {
+    right: -18%;
+    height: 112%;
+    opacity: 0.6;
+  }
+
+  .agent-hero::after {
+    background: linear-gradient(0deg, rgba(10, 11, 14, 0.9) 0%, rgba(10, 11, 14, 0.45) 55%, rgba(10, 11, 14, 0.1) 100%);
   }
 
   .agent-map-row {

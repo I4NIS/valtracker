@@ -1,0 +1,40 @@
+:where(.art) {
+  display: block;
+  flex-shrink: 0;
+  max-width: 100%;
+  object-fit: contain;
+}
+
+:where(.art-empty) {
+  display: inline-block;
+}
+
+:where(.art-mono) {
+  opacity: 0.92;
+}
+
+:root[data-theme="light"] .art-mono {
+  filter: invert(1);
+  opacity: 0.82;
+}
+
+.kill-means {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  color: var(--text-2);
+}
+
+.kill-means-text {
+  color: var(--text-3);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.spike-glyph {
+  display: block;
+  flex-shrink: 0;
+  color: var(--accent);
+}

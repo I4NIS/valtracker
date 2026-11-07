@@ -6,7 +6,14 @@ export type RangeSplit = {
   long: number;
 };
 
+export type AbilityPart = {
+  name: string | null;
+  agentId: string | null;
+  count: number;
+};
+
 export type WeaponLine = {
+  id: string | null;
   name: string;
   ability: boolean;
   kills: number;
@@ -23,15 +30,18 @@ export type WeaponLine = {
   bodyshots: number;
   legshots: number;
   hsPct: number | null;
+  parts: AbilityPart[];
 };
 
 export type KillerLine = {
+  id: string | null;
   name: string;
   ability: boolean;
   deaths: number;
   deathShare: number;
   avgDistance: number | null;
   ranges: RangeSplit;
+  parts: AbilityPart[];
 };
 
 export type WeaponReport = {
@@ -67,6 +77,7 @@ const CATEGORIES: Record<string, string> = {
   Guardian: "Fusil d'assaut",
   Phantom: "Fusil d'assaut",
   Vandal: "Fusil d'assaut",
+  Warden: "Fusil d'assaut",
   Marshal: "Sniper",
   Outlaw: "Sniper",
   Operator: "Sniper",

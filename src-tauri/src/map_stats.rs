@@ -3,12 +3,14 @@ use serde::Serialize;
 use serde_json::Value;
 use std::collections::HashMap;
 
-use crate::analysis::{attack_side, attacks_first, text};
+use crate::analysis::{attack_side, attacks_first, point, text};
+use crate::assets::{self, MapData};
 use crate::error::AppResult;
 use crate::state::AppState;
 use crate::storage;
 
 const COMPETITIVE: &str = "competitive";
+const PLANT_SPOTS: usize = 400;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -17,12 +19,24 @@ pub struct SitePlants {
     pub plants: i64,
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlantSpot {
+    pub x: f64,
+    pub y: f64,
+    pub site: Option<String>,
+    pub won: bool,
+}
+
 #[derive(Debug, Clone, Default, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MapStat {
     pub map_id: String,
     pub name: String,
     pub splash: Option<String>,
+    pub list_icon: Option<String>,
+    pub minimap: Option<String>,
+    pub rotation: i32,
     pub matches: i64,
     pub wins: i64,
     pub losses: i64,
@@ -44,6 +58,7 @@ pub struct MapStat {
     pub pistol_won: i64,
     pub plants: i64,
     pub plant_sites: Vec<SitePlants>,
+    pub plant_spots: Vec<PlantSpot>,
     pub retakes_played: i64,
     pub retakes_won: i64,
     pub agent_id: Option<String>,
@@ -69,7 +84,7 @@ fn ratio(numerator: f64, denominator: f64) -> f64 {
     if denominator > 0.0 { numerator / denominator } else { 0.0 }
 }
 
-fn rounds_of(game: &Value, puuid: &str, stat: &mut MapStat, sites: &mut HashMap<String, i64>) -> bool {
+fn rounds_of(game: &Value, puuid: &str, map: Option<&MapData>, stat: &mut MapStat, sites: &mut HashMap<String, i64>) -> bool {
     let empty = Vec::new();
     let players = game.pointer("/players").and_then(Value::as_array).unwrap_or(&empty);
     let Some(team) = players
@@ -102,8 +117,15 @@ fn rounds_of(game: &Value, puuid: &str, stat: &mut MapStat, sites: &mut HashMap<
         if let Some(plant) = plant {
             if attack {
                 stat.plants += 1;
-                if let Some(site) = text(plant, "/site").map(str::trim).filter(|site| !site.is_empty()) {
-                    *sites.entry(site.to_uppercase()).or_default() += 1;
+                let site = text(plant, "/site").map(str::trim).filter(|site| !site.is_empty()).map(str::to_uppercase);
+                if let Some(site) = &site {
+                    *sites.entry(site.clone()).or_default() += 1;
+                }
+                if let (Some(map), Some(spot)) = (map, point(plant, "/location")) {
+                    if stat.plant_spots.len() < PLANT_SPOTS {
+                        let (x, y) = map.project(spot.0, spot.1);
+                        stat.plant_spots.push(PlantSpot { x, y, site, won });
+                    }
                 }
             } else {
                 stat.retakes_played += 1;
@@ -119,7 +141,7 @@ pub fn map_stats(conn: &Connection, puuid: &str, season: Option<&str>) -> AppRes
         "SELECT COALESCE(m.map_id, m.map_name, ''), COALESCE(m.map_name, mp.name, ''), mp.splash,
                 p.agent_id, p.agent_name, p.won, p.rounds_won, p.rounds_lost, m.rounds,
                 p.score, p.kills, p.deaths, p.headshots, p.headshots + p.bodyshots + p.legshots, p.damage_dealt,
-                h.last_change, m.raw
+                h.last_change, m.raw, mp.list_icon, mp.display_icon
          FROM match_players p
          JOIN matches m ON m.match_id = p.match_id
          LEFT JOIN maps mp ON mp.uuid = m.map_id
@@ -129,18 +151,26 @@ pub fn map_stats(conn: &Connection, puuid: &str, season: Option<&str>) -> AppRes
     )?;
     let mut rows = stmt.query(params![puuid, COMPETITIVE, season])?;
     let mut totals: HashMap<String, Totals> = HashMap::new();
+    let mut layouts: HashMap<String, Option<MapData>> = HashMap::new();
 
     while let Some(row) = rows.next()? {
         let map_id: String = row.get(0)?;
         if map_id.is_empty() {
             continue;
         }
+        if !layouts.contains_key(&map_id) {
+            layouts.insert(map_id.clone(), assets::load_map(conn, &map_id)?);
+        }
+        let layout = layouts.get(&map_id).and_then(Option::as_ref);
         let entry = totals.entry(map_id.clone()).or_default();
         let stat = &mut entry.stat;
         if stat.map_id.is_empty() {
             stat.map_id = map_id;
             stat.name = row.get(1)?;
             stat.splash = row.get(2)?;
+            stat.list_icon = row.get(17)?;
+            stat.minimap = row.get(18)?;
+            stat.rotation = layout.map_or(0, MapData::rotation);
         }
         let agent_id: Option<String> = row.get(3)?;
         let agent_name: Option<String> = row.get(4)?;
@@ -167,7 +197,7 @@ pub fn map_stats(conn: &Connection, puuid: &str, season: Option<&str>) -> AppRes
         }
         let game = row.get_ref(16)?.as_bytes().ok().and_then(storage::decode);
         if let Some(game) = game {
-            if rounds_of(&game, puuid, stat, &mut entry.sites) {
+            if rounds_of(&game, puuid, layout, stat, &mut entry.sites) {
                 stat.analyzed += 1;
             }
         }

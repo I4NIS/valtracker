@@ -1,10 +1,14 @@
 import "../styles/agents.css";
-import { useEffect, useMemo, useRef, useState, type Ref } from "react";
+import { useMemo, useRef, useState, type CSSProperties, type Ref } from "react";
+import { Art } from "../components/GameArt";
 import { SeasonPicker } from "../components/SeasonPicker";
-import { errorMessage, type Account } from "../lib/api";
-import { getAgentStats, type AgentStat } from "../lib/agents";
+import type { Account } from "../lib/api";
+import type { AgentStat } from "../lib/agents";
 import { agentIcon, seasonLabel } from "../lib/assets";
 import { fmt, pct, roleLabel, scoreTone } from "../lib/format";
+import { agentArt, agentColor, useAgentCatalog, type AgentInfo } from "../lib/gameAssets";
+import { useQuery } from "../lib/query";
+import { defaultSeason, queries } from "../lib/queries";
 
 type Props = {
   account: Account;
@@ -26,29 +30,15 @@ const RING_LENGTH = 2 * Math.PI * RING_RADIUS;
 
 const winTone = (winPct: number) => (winPct >= 50 ? "win" : "bad");
 
-export function Agents({ account, refreshKey }: Props) {
-  const [season, setSeason] = useState<string | null | undefined>(undefined);
-  const [data, setData] = useState<AgentStat[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
+export function Agents({ account }: Props) {
+  const [season, setSeason] = useState<string | null | undefined>(() => defaultSeason(account.puuid));
+  const query = useQuery(season === undefined ? null : queries.agents(account.puuid, season));
+  const data = query.data ?? null;
+  const error = query.error;
   const [role, setRole] = useState<RoleFilter>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const detailRef = useRef<HTMLElement>(null);
-
-  useEffect(() => {
-    if (season === undefined) return;
-    let active = true;
-    setError(null);
-    getAgentStats(account.puuid, season)
-      .then((list) => {
-        if (active) setData(list);
-      })
-      .catch((err) => {
-        if (active) setError(errorMessage(err));
-      });
-    return () => {
-      active = false;
-    };
-  }, [account.puuid, season, refreshKey]);
+  const catalog = useAgentCatalog();
 
   const agents = useMemo(() => (data ?? []).filter((agent) => role === null || agent.role === role), [data, role]);
   const counts = useMemo(() => {
@@ -91,7 +81,7 @@ export function Agents({ account, refreshKey }: Props) {
         </div>
       </div>
 
-      {error && <p className="form-error">{error}</p>}
+      {error && !data && <p className="form-error">{error}</p>}
 
       {!data ? (
         <div className="empty">Chargement de tes agents...</div>
@@ -121,7 +111,7 @@ export function Agents({ account, refreshKey }: Props) {
             </div>
           </section>
 
-          {current && <AgentDetail ref={detailRef} agent={current} />}
+          {current && <AgentDetail ref={detailRef} agent={current} info={catalog?.agents.get(current.agentId.toLowerCase()) ?? null} />}
         </>
       )}
     </div>
@@ -155,7 +145,9 @@ function AgentCard({ agent, share, active, onSelect }: { agent: AgentStat; share
   return (
     <button type="button" className={`agent-card${active ? " active" : ""}`} onClick={onSelect} aria-pressed={active}>
       <div className="row" style={{ gap: 14, alignItems: "center" }}>
-        <span className="agent-portrait">{agentIcon(agent.agentId) && <img src={agentIcon(agent.agentId)} alt="" />}</span>
+        <span className="agent-portrait">
+          <Art src={agentIcon(agent.agentId)} width={64} height={64} alt="" />
+        </span>
         <div className="stack agent-card-name">
           <strong className="ellipsis">{agent.name}</strong>
           <span className="faint">{roleLabel(agent.role) || "Rôle inconnu"}</span>
@@ -194,23 +186,40 @@ function AgentCard({ agent, share, active, onSelect }: { agent: AgentStat; share
   );
 }
 
-function AgentDetail({ agent, ref }: { agent: AgentStat; ref: Ref<HTMLElement> }) {
+function AgentDetail({ agent, info, ref }: { agent: AgentStat; info: AgentInfo | null; ref: Ref<HTMLElement> }) {
   const openings = agent.firstBloods + agent.firstDeaths;
   const openingWin = openings ? (agent.firstBloods * 100) / openings : 0;
   const lobbyDelta = agent.lobbyAcs ? ((agent.acs - agent.lobbyAcs) / agent.lobbyAcs) * 100 : null;
-  const icon = agentIcon(agent.agentId);
+  const tint = agentColor(info, 0);
+  const abilities = (info?.abilities ?? []).filter((ability) => ability.icon && ability.slot !== "Passive");
 
   return (
     <section ref={ref} className="panel agent-detail" aria-label={`Détail ${agent.name}`}>
-      <div className="agent-detail-head">
-        <span className="agent-portrait large">{icon && <img src={icon} alt="" />}</span>
-        <div className="stack" style={{ gap: 4, minWidth: 0 }}>
-          <span className="eyebrow">{roleLabel(agent.role) || "Rôle inconnu"}</span>
-          <h2 className="agent-detail-name">{agent.name}</h2>
-          <span className="muted">
-            {agent.matches} {agent.matches > 1 ? "matchs" : "match"}, <span className="win">{agent.wins} V</span>{" "}
-            <span className="bad">{agent.losses} D</span>, {agent.rounds} rounds
+      <div className="agent-hero" style={tint ? ({ "--agent-tint": tint } as CSSProperties) : undefined}>
+        <Art key={`bg-${agent.agentId}`} src={agentArt(agent.agentId, "background")} width={350} height={512} alt="" className="agent-hero-word" eager />
+        <Art key={`fp-${agent.agentId}`} src={agentArt(agent.agentId, "fullportrait")} width={440} height={400} alt={agent.name} className="agent-hero-portrait" eager />
+        <div className="agent-hero-text">
+          <span className="agent-hero-role">
+            {info?.roleIcon && <Art src={info.roleIcon} width={16} height={16} alt="" className="agent-hero-role-icon" />}
+            {roleLabel(agent.role) || "Rôle inconnu"}
           </span>
+          <h2 className="agent-detail-name">{agent.name}</h2>
+          <span className="agent-hero-meta">
+            {agent.matches} {agent.matches > 1 ? "matchs" : "match"}, <span className="agent-hero-win">{agent.wins} V</span>{" "}
+            <span className="agent-hero-loss">{agent.losses} D</span>, {agent.rounds} rounds
+          </span>
+          {abilities.length > 0 && (
+            <ul className="agent-abilities" aria-label="Capacités">
+              {abilities.map((ability) => (
+                <li key={ability.slot} className="agent-ability" title={ability.label}>
+                  <span className="agent-ability-icon">
+                    <Art src={ability.icon ?? undefined} width={28} height={28} alt="" />
+                  </span>
+                  <span className="agent-ability-name">{ability.label}</span>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </div>
 
@@ -292,7 +301,9 @@ function AgentDetail({ agent, ref }: { agent: AgentStat; ref: Ref<HTMLElement> }
           </div>
           {agent.maps.map((map) => (
             <div key={map.mapName} className={`agent-map-row${agent.bestMap?.name === map.mapName ? " best" : ""}`}>
-              <span className="agent-map-thumb">{map.image && <img src={map.image} alt="" />}</span>
+              <span className="agent-map-thumb">
+                <Art src={map.image ?? undefined} width={72} height={36} alt="" />
+              </span>
               <strong className="ellipsis">{map.mapName}</strong>
               <span className="muted">
                 {map.matches}

@@ -5,10 +5,20 @@ export type SitePlants = {
   plants: number;
 };
 
+export type PlantSpot = {
+  x: number;
+  y: number;
+  site: string | null;
+  won: boolean;
+};
+
 export type MapStat = {
   mapId: string;
   name: string;
   splash: string | null;
+  listIcon: string | null;
+  minimap: string | null;
+  rotation: number;
   matches: number;
   wins: number;
   losses: number;
@@ -30,6 +40,7 @@ export type MapStat = {
   pistolWon: number;
   plants: number;
   plantSites: SitePlants[];
+  plantSpots: PlantSpot[];
   retakesPlayed: number;
   retakesWon: number;
   agentId: string | null;
