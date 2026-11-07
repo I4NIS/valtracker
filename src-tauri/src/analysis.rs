@@ -116,6 +116,10 @@ pub struct RoundLine {
     pub ceremony: Option<String>,
     pub events: Vec<RoundEvent>,
     pub economy: Vec<EconomyLine>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub plant_positions: Option<Vec<riot::PlayerSpot>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub defuse_positions: Option<Vec<riot::PlayerSpot>>,
 }
 
 fn result_label(raw: &str) -> String {
@@ -542,6 +546,19 @@ pub fn analyze(
                 })
                 .collect();
             economy.sort_by(|a, b| b.ally.cmp(&a.ally).then(b.loadout.cmp(&a.loadout)));
+            let snapshot = |pointer: &str| {
+                let list = round.pointer(pointer).and_then(Value::as_array).filter(|list| !list.is_empty())?;
+                let spots: Vec<riot::PlayerSpot> = list
+                    .iter()
+                    .filter_map(|entry| {
+                        let id = text(entry, "/player/puuid")?;
+                        let spot = projector.position(point(entry, "/location")?)?;
+                        let (name, agent_id, ally, me) = person(id, text(entry, "/player/name"));
+                        Some(riot::PlayerSpot { x: spot.x, y: spot.y, name, agent_id, ally, me })
+                    })
+                    .collect();
+                (!spots.is_empty()).then_some(spots)
+            };
             RoundLine {
                 number: index + 1,
                 won: text(round, "/winning_team") == Some(my_team.as_str()),
@@ -556,6 +573,8 @@ pub fn analyze(
                 ceremony: text(round, "/ceremony").and_then(ceremony_label),
                 events,
                 economy,
+                plant_positions: snapshot("/plant/player_locations"),
+                defuse_positions: snapshot("/defuse/player_locations"),
             }
         })
         .collect();
@@ -1025,6 +1044,22 @@ mod tests {
             })
             .collect();
         assert_eq!(spots, [("plant", Some((50.0, 50.0)), None), ("kill", Some((70.0, 60.0)), Some((90.0, 80.0)))]);
+        assert!(detail.rounds[0].plant_positions.is_none() && detail.rounds[0].defuse_positions.is_none());
+
+        game["rounds"][0]["plant"]["player_locations"] = json!([
+            { "player": { "puuid": "foe" }, "location": { "x": 100, "y": 0 } },
+            { "player": { "puuid": "me" }, "location": { "x": 0, "y": 100 } },
+            { "player": { "puuid": "gone" } },
+        ]);
+        let detail = analyze(&game, "me", Some(&map), &HashMap::new(), &Thresholds::default()).expect("sample match");
+        let at_plant: Vec<(String, bool, bool, (f64, f64))> = detail.rounds[0]
+            .plant_positions
+            .as_ref()
+            .expect("positions at the plant")
+            .iter()
+            .map(|spot| (spot.name.clone(), spot.ally, spot.me, ((spot.x * 100.0).round(), (spot.y * 100.0).round())))
+            .collect();
+        assert_eq!(at_plant, [("foe".into(), false, false, (50.0, 60.0)), ("me".into(), true, true, (60.0, 50.0))]);
     }
 
     #[test]

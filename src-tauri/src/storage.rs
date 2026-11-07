@@ -54,6 +54,14 @@ fn person(value: Option<&mut Value>) -> Value {
     pick(value, &["puuid", "name", "tag", "team"])
 }
 
+fn located(entry: &mut Value) -> Value {
+    object([
+        ("player", pick(entry.get_mut("player"), &["puuid", "team"])),
+        ("location", take(entry, "location")),
+        ("view_radians", take(entry, "view_radians")),
+    ])
+}
+
 fn action(value: Option<&mut Value>) -> Value {
     match value {
         Some(value) if value.is_object() => object([
@@ -61,6 +69,7 @@ fn action(value: Option<&mut Value>) -> Value {
             ("site", take(value, "site")),
             ("location", take(value, "location")),
             ("player", person(value.get_mut("player"))),
+            ("player_locations", each(value.get_mut("player_locations"), located)),
         ]),
         _ => Value::Null,
     }
@@ -124,16 +133,7 @@ fn kill(kill: &mut Value) -> Value {
         ("assistants", each(kill.get_mut("assistants"), |assistant| pick(Some(assistant), &["puuid", "team"]))),
         ("location", take(kill, "location")),
         ("weapon", pick(kill.get_mut("weapon"), &["id", "name", "type"])),
-        (
-            "player_locations",
-            each(kill.get_mut("player_locations"), |entry| {
-                object([
-                    ("player", pick(entry.get_mut("player"), &["puuid", "team"])),
-                    ("location", take(entry, "location")),
-                    ("view_radians", take(entry, "view_radians")),
-                ])
-            }),
-        ),
+        ("player_locations", each(kill.get_mut("player_locations"), located)),
     ])
 }
 
@@ -280,6 +280,11 @@ mod tests {
                 "site": value["site"],
                 "location": value["location"],
                 "player": person(&value["player"]),
+                "player_locations": each(&value["player_locations"], |entry| json!({
+                    "player": pick(&entry["player"], &["puuid", "team"]),
+                    "location": entry["location"],
+                    "view_radians": entry["view_radians"],
+                })),
             })
         }
 
@@ -384,7 +389,18 @@ mod tests {
                 },
             }],
             "teams": [{ "team_id": "Red", "won": true }],
-            "rounds": [{ "winning_team": "Red", "stats": [{ "player": { "puuid": "p" } }] }],
+            "rounds": [{
+                "winning_team": "Red",
+                "plant": {
+                    "round_time_in_ms": 41000,
+                    "site": "B",
+                    "location": { "x": 1, "y": 2 },
+                    "player": { "puuid": "p", "team": "Red" },
+                    "player_locations": [{ "player": { "puuid": "p", "name": "P", "team": "Red" }, "location": { "x": 3, "y": 4 }, "view_radians": 1.5 }],
+                },
+                "defuse": null,
+                "stats": [{ "player": { "puuid": "p" } }],
+            }],
             "kills": [],
         })
     }
@@ -396,6 +412,9 @@ mod tests {
         let slim = slim(game);
         assert_eq!(slim.pointer("/players/0/performance/ratings/grade"), Some(&json!("merit")));
         assert_eq!(slim.pointer("/players/0/performance/breakdown/adjusted_deaths"), Some(&json!(-1.5)));
+        assert_eq!(slim.pointer("/rounds/0/plant/player_locations/0/location"), Some(&json!({ "x": 3, "y": 4 })));
+        assert_eq!(slim.pointer("/rounds/0/plant/player_locations/0/player"), Some(&json!({ "puuid": "p", "team": "Red" })));
+        assert_eq!(slim.pointer("/rounds/0/defuse"), Some(&Value::Null));
         assert!(slim.pointer("/players/0/account_level").is_none());
         assert!(slim.pointer("/metadata/premier").is_none());
     }

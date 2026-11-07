@@ -201,7 +201,11 @@ export type RoundLine = {
   ceremony: string | null;
   events: RoundEvent[];
   economy: EconomyLine[];
+  plantPositions?: PlayerSpot[];
+  defusePositions?: PlayerSpot[];
 };
+
+export type PlayerSpot = { x: number; y: number; name: string; agentId: string | null; ally: boolean; me: boolean };
 
 export type Death = {
   round: number;

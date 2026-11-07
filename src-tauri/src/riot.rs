@@ -29,6 +29,17 @@ pub struct RiotPerformance {
     pub ratings: Vec<RiotRating>,
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlayerSpot {
+    pub x: f64,
+    pub y: f64,
+    pub name: String,
+    pub agent_id: Option<String>,
+    pub ally: bool,
+    pub me: bool,
+}
+
 const BREAKDOWN: [(&str, &str, &str); 8] = [
     ("adjusted_kills", "Kills ajustés", "Adjusted kills"),
     ("adjusted_deaths", "Morts ajustées", "Adjusted deaths"),

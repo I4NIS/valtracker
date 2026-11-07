@@ -1,11 +1,12 @@
 import "../styles/rounds.css";
 import { useEffect, useState } from "react";
-import type { RoundEvent, RoundLine } from "../lib/api";
+import type { PlayerSpot, RoundEvent, RoundLine } from "../lib/api";
 import { agentIcon } from "../lib/assets";
 import { clock, fmt } from "../lib/format";
 import { findAbility, useAgentCatalog, weaponArt, type Catalog } from "../lib/gameAssets";
 import { t } from "../lib/i18n";
 import { rotatePoint, rotationStyle } from "../lib/minimap";
+import { notAvailable } from "../lib/riot";
 import { FavoriteButton } from "./FavoriteButton";
 import { Art, fadeIn, KillMeans, meansLabel, SpikeGlyph } from "./GameArt";
 import { Icon } from "./Icon";
@@ -17,6 +18,8 @@ const ARMOR: Record<string, string> = {
 };
 
 type Pane = "events" | "economy";
+
+type View = "events" | "plant" | "defuse";
 
 type Props = {
   puuid: string;
@@ -38,6 +41,7 @@ export function RoundDetail({ puuid, matchId, rounds, selected, onSelect, minima
   const [pane, setPane] = useState<Pane>("events");
   const [hover, setHover] = useState<number | null>(null);
   const [pinned, setPinned] = useState<number | null>(null);
+  const [snap, setSnap] = useState<View>("events");
 
   useEffect(() => {
     setHover(null);
@@ -46,7 +50,10 @@ export function RoundDetail({ puuid, matchId, rounds, selected, onSelect, minima
 
   if (!round) return <div className="empty">{t("Aucun round à afficher.", "No rounds to show.")}</div>;
 
-  const focus = hover ?? pinned;
+  const hasDefuse = round.events.some((event) => event.kind === "defuse");
+  const view: View = snap === "plant" && round.planted ? "plant" : snap === "defuse" && hasDefuse ? "defuse" : "events";
+  const views: View[] = ["events", ...(round.planted ? ["plant" as const] : []), ...(hasDefuse ? ["defuse" as const] : [])];
+  const focus = view === "events" ? (hover ?? pinned) : null;
   const pick = (event: number) => setPinned((current) => (current === event ? null : event));
 
   return (
@@ -75,6 +82,10 @@ export function RoundDetail({ puuid, matchId, rounds, selected, onSelect, minima
           catalog={catalog}
           onHover={setHover}
           onPick={pick}
+          view={view}
+          views={views}
+          onView={setSnap}
+          spots={view === "plant" ? round.plantPositions : view === "defuse" ? round.defusePositions : undefined}
         />
 
         <section className="stack" style={{ gap: 12, minWidth: 0 }}>
@@ -165,7 +176,17 @@ type MapProps = {
   catalog: Catalog | null;
   onHover: (index: number | null) => void;
   onPick: (index: number) => void;
+  view: View;
+  views: View[];
+  onView: (view: View) => void;
+  spots: PlayerSpot[] | undefined;
 };
+
+const VIEW_LABELS = (): Record<View, string> => ({
+  events: t("Actions", "Events"),
+  plant: t("Au plant", "At plant"),
+  defuse: t("Au défuse", "At defuse"),
+});
 
 function actionText(event: RoundEvent) {
   if (event.kind === "kill") {
@@ -178,9 +199,12 @@ function actionText(event: RoundEvent) {
   return event.actorMe ? t("Tu désamorces le spike", "You defuse the Spike") : t(`${event.actor} désamorce le spike`, `${event.actor} defuses the Spike`);
 }
 
-function RoundMap({ events, minimap, rotation, focus, catalog, onHover, onPick }: MapProps) {
+function RoundMap({ events, minimap, rotation, focus, catalog, onHover, onPick, view, views, onView, spots }: MapProps) {
+  const snapshot = view !== "events";
+  const spike = snapshot ? events.find((event) => event.kind === view) : undefined;
+  const labels = VIEW_LABELS();
   const marks = events.flatMap((event, index) => {
-    if (!event.position) return [];
+    if (!event.position || (snapshot && event !== spike)) return [];
     const at = rotatePoint(event.position, rotation);
     const from = event.kind === "kill" && event.actorPosition ? rotatePoint(event.actorPosition, rotation) : null;
     return [{ event, index, at, from }];
@@ -190,7 +214,16 @@ function RoundMap({ events, minimap, rotation, focus, catalog, onHover, onPick }
 
   return (
     <div className="stack" style={{ gap: 10, minWidth: 0 }}>
-      <div className={`minimap round-map${shown ? " has-focus" : ""}`} onMouseLeave={() => onHover(null)}>
+      {views.length > 1 && (
+        <div className="segmented" role="tablist" aria-label={t("Affichage de la minimap", "Minimap view")} style={{ alignSelf: "flex-start" }}>
+          {views.map((item) => (
+            <button key={item} type="button" role="tab" aria-selected={view === item} className={view === item ? "active" : undefined} onClick={() => onView(item)}>
+              {labels[item]}
+            </button>
+          ))}
+        </div>
+      )}
+      <div className={`minimap round-map${shown ? " has-focus" : ""}${snapshot ? " snapshot" : ""}`} onMouseLeave={() => onHover(null)}>
         {minimap && <img src={minimap} alt={t("Minimap", "Minimap")} width={1024} height={1024} decoding="async" {...fadeIn} style={rotationStyle(rotation)} />}
         <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
           {marks.map(
@@ -237,16 +270,39 @@ function RoundMap({ events, minimap, rotation, focus, catalog, onHover, onPick }
             </button>
           );
         })}
+        {snapshot &&
+          spots?.map((spot, index) => {
+            const at = rotatePoint(spot, rotation);
+            const who = spot.me ? t("Toi", "You") : spot.name;
+            return (
+              <span
+                key={`${spot.name}-${index}`}
+                className={`round-map-player ${tone(spot.ally)}${spot.me ? " me" : ""}`}
+                style={{ left: pctOf(at.x), top: pctOf(at.y) }}
+                title={who}
+                aria-label={who}
+              >
+                <Art src={agentIcon(spot.agentId)} width={22} height={22} alt="" />
+              </span>
+            );
+          })}
         {shown && <MapTip event={shown.event} x={shown.at.x} y={shown.at.y} catalog={catalog} />}
         {!minimap && <span className="minimap-empty">{t("Minimap indisponible, relance une synchro", "Minimap unavailable, run a sync again")}</span>}
-        {minimap && marks.length === 0 && events.length > 0 && (
+        {minimap && snapshot && !spots && <span className="minimap-empty">{notAvailable()}</span>}
+        {minimap && !snapshot && marks.length === 0 && events.length > 0 && (
           <span className="minimap-empty">{t("Positions indisponibles pour ce round", "Positions unavailable for this round")}</span>
         )}
       </div>
       <div className="legend">
         <span><i className="ally" />{t("Ton équipe", "Your team")}</span>
         <span><i className="enemy" />{t("En face", "Enemies")}</span>
-        <span>{t("Croix : mort, point : position du tueur", "Cross: death, dot: killer position")}</span>
+        <span>
+          {!snapshot
+            ? t("Croix : mort, point : position du tueur", "Cross: death, dot: killer position")
+            : view === "plant"
+              ? t(`Positions des joueurs à la pose du spike${spike ? `, ${clock(spike.timeS)}` : ""}`, `Player positions when the Spike was planted${spike ? `, ${clock(spike.timeS)}` : ""}`)
+              : t(`Positions des joueurs au désamorçage${spike ? `, ${clock(spike.timeS)}` : ""}`, `Player positions when the Spike was defused${spike ? `, ${clock(spike.timeS)}` : ""}`)}
+        </span>
       </div>
     </div>
   );
