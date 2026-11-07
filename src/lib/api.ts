@@ -196,6 +196,8 @@ export type MatchDetail = {
   mapId: string | null;
   mapName: string | null;
   minimap: string | null;
+  splash: string | null;
+  rotation: number;
   startedAt: string | null;
   lengthMs: number | null;
   queue: string | null;
@@ -232,12 +234,14 @@ export type HeatPoint = {
   zone: string | null;
 };
 
-export type MapOption = { id: string; name: string; matches: number };
+export type MapOption = { id: string; name: string; matches: number; image: string | null };
 
 export type Heatmap = {
   maps: MapOption[];
   mapId: string | null;
   minimap: string | null;
+  splash: string | null;
+  rotation: number;
   matches: number;
   points: HeatPoint[];
 };
