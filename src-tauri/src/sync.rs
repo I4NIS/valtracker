@@ -1,3 +1,5 @@
+use serde_json::Value;
+use serde_json::value::RawValue;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter, Manager};
 
@@ -63,7 +65,7 @@ async fn sync(app: &AppHandle, state: &AppState, puuid: &str) -> AppResult<SyncR
         repo::upsert_mmr_history(&mut conn, puuid, &history)?;
     }
 
-    let mut new_matches = sync_mode(app, state, &api, region, platform, puuid, COMPETITIVE, tr("Matchs compétitifs", "Competitive matches"), 0).await?;
+    let mut new_matches = sync_mode(app, &api, region, platform, puuid, COMPETITIVE, tr("Matchs compétitifs", "Competitive matches"), 0).await?;
     if new_matches > 0 {
         refreshed(app, state, puuid);
         if had_matches {
@@ -89,7 +91,6 @@ async fn sync(app: &AppHandle, state: &AppState, puuid: &str) -> AppResult<SyncR
 #[allow(clippy::too_many_arguments)]
 async fn sync_mode(
     app: &AppHandle,
-    state: &AppState,
     api: &Henrik,
     region: &str,
     platform: &str,
@@ -102,27 +103,60 @@ async fn sync_mode(
     let mut start = 0;
     while start < MAX_MATCHES_PER_MODE {
         emit(app, puuid, label, already + added_total, true, None);
-        let page = api.matches(region, platform, puuid, mode, start, PAGE_SIZE).await?;
-        let games = page.as_array().cloned().unwrap_or_default();
+        let games = api.matches(region, platform, puuid, mode, start, PAGE_SIZE).await?;
         if games.is_empty() {
             break;
         }
-        let mut added = 0;
-        {
-            let mut conn = state.conn()?;
-            for game in &games {
-                if repo::insert_match(&mut conn, game)? {
-                    added += 1;
-                }
-            }
-        }
+        let count = games.len();
+        let added = store(app, games.into_iter().map(Page::Raw).collect()).await?;
         added_total += added;
-        if added == 0 || games.len() < PAGE_SIZE {
+        if added == 0 || count < PAGE_SIZE {
             break;
         }
         start += PAGE_SIZE;
     }
     Ok(added_total)
+}
+
+enum Page {
+    Raw(Box<RawValue>),
+    Parsed(Value),
+}
+
+fn prepare(state: &AppState, games: Vec<Page>) -> AppResult<Vec<repo::PreparedMatch>> {
+    let mut prepared = Vec::with_capacity(games.len());
+    for game in games {
+        let game = match game {
+            Page::Raw(raw) => match serde_json::from_str::<Value>(raw.get()) {
+                Ok(game) => game,
+                Err(_) => continue,
+            },
+            Page::Parsed(game) => game,
+        };
+        if let Some(id) = repo::match_id(&game) {
+            if repo::has_match(&*state.conn()?, id)? {
+                continue;
+            }
+        }
+        if let Some(game) = repo::prepare_match(game)? {
+            prepared.push(game);
+        }
+    }
+    Ok(prepared)
+}
+
+async fn store(app: &AppHandle, games: Vec<Page>) -> AppResult<usize> {
+    let app = app.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<AppState>();
+        let prepared = prepare(&state, games)?;
+        if prepared.is_empty() {
+            return Ok(0);
+        }
+        repo::insert_all(&mut *state.conn()?, &prepared)
+    })
+    .await
+    .map_err(|err| AppError::Invalid(err.to_string()))?
 }
 
 async fn backfill(app: &AppHandle, state: &AppState, api: &Henrik, region: &str, puuid: &str, already: usize) -> usize {
@@ -141,12 +175,12 @@ async fn backfill(app: &AppHandle, state: &AppState, api: &Henrik, region: &str,
         match api.match_detail(region, match_id).await {
             Ok(game) => {
                 consecutive_missing = 0;
-                let Ok(mut conn) = state.conn() else {
-                    break;
-                };
-                match repo::insert_match(&mut conn, &game) {
-                    Ok(true) => added += 1,
+                match store(app, vec![Page::Parsed(game)]).await {
+                    Ok(1) => added += 1,
                     _ => {
+                        let Ok(conn) = state.conn() else {
+                            break;
+                        };
                         let _ = repo::mark_unavailable(&conn, match_id);
                     }
                 }

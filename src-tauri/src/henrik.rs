@@ -1,5 +1,7 @@
 use reqwest::{Client, Response, StatusCode, Url};
+use serde::Deserialize;
 use serde_json::Value;
+use serde_json::value::RawValue;
 use std::time::Duration;
 
 use crate::error::{AppError, AppResult};
@@ -10,6 +12,12 @@ const BASE_URL: &str = "https://api.henrikdev.xyz/valorant/";
 const MAX_ATTEMPTS: usize = 4;
 const MIN_WAIT_SECS: u64 = 1;
 const MAX_WAIT_SECS: u64 = 120;
+
+#[derive(Deserialize)]
+struct Page {
+    #[serde(default)]
+    data: Option<Vec<Box<RawValue>>>,
+}
 
 pub struct Henrik {
     client: Client,
@@ -41,12 +49,14 @@ impl Henrik {
         mode: &str,
         start: usize,
         size: usize,
-    ) -> AppResult<Value> {
-        self.get(
-            &["v4", "by-puuid", "matches", region, platform, puuid],
-            &[("mode", mode.to_string()), ("start", start.to_string()), ("size", size.to_string())],
-        )
-        .await
+    ) -> AppResult<Vec<Box<RawValue>>> {
+        let body = self
+            .fetch(
+                &["v4", "by-puuid", "matches", region, platform, puuid],
+                &[("mode", mode.to_string()), ("start", start.to_string()), ("size", size.to_string())],
+            )
+            .await?;
+        Ok(serde_json::from_slice::<Page>(&body).ok().and_then(|page| page.data).unwrap_or_default())
     }
 
     pub async fn match_detail(&self, region: &str, match_id: &str) -> AppResult<Value> {
@@ -54,6 +64,14 @@ impl Henrik {
     }
 
     async fn get(&self, segments: &[&str], query: &[(&str, String)]) -> AppResult<Value> {
+        let body = self.fetch(segments, query).await?;
+        Ok(match serde_json::from_slice(&body).unwrap_or(Value::Null) {
+            Value::Object(mut map) => map.remove("data").unwrap_or(Value::Null),
+            _ => Value::Null,
+        })
+    }
+
+    async fn fetch(&self, segments: &[&str], query: &[(&str, String)]) -> AppResult<Vec<u8>> {
         let url = build_url(segments, query)?;
         for _ in 0..MAX_ATTEMPTS {
             let response = self.client.get(url.clone()).header("Authorization", &self.key).send().await?;
@@ -65,14 +83,14 @@ impl Henrik {
                 continue;
             }
             let remaining = header_secs(&response, "x-ratelimit-remaining");
-            let body: Value = serde_json::from_slice(&http::body(response).await?).unwrap_or(Value::Null);
+            let body = http::body(response).await?;
             if !status.is_success() {
-                return Err(api_error(status, &body));
+                return Err(api_error(status, &serde_json::from_slice(&body).unwrap_or(Value::Null)));
             }
             if remaining == Some(0) {
                 tokio::time::sleep(pause(reset)).await;
             }
-            return Ok(body.get("data").cloned().unwrap_or(Value::Null));
+            return Ok(body);
         }
         Err(AppError::RateLimited)
     }
@@ -113,4 +131,28 @@ fn api_error(status: StatusCode, body: &Value) -> AppError {
         code => format!("L'API HenrikDev a répondu avec l'erreur {code} : {detail}"),
     };
     AppError::Api(message)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn games(body: &str) -> Vec<String> {
+        serde_json::from_str::<Page>(body)
+            .ok()
+            .and_then(|page| page.data)
+            .unwrap_or_default()
+            .into_iter()
+            .map(|raw| raw.get().to_string())
+            .collect()
+    }
+
+    #[test]
+    fn reads_a_page_one_match_at_a_time() {
+        assert_eq!(games(r#"{"status":200,"data":[{"a":1},{"b":"x\"y"}]}"#), [r#"{"a":1}"#, r#"{"b":"x\"y"}"#]);
+        assert!(games(r#"{"status":200,"data":null}"#).is_empty());
+        assert!(games(r#"{"status":200}"#).is_empty());
+        assert!(games(r#"{"status":200,"data":{"a":1}}"#).is_empty());
+        assert!(games("not json").is_empty());
+    }
 }

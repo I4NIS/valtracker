@@ -960,7 +960,7 @@ mod tests {
             ],
             "rounds": (0..20).map(|_| json!({ "winning_team": "Red" })).collect::<Vec<_>>(),
         });
-        assert!(crate::repo::insert_match(conn, &value).unwrap());
+        assert!(crate::repo::insert_match(conn, value).unwrap());
     }
 
     #[test]

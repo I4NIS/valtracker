@@ -414,7 +414,7 @@ mod tests {
             ],
             "rounds": rounds,
         });
-        assert!(crate::repo::insert_match(conn, &value).unwrap());
+        assert!(crate::repo::insert_match(conn, value).unwrap());
     }
 
     fn database() -> (Connection, std::path::PathBuf) {
