@@ -61,7 +61,6 @@ export function Agents({ account, refreshKey }: Props) {
 
   const select = (agentId: string) => {
     setSelected(agentId);
-    requestAnimationFrame(() => detailRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
   };
 
   return (
