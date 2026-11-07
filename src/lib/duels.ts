@@ -26,11 +26,14 @@ export type ClutchSize = {
 
 export type ClutchEntry = {
   matchId: string;
+  mapId: string | null;
   mapName: string | null;
   startedAt: string;
   round: number;
+  roundIndex: number;
   enemies: number;
   won: boolean;
+  kills: number;
   agentId: string | null;
 };
 
@@ -65,6 +68,7 @@ export type Rival = {
   name: string;
   tag: string;
   agentId: string | null;
+  card: string | null;
   killedMe: number;
   killedByMe: number;
   matches: number;

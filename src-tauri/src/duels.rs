@@ -12,7 +12,7 @@ const COMPETITIVE: &str = "competitive";
 const UNITS_PER_METER: f64 = 100.0;
 const CLOSE_METERS: f64 = 10.0;
 const MID_METERS: f64 = 25.0;
-const RECENT_CLUTCHES: usize = 10;
+const CLUTCH_LIMIT: usize = 300;
 const RIVAL_MIN: i64 = 3;
 const RIVAL_LIMIT: usize = 8;
 
@@ -50,11 +50,14 @@ pub struct ClutchSize {
 #[serde(rename_all = "camelCase")]
 pub struct ClutchEntry {
     pub match_id: String,
+    pub map_id: Option<String>,
     pub map_name: Option<String>,
     pub started_at: String,
     pub round: usize,
+    pub round_index: usize,
     pub enemies: usize,
     pub won: bool,
+    pub kills: i64,
     pub agent_id: Option<String>,
 }
 
@@ -97,6 +100,7 @@ pub struct Rival {
     pub name: String,
     pub tag: String,
     pub agent_id: Option<String>,
+    pub card: Option<String>,
     pub killed_me: i64,
     pub killed_by_me: i64,
     pub matches: i64,
@@ -163,6 +167,7 @@ struct RivalTally {
     name: String,
     tag: String,
     agent_id: Option<String>,
+    card: Option<String>,
     killed_me: i64,
     killed_by_me: i64,
     matches: i64,
@@ -188,18 +193,20 @@ struct Player<'a> {
     agent_name: Option<&'a str>,
     name: &'a str,
     tag: &'a str,
+    card: Option<&'a str>,
 }
 
 struct GameRow {
     match_id: String,
     started_at: String,
+    map_id: Option<String>,
     map_name: Option<String>,
     raw: Vec<u8>,
 }
 
 pub fn duels(conn: &Connection, puuid: &str, season: Option<&str>) -> AppResult<DuelReport> {
     let mut stmt = conn.prepare(
-        "SELECT m.match_id, m.started_at, m.map_name, m.raw
+        "SELECT m.match_id, m.started_at, m.map_id, m.map_name, m.raw
          FROM match_players p JOIN matches m ON m.match_id = p.match_id
          WHERE p.puuid = ?1 AND m.queue = ?2 AND (?3 IS NULL OR m.season_short = ?3)
          ORDER BY m.started_at DESC",
@@ -209,8 +216,9 @@ pub fn duels(conn: &Connection, puuid: &str, season: Option<&str>) -> AppResult<
             Ok(GameRow {
                 match_id: row.get(0)?,
                 started_at: row.get(1)?,
-                map_name: row.get(2)?,
-                raw: row.get_ref(3)?.as_bytes()?.to_vec(),
+                map_id: row.get(2)?,
+                map_name: row.get(3)?,
+                raw: row.get_ref(4)?.as_bytes()?.to_vec(),
             })
         })?
         .collect::<Result<Vec<_>, _>>()?;
@@ -266,6 +274,7 @@ fn collect(game: &Value, puuid: &str, row: &GameRow, totals: &mut Totals) {
                     agent_name: text(player, "/agent/name"),
                     name: text(player, "/name").unwrap_or_default(),
                     tag: text(player, "/tag").unwrap_or_default(),
+                    card: text(player, "/customization/card").filter(|card| !card.is_empty()),
                 },
             ))
         })
@@ -303,6 +312,9 @@ fn collect(game: &Value, puuid: &str, row: &GameRow, totals: &mut Totals) {
                 entry.name = player.name.to_string();
                 entry.tag = player.tag.to_string();
                 entry.agent_id = player.agent_id.map(str::to_string);
+            }
+            if entry.card.is_none() {
+                entry.card = player.card.map(str::to_string);
             }
             entry.matches += 1;
         }
@@ -387,11 +399,17 @@ fn collect(game: &Value, puuid: &str, row: &GameRow, totals: &mut Totals) {
                 }
                 totals.clutches.push(ClutchEntry {
                     match_id: row.match_id.clone(),
+                    map_id: row.map_id.clone(),
                     map_name: row.map_name.clone(),
                     started_at: row.started_at.clone(),
                     round: index + 1,
+                    round_index: index,
                     enemies: size,
                     won,
+                    kills: round_kills
+                        .iter()
+                        .filter(|kill| text(kill, "/killer/puuid") == Some(puuid) && text(kill, "/victim/puuid") != Some(puuid))
+                        .count() as i64,
                     agent_id: me.agent_id.map(str::to_string),
                 });
                 break;
@@ -413,6 +431,7 @@ fn rivals(tallies: &HashMap<String, RivalTally>, key: impl Fn(&RivalTally) -> (i
             name: tally.name.clone(),
             tag: tally.tag.clone(),
             agent_id: tally.agent_id.clone(),
+            card: tally.card.clone(),
             killed_me: tally.killed_me,
             killed_by_me: tally.killed_by_me,
             matches: tally.matches,
@@ -440,7 +459,7 @@ fn report(totals: Totals, roles: &HashMap<String, String>) -> DuelReport {
         .collect();
     let mut recent = totals.clutches;
     recent.sort_by(|a, b| b.started_at.cmp(&a.started_at).then(b.round.cmp(&a.round)));
-    recent.truncate(RECENT_CLUTCHES);
+    recent.truncate(CLUTCH_LIMIT);
 
     let mut matchups: Vec<Matchup> = totals
         .agents
