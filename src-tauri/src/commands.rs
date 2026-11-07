@@ -104,12 +104,12 @@ pub async fn sync_account(app: AppHandle, puuid: String) -> AppResult<SyncReport
     sync::run(&app, &puuid).await
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn get_overview(state: State<'_, AppState>, puuid: String, season: Option<String>) -> AppResult<Overview> {
     stats::overview(&*state.conn()?, &puuid, season.as_deref())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn get_recent_matches(
     state: State<'_, AppState>,
     puuid: String,
@@ -119,7 +119,7 @@ pub fn get_recent_matches(
     stats::recent_matches(&*state.conn()?, &puuid, limit.unwrap_or(10).clamp(1, 100), offset.unwrap_or(0).max(0))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn get_match(state: State<'_, AppState>, puuid: String, match_id: String) -> AppResult<MatchDetail> {
     let conn = state.conn()?;
     let game = storage::load_game(&conn, &match_id)?.ok_or_else(|| AppError::Invalid("Match introuvable".into()))?;
@@ -142,17 +142,17 @@ pub fn get_match(state: State<'_, AppState>, puuid: String, match_id: String) ->
     Ok(detail)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn get_progression(state: State<'_, AppState>, puuid: String, season: Option<String>) -> AppResult<Progression> {
     progression::progression(&*state.conn()?, &puuid, season.as_deref())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn get_recent_flaws(state: State<'_, AppState>, puuid: String) -> AppResult<RecentFlaws> {
     progression::recent_flaws(&*state.conn()?, &puuid)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn get_heatmap(
     state: State<'_, AppState>,
     puuid: String,
