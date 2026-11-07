@@ -1,0 +1,655 @@
+use serde::Serialize;
+use serde_json::Value;
+use std::collections::HashMap;
+
+use crate::assets::MapData;
+
+const TRADE_WINDOW_MS: i64 = 3000;
+const ISOLATION_METERS: f64 = 15.0;
+const FULL_BUY: i64 = 3900;
+const SAME_SPOT: usize = 3;
+const UNITS_PER_METER: f64 = 100.0;
+const MIN_KILLS_FOR_HS_BADGE: i64 = 5;
+
+#[derive(Debug, Clone, Serialize)]
+pub struct Position {
+    pub x: f64,
+    pub y: f64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Marker {
+    pub x: f64,
+    pub y: f64,
+    pub ally: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlayerLine {
+    pub puuid: String,
+    pub name: String,
+    pub tag: String,
+    pub agent_id: Option<String>,
+    pub agent_name: Option<String>,
+    pub role: Option<String>,
+    pub tier: Option<i64>,
+    pub kills: i64,
+    pub deaths: i64,
+    pub assists: i64,
+    pub acs: f64,
+    pub adr: f64,
+    pub hs_pct: f64,
+    pub first_bloods: i64,
+    pub score: i64,
+    pub place: usize,
+    pub badge: Option<String>,
+    pub is_me: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TeamBlock {
+    pub mine: bool,
+    pub won: bool,
+    pub rounds_won: i64,
+    pub rounds_lost: i64,
+    pub avg_acs: f64,
+    pub players: Vec<PlayerLine>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RoundLine {
+    pub number: usize,
+    pub won: bool,
+    pub attack: bool,
+    pub planted: bool,
+    pub my_loadout: i64,
+    pub team_loadout: i64,
+    pub enemy_loadout: i64,
+    pub my_kills: i64,
+    pub died: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Death {
+    pub round: usize,
+    pub time_s: f64,
+    pub attack: bool,
+    pub round_won: bool,
+    pub killer_name: String,
+    pub killer_agent: Option<String>,
+    pub killer_agent_id: Option<String>,
+    pub weapon: Option<String>,
+    pub distance_m: Option<f64>,
+    pub nearest_ally_m: Option<f64>,
+    pub traded: bool,
+    pub first_death: bool,
+    pub loadout: i64,
+    pub zone: Option<String>,
+    pub position: Option<Position>,
+    pub killer_position: Option<Position>,
+    pub others: Vec<Marker>,
+    pub flaws: Vec<String>,
+    pub positives: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct Flaw {
+    pub value: String,
+    pub title: String,
+    pub detail: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MatchDetail {
+    pub match_id: String,
+    pub map_id: Option<String>,
+    pub map_name: Option<String>,
+    pub minimap: Option<String>,
+    pub started_at: Option<String>,
+    pub length_ms: Option<i64>,
+    pub queue: Option<String>,
+    pub season: Option<String>,
+    pub won: bool,
+    pub rounds_won: i64,
+    pub rounds_lost: i64,
+    pub agent_id: Option<String>,
+    pub agent_name: Option<String>,
+    pub score: i64,
+    pub place: usize,
+    pub kills: i64,
+    pub deaths: i64,
+    pub assists: i64,
+    pub acs: f64,
+    pub adr: f64,
+    pub team_level: String,
+    pub team_acs: f64,
+    pub enemy_acs: f64,
+    pub rr_change: Option<i64>,
+    pub rr_after: Option<i64>,
+    pub teams: Vec<TeamBlock>,
+    pub rounds: Vec<RoundLine>,
+    pub death_reviews: Vec<Death>,
+    pub flaws: Vec<Flaw>,
+}
+
+fn text<'a>(value: &'a Value, pointer: &str) -> Option<&'a str> {
+    value.pointer(pointer).and_then(Value::as_str)
+}
+
+fn int(value: &Value, pointer: &str) -> i64 {
+    value.pointer(pointer).and_then(Value::as_i64).unwrap_or(0)
+}
+
+fn point(value: &Value, pointer: &str) -> Option<(f64, f64)> {
+    let location = value.pointer(pointer)?;
+    Some((location["x"].as_f64()?, location["y"].as_f64()?))
+}
+
+fn distance(a: (f64, f64), b: (f64, f64)) -> f64 {
+    ((a.0 - b.0).powi(2) + (a.1 - b.1).powi(2)).sqrt() / UNITS_PER_METER
+}
+
+fn ratio(value: f64, average: f64) -> f64 {
+    if average > 0.0 { value / average } else { 1.0 }
+}
+
+fn round_list(rounds: &[usize]) -> String {
+    let parts: Vec<String> = rounds.iter().map(ToString::to_string).collect();
+    match parts.len() {
+        0 => String::new(),
+        1 => parts[0].clone(),
+        n => format!("{} et {}", parts[..n - 1].join(", "), parts[n - 1]),
+    }
+}
+
+fn plural(count: usize, word: &str) -> String {
+    if count > 1 { format!("{count} {word}s") } else { format!("{count} {word}") }
+}
+
+fn role_weights(role: Option<&str>) -> (f64, f64, f64, f64) {
+    match role {
+        Some("Duelist") => (0.5, 0.25, 0.05, 0.2),
+        Some("Initiator") => (0.4, 0.2, 0.3, 0.1),
+        Some("Controller") => (0.4, 0.25, 0.25, 0.1),
+        Some("Sentinel") => (0.45, 0.3, 0.15, 0.1),
+        _ => (0.45, 0.25, 0.15, 0.15),
+    }
+}
+
+fn attack_side(round: usize, attack_first: bool) -> bool {
+    match round {
+        0..12 => attack_first,
+        12..24 => !attack_first,
+        _ => ((round - 24) % 2 == 0) == attack_first,
+    }
+}
+
+struct Projector<'a>(Option<&'a MapData>);
+
+impl Projector<'_> {
+    fn position(&self, location: (f64, f64)) -> Option<Position> {
+        self.0.map(|map| {
+            let (x, y) = map.project(location.0, location.1);
+            Position { x, y }
+        })
+    }
+
+    fn zone(&self, location: (f64, f64)) -> Option<String> {
+        self.0.and_then(|map| map.zone(location.0, location.1))
+    }
+}
+
+pub fn analyze(game: &Value, puuid: &str, map: Option<&MapData>, roles: &HashMap<String, String>) -> Option<MatchDetail> {
+    let players = game.pointer("/players")?.as_array()?;
+    let me = players.iter().find(|player| text(player, "/puuid") == Some(puuid))?;
+    let my_team = text(me, "/team_id")?.to_string();
+    let rounds = game.pointer("/rounds")?.as_array()?;
+    let round_count = rounds.len();
+    if round_count == 0 {
+        return None;
+    }
+    let empty = Vec::new();
+    let kills: Vec<&Value> = game.pointer("/kills").and_then(Value::as_array).unwrap_or(&empty).iter().collect();
+    let projector = Projector(map);
+
+    let mut first_kills: HashMap<i64, &Value> = HashMap::new();
+    for kill in &kills {
+        let round = int(kill, "/round");
+        let time = int(kill, "/time_in_round_in_ms");
+        let entry = first_kills.entry(round).or_insert(kill);
+        if time < int(entry, "/time_in_round_in_ms") {
+            *entry = kill;
+        }
+    }
+    let mut first_bloods: HashMap<&str, i64> = HashMap::new();
+    for kill in first_kills.values() {
+        if let Some(killer) = text(kill, "/killer/puuid") {
+            *first_bloods.entry(killer).or_default() += 1;
+        }
+    }
+
+    let rounds_f = round_count as f64;
+    let mut lines: Vec<PlayerLine> = players
+        .iter()
+        .map(|player| {
+            let id = text(player, "/puuid").unwrap_or_default();
+            let shots = int(player, "/stats/headshots") + int(player, "/stats/bodyshots") + int(player, "/stats/legshots");
+            let agent_id = text(player, "/agent/id").map(str::to_string);
+            PlayerLine {
+                puuid: id.to_string(),
+                name: text(player, "/name").unwrap_or_default().to_string(),
+                tag: text(player, "/tag").unwrap_or_default().to_string(),
+                role: agent_id.as_ref().and_then(|agent| roles.get(agent).cloned()),
+                agent_id,
+                agent_name: text(player, "/agent/name").map(str::to_string),
+                tier: player.pointer("/tier/id").and_then(Value::as_i64),
+                kills: int(player, "/stats/kills"),
+                deaths: int(player, "/stats/deaths"),
+                assists: int(player, "/stats/assists"),
+                acs: int(player, "/stats/score") as f64 / rounds_f,
+                adr: int(player, "/stats/damage/dealt") as f64 / rounds_f,
+                hs_pct: if shots > 0 { int(player, "/stats/headshots") as f64 * 100.0 / shots as f64 } else { 0.0 },
+                first_bloods: first_bloods.get(id).copied().unwrap_or(0),
+                score: 0,
+                place: 0,
+                badge: None,
+                is_me: id == puuid,
+            }
+        })
+        .collect();
+
+    let count = lines.len().max(1) as f64;
+    let avg_acs = lines.iter().map(|line| line.acs).sum::<f64>() / count;
+    let avg_kd = lines.iter().map(|line| line.kills as f64 / line.deaths.max(1) as f64).sum::<f64>() / count;
+    let avg_assists = lines.iter().map(|line| line.assists as f64).sum::<f64>() / count;
+    let avg_fb = lines.iter().map(|line| line.first_bloods as f64).sum::<f64>() / count;
+    for line in &mut lines {
+        let (w_acs, w_kd, w_assists, w_fb) = role_weights(line.role.as_deref());
+        let weighted = w_acs * ratio(line.acs, avg_acs)
+            + w_kd * ratio(line.kills as f64 / line.deaths.max(1) as f64, avg_kd)
+            + w_assists * ratio(line.assists as f64, avg_assists)
+            + w_fb * ratio(line.first_bloods as f64, avg_fb);
+        line.score = (50.0 * weighted).round().clamp(0.0, 100.0) as i64;
+    }
+    let mut order: Vec<usize> = (0..lines.len()).collect();
+    order.sort_by(|a, b| lines[*b].score.cmp(&lines[*a].score).then(lines[*b].acs.total_cmp(&lines[*a].acs)));
+    for (place, index) in order.iter().enumerate() {
+        lines[*index].place = place + 1;
+    }
+
+    let teams_json = game.pointer("/teams").and_then(Value::as_array).unwrap_or(&empty);
+    let team_of = |id: &str| players.iter().find(|player| text(player, "/puuid") == Some(id)).and_then(|player| text(player, "/team_id"));
+    let team_info = |team_id: &str| teams_json.iter().find(|team| text(team, "/team_id") == Some(team_id));
+    let my_team_info = team_info(&my_team);
+    let won = my_team_info.and_then(|team| team["won"].as_bool()).unwrap_or(false);
+    let draw = teams_json.iter().all(|team| team["won"].as_bool() == Some(false));
+
+    assign_badges(&mut lines, players, teams_json, draw);
+
+    let attack_first = {
+        let first = &rounds[0];
+        let winner_is_mine = text(first, "/winning_team") == Some(my_team.as_str());
+        let role_attacker = text(first, "/winning_team_role") == Some("Attacker");
+        winner_is_mine == role_attacker
+    };
+
+    let my_deaths: Vec<&Value> = {
+        let mut list: Vec<&Value> = kills.iter().copied().filter(|kill| text(kill, "/victim/puuid") == Some(puuid)).collect();
+        list.sort_by_key(|kill| (int(kill, "/round"), int(kill, "/time_in_round_in_ms")));
+        list
+    };
+
+    let round_lines: Vec<RoundLine> = rounds
+        .iter()
+        .enumerate()
+        .map(|(index, round)| {
+            let stats = round.pointer("/stats").and_then(Value::as_array).unwrap_or(&empty);
+            let mut team_total = (0, 0);
+            let mut enemy_total = (0, 0);
+            let mut mine = (0, 0);
+            for stat in stats {
+                let id = text(stat, "/player/puuid").unwrap_or_default();
+                let loadout = int(stat, "/economy/loadout_value");
+                if id == puuid {
+                    mine = (loadout, int(stat, "/stats/kills"));
+                }
+                if team_of(id) == Some(my_team.as_str()) {
+                    team_total = (team_total.0 + loadout, team_total.1 + 1);
+                } else {
+                    enemy_total = (enemy_total.0 + loadout, enemy_total.1 + 1);
+                }
+            }
+            RoundLine {
+                number: index + 1,
+                won: text(round, "/winning_team") == Some(my_team.as_str()),
+                attack: attack_side(index, attack_first),
+                planted: round.pointer("/plant").is_some_and(Value::is_object),
+                my_loadout: mine.0,
+                team_loadout: if team_total.1 > 0 { team_total.0 / team_total.1 } else { 0 },
+                enemy_loadout: if enemy_total.1 > 0 { enemy_total.0 / enemy_total.1 } else { 0 },
+                my_kills: mine.1,
+                died: my_deaths.iter().any(|kill| int(kill, "/round") as usize == index),
+            }
+        })
+        .collect();
+
+    let mut deaths: Vec<Death> = my_deaths
+        .iter()
+        .map(|kill| {
+            let round = int(kill, "/round") as usize;
+            let time = int(kill, "/time_in_round_in_ms");
+            let killer_id = text(kill, "/killer/puuid").unwrap_or_default();
+            let killer = lines.iter().find(|line| line.puuid == killer_id);
+            let locations = kill.pointer("/player_locations").and_then(Value::as_array).unwrap_or(&empty);
+            let location_of = |id: &str| {
+                locations
+                    .iter()
+                    .find(|entry| text(entry, "/player/puuid") == Some(id))
+                    .and_then(|entry| point(entry, "/location"))
+            };
+            let victim = point(kill, "/location");
+            let killer_location = location_of(killer_id);
+            let allies: Vec<(f64, f64)> = locations
+                .iter()
+                .filter(|entry| {
+                    let id = text(entry, "/player/puuid").unwrap_or_default();
+                    id != puuid && team_of(id) == Some(my_team.as_str())
+                })
+                .filter_map(|entry| point(entry, "/location"))
+                .collect();
+            let nearest_ally_m = victim.and_then(|spot| allies.iter().map(|ally| distance(spot, *ally)).min_by(f64::total_cmp));
+            let traded = kills.iter().any(|other| {
+                let delta = int(other, "/time_in_round_in_ms") - time;
+                int(other, "/round") as usize == round
+                    && text(other, "/victim/puuid") == Some(killer_id)
+                    && (0..=TRADE_WINDOW_MS).contains(&delta)
+            });
+            let first_death = first_kills
+                .get(&(round as i64))
+                .is_some_and(|first| text(first, "/victim/puuid") == Some(puuid));
+            let others = locations
+                .iter()
+                .filter_map(|entry| {
+                    let id = text(entry, "/player/puuid")?;
+                    if id == puuid || id == killer_id {
+                        return None;
+                    }
+                    let spot = projector.position(point(entry, "/location")?)?;
+                    Some(Marker { x: spot.x, y: spot.y, ally: team_of(id) == Some(my_team.as_str()) })
+                })
+                .collect();
+            let round_line = round_lines.get(round);
+            Death {
+                round: round + 1,
+                time_s: time as f64 / 1000.0,
+                attack: attack_side(round, attack_first),
+                round_won: round_line.is_some_and(|line| line.won),
+                killer_name: killer.map_or_else(|| "Inconnu".to_string(), |line| line.name.clone()),
+                killer_agent: killer.and_then(|line| line.agent_name.clone()),
+                killer_agent_id: killer.and_then(|line| line.agent_id.clone()),
+                weapon: text(kill, "/weapon/name").map(str::to_string),
+                distance_m: victim.zip(killer_location).map(|(a, b)| distance(a, b)),
+                nearest_ally_m,
+                traded,
+                first_death,
+                loadout: round_line.map_or(0, |line| line.my_loadout),
+                zone: victim.and_then(|spot| projector.zone(spot)),
+                position: victim.and_then(|spot| projector.position(spot)),
+                killer_position: killer_location.and_then(|spot| projector.position(spot)),
+                others,
+                flaws: Vec::new(),
+                positives: Vec::new(),
+            }
+        })
+        .collect();
+
+    let mut zone_counts: HashMap<String, usize> = HashMap::new();
+    for death in &deaths {
+        if let Some(zone) = &death.zone {
+            *zone_counts.entry(zone.clone()).or_default() += 1;
+        }
+    }
+    for death in &mut deaths {
+        if !death.traded {
+            death.flaws.push(format!("Non tradée : personne n'a tué {} dans les 3 secondes", death.killer_name));
+        } else {
+            death.positives.push("Tradée par un coéquipier".to_string());
+        }
+        match death.nearest_ally_m {
+            Some(meters) if meters > ISOLATION_METERS => {
+                death.flaws.push(format!("Isolé : coéquipier le plus proche à {} m", meters.round()));
+            }
+            None => death.positives.push("Dernier joueur en vie de ton équipe".to_string()),
+            _ => {}
+        }
+        if death.first_death {
+            death.flaws.push("Premier mort du round".to_string());
+        }
+        if let Some(zone) = &death.zone {
+            let count = zone_counts.get(zone).copied().unwrap_or(0);
+            if count >= SAME_SPOT {
+                death.flaws.push(format!("{count} morts à {zone} dans ce match"));
+            }
+        }
+        if death.loadout >= FULL_BUY {
+            death.flaws.push(format!("Full buy perdu : {} crédits", death.loadout));
+        }
+    }
+
+    let flaws = match_flaws(&deaths, &round_lines, &zone_counts);
+
+    let me_line = lines.iter().find(|line| line.is_me)?.clone();
+    let teammates: Vec<&PlayerLine> = lines
+        .iter()
+        .filter(|line| !line.is_me && team_of(&line.puuid) == Some(my_team.as_str()))
+        .collect();
+    let enemies: Vec<&PlayerLine> = lines.iter().filter(|line| team_of(&line.puuid) != Some(my_team.as_str())).collect();
+    let average = |list: &[&PlayerLine]| {
+        if list.is_empty() { 0.0 } else { list.iter().map(|line| line.acs).sum::<f64>() / list.len() as f64 }
+    };
+    let team_acs = average(&teammates);
+    let enemy_acs = average(&enemies);
+    let level = ratio(team_acs, enemy_acs);
+    let team_level = if level < 0.85 {
+        "Faible"
+    } else if level > 1.15 {
+        "Bonne"
+    } else {
+        "Moyenne"
+    };
+
+    let mut teams: Vec<TeamBlock> = teams_json
+        .iter()
+        .filter_map(|team| {
+            let team_id = text(team, "/team_id")?;
+            let mut members: Vec<PlayerLine> = lines
+                .iter()
+                .filter(|line| team_of(&line.puuid) == Some(team_id))
+                .cloned()
+                .collect();
+            members.sort_by(|a, b| b.score.cmp(&a.score));
+            let avg = if members.is_empty() { 0.0 } else { members.iter().map(|line| line.acs).sum::<f64>() / members.len() as f64 };
+            Some(TeamBlock {
+                mine: team_id == my_team,
+                won: team["won"].as_bool().unwrap_or(false),
+                rounds_won: int(team, "/rounds/won"),
+                rounds_lost: int(team, "/rounds/lost"),
+                avg_acs: avg,
+                players: members,
+            })
+        })
+        .collect();
+    teams.sort_by_key(|team| !team.mine);
+
+    Some(MatchDetail {
+        match_id: text(game, "/metadata/match_id").unwrap_or_default().to_string(),
+        map_id: text(game, "/metadata/map/id").map(str::to_string),
+        map_name: text(game, "/metadata/map/name").map(str::to_string),
+        minimap: map.and_then(|data| data.display_icon.clone()),
+        started_at: text(game, "/metadata/started_at").map(str::to_string),
+        length_ms: game.pointer("/metadata/game_length_in_ms").and_then(Value::as_i64),
+        queue: text(game, "/metadata/queue/id").map(str::to_string),
+        season: text(game, "/metadata/season/short").map(str::to_string),
+        won,
+        rounds_won: my_team_info.map_or(0, |team| int(team, "/rounds/won")),
+        rounds_lost: my_team_info.map_or(0, |team| int(team, "/rounds/lost")),
+        agent_id: me_line.agent_id.clone(),
+        agent_name: me_line.agent_name.clone(),
+        score: me_line.score,
+        place: me_line.place,
+        kills: me_line.kills,
+        deaths: me_line.deaths,
+        assists: me_line.assists,
+        acs: me_line.acs,
+        adr: me_line.adr,
+        team_level: team_level.to_string(),
+        team_acs,
+        enemy_acs,
+        rr_change: None,
+        rr_after: None,
+        teams,
+        rounds: round_lines,
+        death_reviews: deaths,
+        flaws,
+    })
+}
+
+fn assign_badges(lines: &mut [PlayerLine], players: &[Value], teams: &[Value], draw: bool) {
+    let team_won = |puuid: &str| {
+        let team_id = players
+            .iter()
+            .find(|player| text(player, "/puuid") == Some(puuid))
+            .and_then(|player| text(player, "/team_id"));
+        teams
+            .iter()
+            .find(|team| text(team, "/team_id") == team_id)
+            .and_then(|team| team["won"].as_bool())
+            .unwrap_or(false)
+    };
+    let best = |lines: &[PlayerLine], filter: &dyn Fn(&PlayerLine) -> bool, key: &dyn Fn(&PlayerLine) -> f64| {
+        lines
+            .iter()
+            .enumerate()
+            .filter(|(_, line)| line.badge.is_none() && filter(line))
+            .max_by(|a, b| key(a.1).total_cmp(&key(b.1)))
+            .map(|(index, _)| index)
+    };
+    if !draw {
+        if let Some(index) = best(lines, &|line| team_won(&line.puuid), &|line| line.score as f64) {
+            lines[index].badge = Some("MVP".into());
+        }
+        if let Some(index) = best(lines, &|line| !team_won(&line.puuid), &|line| line.score as f64) {
+            lines[index].badge = Some("MVP de l'équipe".into());
+        }
+    }
+    if let Some(index) = best(lines, &|_| true, &|line| line.adr) {
+        lines[index].badge = Some("plus de dégâts".into());
+    }
+    let enough_kills = |line: &PlayerLine| line.kills >= MIN_KILLS_FOR_HS_BADGE;
+    if let Some(index) = best(lines, &enough_kills, &|line| line.hs_pct) {
+        lines[index].badge = Some("meilleur HS".into());
+    }
+    if let Some(index) = best(lines, &|_| true, &|line| -(line.deaths as f64)) {
+        lines[index].badge = Some("moins de morts".into());
+    }
+}
+
+fn match_flaws(deaths: &[Death], rounds: &[RoundLine], zones: &HashMap<String, usize>) -> Vec<Flaw> {
+    let mut flaws = Vec::new();
+    let total = deaths.len();
+    if total == 0 {
+        return flaws;
+    }
+
+    let untraded = deaths.iter().filter(|death| !death.traded).count();
+    if untraded > 0 {
+        let traded: Vec<usize> = deaths.iter().filter(|death| death.traded).map(|death| death.round).collect();
+        let detail = if traded.is_empty() {
+            "Aucune de tes morts n'a été vengée dans les 3 secondes".to_string()
+        } else {
+            format!("Seules tes morts des rounds {} ont été vengées dans les 3 secondes", round_list(&traded))
+        };
+        flaws.push(Flaw { value: format!("{untraded} / {total}"), title: "morts non tradées".into(), detail });
+    }
+
+    let isolated: Vec<&Death> = deaths
+        .iter()
+        .filter(|death| death.nearest_ally_m.is_some_and(|meters| meters > ISOLATION_METERS))
+        .collect();
+    if !isolated.is_empty() {
+        let rounds_list: Vec<usize> = isolated.iter().map(|death| death.round).collect();
+        let distances: Vec<f64> = isolated.iter().filter_map(|death| death.nearest_ally_m).collect();
+        let min = distances.iter().copied().fold(f64::MAX, f64::min).round();
+        let max = distances.iter().copied().fold(0.0, f64::max).round();
+        let range = if (max - min).abs() < 1.0 { format!("{max} m") } else { format!("entre {min} et {max} m") };
+        flaws.push(Flaw {
+            value: isolated.len().to_string(),
+            title: if isolated.len() > 1 { "morts en étant isolé".into() } else { "mort en étant isolé".into() },
+            detail: format!("Rounds {} : coéquipier le plus proche {range}", round_list(&rounds_list)),
+        });
+    }
+
+    if let Some((zone, count)) = zones.iter().filter(|(_, count)| **count >= SAME_SPOT).max_by_key(|(_, count)| **count) {
+        let in_zone: Vec<&Death> = deaths.iter().filter(|death| death.zone.as_deref() == Some(zone.as_str())).collect();
+        let rounds_list: Vec<usize> = in_zone.iter().map(|death| death.round).collect();
+        let side = if in_zone.iter().all(|death| death.attack) {
+            ", toutes en attaque"
+        } else if in_zone.iter().all(|death| !death.attack) {
+            ", toutes en défense"
+        } else {
+            ""
+        };
+        flaws.push(Flaw {
+            value: count.to_string(),
+            title: format!("morts à {zone}"),
+            detail: format!("Rounds {}{side}", round_list(&rounds_list)),
+        });
+    }
+
+    let first: Vec<&Death> = deaths.iter().filter(|death| death.first_death).collect();
+    if !first.is_empty() {
+        let rounds_list: Vec<usize> = first.iter().map(|death| death.round).collect();
+        let lost = first.iter().filter(|death| !death.round_won).count();
+        flaws.push(Flaw {
+            value: first.len().to_string(),
+            title: if first.len() > 1 { "first deaths".into() } else { "first death".into() },
+            detail: format!("Rounds {} : ton équipe en a perdu {}", round_list(&rounds_list), lost),
+        });
+    }
+
+    let wasted: Vec<&RoundLine> = rounds
+        .iter()
+        .filter(|round| round.died && round.my_loadout >= FULL_BUY && round.my_kills == 0)
+        .collect();
+    if !wasted.is_empty() {
+        let rounds_list: Vec<usize> = wasted.iter().map(|round| round.number).collect();
+        flaws.push(Flaw {
+            value: wasted.len().to_string(),
+            title: if wasted.len() > 1 { "full buys perdus sans kill".into() } else { "full buy perdu sans kill".into() },
+            detail: format!("Rounds {}", round_list(&rounds_list)),
+        });
+    }
+
+    let attack_kills: i64 = rounds.iter().filter(|round| round.attack).map(|round| round.my_kills).sum();
+    let defense_kills: i64 = rounds.iter().filter(|round| !round.attack).map(|round| round.my_kills).sum();
+    let attack_rounds = rounds.iter().filter(|round| round.attack).count();
+    let defense_rounds = rounds.len() - attack_rounds;
+    let per_round = (attack_kills + defense_kills) as f64 / rounds.len().max(1) as f64;
+    if per_round < 0.5 {
+        flaws.push(Flaw {
+            value: plural((attack_kills + defense_kills) as usize, "kill"),
+            title: format!("en {} rounds", rounds.len()),
+            detail: format!(
+                "{attack_kills} en {attack_rounds} rounds d'attaque, {defense_kills} en {defense_rounds} rounds de défense"
+            ),
+        });
+    }
+
+    flaws
+}
