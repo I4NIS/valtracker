@@ -9,6 +9,7 @@ import { getMapHistory, getMapRotation, getMapStats } from "./mapStats";
 import { peek, prefetch, type Query } from "./query";
 import { getActs } from "./ranked";
 import { getAccolades, getAgentMastery } from "./career";
+import { getWarmup } from "./warmup";
 import { getWeaponHistory, getWeaponStats } from "./weapons";
 
 type Season = string | null;
@@ -64,6 +65,7 @@ export const queries = {
   accolades: (puuid: string) => ({ key: `accolades|${puuid}`, fetch: () => getAccolades(puuid) }),
   mastery: (puuid: string) => ({ key: `mastery|${puuid}`, fetch: () => getAgentMastery(puuid) }),
   crosshairs: (puuid: string) => ({ key: `journal|crosshairs|${puuid}`, fetch: () => crosshairs.list(puuid) }),
+  warmup: (puuid: string, season: Season) => ({ key: `warmup|${puuid}|${s(season)}`, fetch: () => getWarmup(puuid, season) }),
 } satisfies Record<string, (...args: never[]) => Query<unknown>>;
 
 export function defaultSeason(puuid: string): Season | undefined {
@@ -119,6 +121,7 @@ function accountOnly(puuid: string, current: Season): Query<unknown>[] {
     queries.tags(puuid),
     queries.favorites(puuid),
     queries.crosshairs(puuid),
+    queries.warmup(puuid, current),
     queries.agents(puuid, current),
     queries.maps(puuid, current),
     queries.weapons(puuid, current),

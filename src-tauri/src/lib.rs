@@ -35,6 +35,7 @@ mod stats;
 mod storage;
 mod sync;
 mod tray;
+mod warmup;
 mod thresholds;
 
 use tauri::Manager;
@@ -133,6 +134,7 @@ pub fn run() {
             crosshair::add_crosshair,
             crosshair::delete_crosshair,
             crosshair::list_crosshairs,
+            warmup::get_warmup,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

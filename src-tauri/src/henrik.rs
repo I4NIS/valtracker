@@ -75,6 +75,10 @@ impl Henrik {
         self.get(&["v1", "queue-status", region], &[]).await
     }
 
+    pub async fn stored_matches(&self, region: &str, puuid: &str, mode: &str) -> AppResult<Value> {
+        self.get(&["v1", "by-puuid", "stored-matches", region, puuid], &[("mode", mode.to_string())]).await
+    }
+
     pub async fn crosshair(&self, code: &str) -> AppResult<Vec<u8>> {
         self.fetch(&["v1", "crosshair", "generate"], &[("id", code.to_string())]).await
     }

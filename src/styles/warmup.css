@@ -1,0 +1,138 @@
+.warmup {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.warmup-charts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px 32px;
+}
+
+.warmup-chart {
+  position: relative;
+  height: 170px;
+  cursor: crosshair;
+  touch-action: pan-y;
+}
+
+.warmup-chart svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.warmup-line {
+  fill: none;
+  stroke: var(--good);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.warmup-average {
+  stroke: var(--text-3);
+  stroke-width: 1;
+  stroke-dasharray: 4 4;
+  opacity: 0.7;
+}
+
+.warmup-guide {
+  stroke: var(--text-3);
+  stroke-width: 1;
+  opacity: 0.6;
+}
+
+.warmup-dot {
+  fill: var(--good);
+  stroke: var(--panel);
+  stroke-width: 2;
+}
+
+.warmup-tip {
+  position: absolute;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-left: 12px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  font-size: 12px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.warmup-tip.left {
+  margin-left: 0;
+  transform: translateX(calc(-100% - 12px));
+}
+
+.warmup-tip strong {
+  font-size: 15px;
+}
+
+.warmup-dates {
+  font-size: 12px;
+}
+
+.warmup-sides {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.warmup-side {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: var(--panel);
+  font-size: 13px;
+}
+
+.warmup-side strong {
+  font-size: 28px;
+  letter-spacing: -0.03em;
+}
+
+.warmup-sentence {
+  margin: 0;
+  color: var(--text-2);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.warmup-days {
+  display: flex;
+  flex-direction: column;
+}
+
+.warmup-day {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) repeat(4, minmax(0, 1fr));
+  align-items: center;
+  gap: 12px;
+  padding: 8px 4px;
+  border-top: 1px solid var(--line);
+  font-size: 13px;
+}
+
+.warmup-day.head {
+  border-top: 0;
+  color: var(--text-3);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+@media (max-width: 900px) {
+  .warmup-charts,
+  .warmup-sides {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

@@ -1,5 +1,5 @@
 import "../styles/progression.css";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { ExportRecapButton } from "../components/ExportRecap";
 import { RrBreakdownFacts } from "../components/RrBreakdownFacts";
 import { SeasonPicker } from "../components/SeasonPicker";
@@ -13,17 +13,21 @@ import { defaultSeason, queries } from "../lib/queries";
 import { Acts } from "./ProgressionActs";
 import { Comparison, Habits, InsightsSkeleton } from "./ProgressionInsights";
 
+const loadWarmup = () => import("./ProgressionWarmup");
+const Warmup = lazy(() => loadWarmup().then((module) => ({ default: module.Warmup })));
+
 const RECENT = 20;
 const GAUGE_LENGTH = 283;
 const DAY_SHORT: Intl.DateTimeFormatOptions = { day: "numeric", month: "short" };
 
-type Tab = "overview" | "habits" | "compare" | "acts";
+type Tab = "overview" | "habits" | "compare" | "acts" | "warmup";
 
 const TABS = (): { id: Tab; label: string }[] => [
   { id: "overview", label: t("Vue d'ensemble", "Overview") },
   { id: "habits", label: t("Habitudes", "Habits") },
   { id: "compare", label: t("Comparaison", "Comparison") },
   { id: "acts", label: t("Actes", "Acts") },
+  { id: "warmup", label: t("Échauffement", "Warmup") },
 ];
 
 type Props = {
@@ -40,6 +44,7 @@ export function Progression({ account }: Props) {
   const data = query.data ?? null;
   const error = query.error;
   const [tab, setTab] = useState<Tab>("overview");
+  useEffect(() => void loadWarmup().catch(() => undefined), []);
 
   const games = data?.games ?? [];
   const recent = games.slice(-RECENT);
@@ -77,10 +82,16 @@ export function Progression({ account }: Props) {
         </div>
       </header>
 
-      {error && tab !== "acts" && <p className="form-error">{error}</p>}
+      {error && tab !== "acts" && tab !== "warmup" && <p className="form-error">{error}</p>}
 
       {tab === "acts" ? (
         <Acts puuid={account.puuid} />
+      ) : tab === "warmup" ? (
+        season === undefined ? null : (
+          <Suspense fallback={<InsightsSkeleton />}>
+            <Warmup puuid={account.puuid} season={season} />
+          </Suspense>
+        )
       ) : !data ? (
         error ? null : tab === "overview" ? <ProgressionSkeleton /> : <InsightsSkeleton />
       ) : games.length === 0 ? (

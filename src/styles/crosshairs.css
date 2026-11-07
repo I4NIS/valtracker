@@ -137,6 +137,10 @@
   .xhair-field-code {
     grid-column: 1 / -1;
   }
+
+  .xhair-submit {
+    justify-self: start;
+  }
 }
 
 @media (max-width: 720px) {

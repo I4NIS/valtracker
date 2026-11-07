@@ -288,6 +288,28 @@ CREATE TABLE crosshairs (
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX idx_crosshairs_puuid ON crosshairs(puuid, since_at);
+
+CREATE TABLE warmup_matches (
+    puuid TEXT NOT NULL,
+    match_id TEXT NOT NULL,
+    started_at TEXT NOT NULL,
+    mode TEXT NOT NULL,
+    season_short TEXT,
+    map_id TEXT,
+    map_name TEXT,
+    agent_id TEXT,
+    agent_name TEXT,
+    score INTEGER NOT NULL DEFAULT 0,
+    kills INTEGER NOT NULL DEFAULT 0,
+    deaths INTEGER NOT NULL DEFAULT 0,
+    assists INTEGER NOT NULL DEFAULT 0,
+    headshots INTEGER NOT NULL DEFAULT 0,
+    bodyshots INTEGER NOT NULL DEFAULT 0,
+    legshots INTEGER NOT NULL DEFAULT 0,
+    damage_made INTEGER NOT NULL DEFAULT 0,
+    damage_received INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (puuid, match_id)
+) WITHOUT ROWID;
 "];
 
 const REBUILT_AT: i64 = 10;

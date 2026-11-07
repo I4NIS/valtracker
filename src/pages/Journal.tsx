@@ -1,6 +1,5 @@
 import "../styles/journal.css";
-import { useEffect, useMemo, useState } from "react";
-import { CrosshairJournal } from "../components/CrosshairJournal";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { FavoriteButton } from "../components/FavoriteButton";
 import { fadeIn } from "../components/GameArt";
 import { repeat, SkeletonBlock, SkeletonGroup, SkeletonLine } from "../components/Skeleton";
@@ -22,6 +21,9 @@ type Props = {
 
 type View = "notes" | "favorites" | "crosshairs";
 
+const loadCrosshairs = () => import("../components/CrosshairJournal");
+const CrosshairJournal = lazy(() => loadCrosshairs().then((module) => ({ default: module.CrosshairJournal })));
+
 const SMALL_SAMPLE = 3;
 
 const matchCount = (count: number) => t(`${count} ${count > 1 ? "matchs" : "match"}`, `${count} ${count === 1 ? "match" : "matches"}`);
@@ -34,6 +36,7 @@ const kindFilters = (): { id: FavoriteKind; label: string }[] => [
 
 export function Journal({ account, onOpenMatch }: Props) {
   const [view, setView] = useState<View>("notes");
+  useEffect(() => void loadCrosshairs().catch(() => undefined), []);
   useBackLabel(view === "favorites" ? t("Retour aux favoris", "Back to favorites") : null);
 
   return (
@@ -77,7 +80,9 @@ export function Journal({ account, onOpenMatch }: Props) {
       {view === "notes" ? (
         <NotesView account={account} onOpenMatch={onOpenMatch} />
       ) : view === "crosshairs" ? (
-        <CrosshairJournal puuid={account.puuid} />
+        <Suspense fallback={<JournalSkeleton label={t("Chargement des viseurs", "Loading crosshairs")} />}>
+          <CrosshairJournal puuid={account.puuid} />
+        </Suspense>
       ) : (
         <FavoritesView account={account} onOpenMatch={onOpenMatch} />
       )}

@@ -9,6 +9,7 @@ use crate::repo;
 use crate::rotation;
 use crate::state::AppState;
 use crate::sync::API_KEY_SETTING;
+use crate::warmup;
 
 struct Queue {
     pending: Vec<String>,
@@ -82,5 +83,7 @@ async fn run(app: &AppHandle, puuid: &str) -> bool {
     let Ok(api) = Henrik::new(key) else {
         return false;
     };
-    rotation::refresh(&state, &api, &region).await
+    let rotated = rotation::refresh(&state, &api, &region).await;
+    let warmed = warmup::refresh(&state, &api, &region, puuid).await;
+    rotated || warmed
 }
