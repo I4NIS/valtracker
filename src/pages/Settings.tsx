@@ -1,7 +1,7 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useState, type FormEvent } from "react";
 import { Icon } from "../components/Icon";
-import { api, errorMessage, type Account, type Theme } from "../lib/api";
+import { api, errorMessage, type Account, type ImportCandidate, type Theme } from "../lib/api";
 import { RankBadge } from "../components/RankBadge";
 import { HENRIK_DASHBOARD, REGIONS, tierLabel } from "../lib/assets";
 
@@ -192,6 +192,8 @@ export function Settings({ accounts, activePuuid, theme, onTheme, notifyMatches,
         </form>
       </section>
 
+      <DataSection />
+
       <section className="stack" style={{ gap: 14 }}>
         <h2 className="section-title">Aide</h2>
         <div className="row">
@@ -201,5 +203,111 @@ export function Settings({ accounts, activePuuid, theme, onTheme, notifyMatches,
         </div>
       </section>
     </div>
+  );
+}
+
+type DataStatus = { ok: boolean; message: string } | null;
+
+function today() {
+  const date = new Date();
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+function plural(count: number, word: string) {
+  return `${count} ${word}${count > 1 ? "s" : ""}`;
+}
+
+function DataSection() {
+  const [busy, setBusy] = useState<"export" | "pick" | "import" | null>(null);
+  const [status, setStatus] = useState<DataStatus>(null);
+  const [candidate, setCandidate] = useState<ImportCandidate | null>(null);
+
+  const exportBase = async () => {
+    setBusy("export");
+    setStatus(null);
+    try {
+      const path = await api.exportDatabase(`valtracker-${today()}.db`);
+      if (path) setStatus({ ok: true, message: `Base exportée dans ${path}` });
+    } catch (err) {
+      setStatus({ ok: false, message: errorMessage(err) });
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const pickBase = async () => {
+    setBusy("pick");
+    setStatus(null);
+    setCandidate(null);
+    try {
+      setCandidate(await api.pickDatabaseImport());
+    } catch (err) {
+      setStatus({ ok: false, message: errorMessage(err) });
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const importBase = async () => {
+    if (!candidate) return;
+    setBusy("import");
+    setStatus(null);
+    try {
+      await api.importDatabase(candidate.path);
+      window.location.reload();
+    } catch (err) {
+      setStatus({ ok: false, message: errorMessage(err) });
+      setBusy(null);
+    }
+  };
+
+  return (
+    <section className="stack" style={{ gap: 14 }}>
+      <h2 className="section-title">Données</h2>
+      <div className="panel settings-list">
+        <div>
+          <span className="stack" style={{ gap: 2, flexGrow: 1, minWidth: 0 }}>
+            <strong>Exporter la base</strong>
+            <span className="hint">Une copie de tes comptes, matchs, notes et favoris dans un seul fichier.</span>
+          </span>
+          <button type="button" className="btn btn-secondary" onClick={exportBase} disabled={busy !== null}>
+            {busy === "export" ? "Export..." : "Exporter"}
+          </button>
+        </div>
+        <div>
+          <span className="stack" style={{ gap: 2, flexGrow: 1, minWidth: 0 }}>
+            <strong>Importer une base</strong>
+            <span className="hint">Remplace tes données locales par celles d'un fichier exporté. Ta clé API actuelle est conservée.</span>
+          </span>
+          <button type="button" className="btn btn-secondary" onClick={pickBase} disabled={busy !== null}>
+            {busy === "pick" ? "Vérification..." : "Choisir un fichier"}
+          </button>
+        </div>
+      </div>
+      {candidate && (
+        <div className="panel stack" style={{ gap: 14 }}>
+          <span className="stack" style={{ gap: 4, minWidth: 0 }}>
+            <strong>Remplacer toutes tes données locales ?</strong>
+            <span className="hint">
+              Le fichier contient {plural(candidate.accounts, "compte")} et {plural(candidate.matches, "match")}. Tes comptes, matchs, notes
+              et favoris actuels seront remplacés.
+            </span>
+            <span className="faint ellipsis" style={{ fontSize: 12 }} title={candidate.path}>
+              {candidate.path}
+            </span>
+          </span>
+          <div className="row wrap">
+            <button type="button" className="btn btn-primary" onClick={importBase} disabled={busy !== null}>
+              {busy === "import" ? "Import..." : "Remplacer"}
+            </button>
+            <button type="button" className="btn btn-secondary" onClick={() => setCandidate(null)} disabled={busy === "import"}>
+              Annuler
+            </button>
+          </div>
+        </div>
+      )}
+      {status && <p className={status.ok ? "hint" : "form-error"}>{status.message}</p>}
+    </section>
   );
 }

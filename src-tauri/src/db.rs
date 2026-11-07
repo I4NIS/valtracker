@@ -139,7 +139,11 @@ pub fn open(path: &Path) -> AppResult<Connection> {
     Ok(conn)
 }
 
-fn migrate(conn: &Connection) -> AppResult<()> {
+pub fn schema_version() -> i64 {
+    MIGRATIONS.len() as i64
+}
+
+pub fn migrate(conn: &Connection) -> AppResult<()> {
     let version: i64 = conn.pragma_query_value(None, "user_version", |row| row.get(0))?;
     for (index, sql) in MIGRATIONS.iter().enumerate().skip(version as usize) {
         conn.execute_batch(sql)?;

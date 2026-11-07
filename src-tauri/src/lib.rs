@@ -5,6 +5,7 @@ mod agent_stats;
 mod duels;
 mod analysis;
 mod assets;
+mod backup;
 mod commands;
 mod db;
 mod error;
@@ -34,6 +35,7 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&dir)?;
@@ -85,6 +87,9 @@ pub fn run() {
             recap::get_act_recap,
             recap::save_recap_image,
             recap::reveal_recap,
+            backup::export_database,
+            backup::pick_database_import,
+            backup::import_database,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

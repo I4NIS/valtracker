@@ -307,6 +307,12 @@ export type RecentFlaws = {
   firstDeaths: number;
 };
 
+export type ImportCandidate = {
+  path: string;
+  accounts: number;
+  matches: number;
+};
+
 export const api = {
   bootstrap: () => invoke<Bootstrap>("bootstrap"),
   saveApiKey: (key: string) => invoke<void>("save_api_key", { key }),
@@ -326,6 +332,9 @@ export const api = {
   getSeasons: (puuid: string) => invoke<Season[]>("get_seasons", { puuid }),
   setPreference: (key: "theme" | "language" | "tutorial_done" | "notify_matches", value: string) =>
     invoke<void>("set_preference", { key, value }),
+  exportDatabase: (fileName: string) => invoke<string | null>("export_database", { fileName }),
+  pickDatabaseImport: () => invoke<ImportCandidate | null>("pick_database_import"),
+  importDatabase: (path: string) => invoke<void>("import_database", { path }),
 };
 
 export function onSyncProgress(callback: (progress: SyncProgress) => void): Promise<UnlistenFn> {
