@@ -20,7 +20,6 @@ pub struct Callout {
 }
 
 pub struct MapData {
-    pub name: String,
     pub display_icon: Option<String>,
     pub x_multiplier: f64,
     pub y_multiplier: f64,
@@ -115,13 +114,13 @@ fn store(conn: &mut Connection, maps: &Value, agents: &Value) -> AppResult<()> {
 
 pub fn load_map(conn: &Connection, map_id: &str) -> AppResult<Option<MapData>> {
     let mut stmt = conn.prepare(
-        "SELECT name, display_icon, x_multiplier, y_multiplier, x_scalar, y_scalar, callouts FROM maps WHERE uuid = ?1",
+        "SELECT display_icon, x_multiplier, y_multiplier, x_scalar, y_scalar, callouts FROM maps WHERE uuid = ?1",
     )?;
     let mut rows = stmt.query(params![map_id])?;
     let Some(row) = rows.next()? else {
         return Ok(None);
     };
-    let raw: String = row.get(6)?;
+    let raw: String = row.get(5)?;
     let callouts = serde_json::from_str::<Vec<Value>>(&raw)
         .unwrap_or_default()
         .iter()
@@ -134,12 +133,11 @@ pub fn load_map(conn: &Connection, map_id: &str) -> AppResult<Option<MapData>> {
         })
         .collect();
     Ok(Some(MapData {
-        name: row.get(0)?,
-        display_icon: row.get(1)?,
-        x_multiplier: row.get(2)?,
-        y_multiplier: row.get(3)?,
-        x_scalar: row.get(4)?,
-        y_scalar: row.get(5)?,
+        display_icon: row.get(0)?,
+        x_multiplier: row.get(1)?,
+        y_multiplier: row.get(2)?,
+        x_scalar: row.get(3)?,
+        y_scalar: row.get(4)?,
         callouts,
     }))
 }

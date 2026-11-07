@@ -1,6 +1,10 @@
+use rusqlite::{OptionalExtension, params};
 use serde::Serialize;
+use serde_json::Value;
 use tauri::{AppHandle, State};
 
+use crate::analysis::{self, MatchDetail};
+use crate::assets;
 use crate::db;
 use crate::error::{AppError, AppResult};
 use crate::henrik::Henrik;
@@ -103,8 +107,40 @@ pub fn get_overview(state: State<'_, AppState>, puuid: String, season: Option<St
 }
 
 #[tauri::command]
-pub fn get_recent_matches(state: State<'_, AppState>, puuid: String, limit: Option<i64>) -> AppResult<Vec<RecentMatch>> {
-    stats::recent_matches(&*state.conn()?, &puuid, limit.unwrap_or(10).clamp(1, 100))
+pub fn get_recent_matches(
+    state: State<'_, AppState>,
+    puuid: String,
+    limit: Option<i64>,
+    offset: Option<i64>,
+) -> AppResult<Vec<RecentMatch>> {
+    stats::recent_matches(&*state.conn()?, &puuid, limit.unwrap_or(10).clamp(1, 100), offset.unwrap_or(0).max(0))
+}
+
+#[tauri::command]
+pub fn get_match(state: State<'_, AppState>, puuid: String, match_id: String) -> AppResult<MatchDetail> {
+    let conn = state.conn()?;
+    let raw: String = conn
+        .query_row("SELECT raw FROM matches WHERE match_id = ?1", params![match_id], |row| row.get(0))
+        .optional()?
+        .ok_or_else(|| AppError::Invalid("Match introuvable".into()))?;
+    let game: Value = serde_json::from_str(&raw).map_err(|e| AppError::Invalid(e.to_string()))?;
+    let map_id = game.pointer("/metadata/map/id").and_then(Value::as_str).unwrap_or_default();
+    let map = assets::load_map(&conn, map_id)?;
+    let roles = assets::agent_roles(&conn)?;
+    let mut detail = analysis::analyze(&game, &puuid, map.as_ref(), &roles)
+        .ok_or_else(|| AppError::Invalid("Impossible d'analyser ce match".into()))?;
+    if let Some((change, rr)) = conn
+        .query_row(
+            "SELECT last_change, rr FROM mmr_history WHERE puuid = ?1 AND match_id = ?2",
+            params![puuid, match_id],
+            |row| Ok((row.get::<_, Option<i64>>(0)?, row.get::<_, Option<i64>>(1)?)),
+        )
+        .optional()?
+    {
+        detail.rr_change = change;
+        detail.rr_after = rr;
+    }
+    Ok(detail)
 }
 
 #[tauri::command]

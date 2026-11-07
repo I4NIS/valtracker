@@ -68,7 +68,7 @@ fn lobby(conn: &Connection, puuid: &str, season: Option<&str>) -> AppResult<Lobb
     )?)
 }
 
-pub fn recent_matches(conn: &Connection, puuid: &str, limit: i64) -> AppResult<Vec<RecentMatch>> {
+pub fn recent_matches(conn: &Connection, puuid: &str, limit: i64, offset: i64) -> AppResult<Vec<RecentMatch>> {
     let mut stmt = conn.prepare(
         "SELECT m.match_id, m.started_at, m.map_name, m.queue, p.agent_id, p.agent_name,
                 p.kills, p.deaths, p.assists, p.score * 1.0 / m.rounds, p.won, p.rounds_won, p.rounds_lost,
@@ -76,10 +76,10 @@ pub fn recent_matches(conn: &Connection, puuid: &str, limit: i64) -> AppResult<V
          FROM match_players p JOIN matches m ON m.match_id = p.match_id
          WHERE p.puuid = ?1
          ORDER BY m.started_at DESC
-         LIMIT ?2",
+         LIMIT ?2 OFFSET ?3",
     )?;
     let rows = stmt
-        .query_map(params![puuid, limit], |row| {
+        .query_map(params![puuid, limit, offset], |row| {
             Ok(RecentMatch {
                 match_id: row.get(0)?,
                 started_at: row.get(1)?,
