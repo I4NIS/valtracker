@@ -10,7 +10,7 @@ type Step = "welcome" | "key" | "account" | "sync";
 
 const ORDER: Step[] = ["welcome", "key", "account", "sync"];
 
-const STAGES = ["Rang", "Historique de RR", "Matchs compétitifs", "Matchs Premier"];
+const STAGES = ["Rang", "Historique de RR", "Matchs compétitifs", "Matchs plus anciens"];
 
 type Props = {
   hasApiKey: boolean;
