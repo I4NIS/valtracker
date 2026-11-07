@@ -114,6 +114,11 @@ CREATE TABLE match_summaries (
 ", "
 ALTER TABLE maps ADD COLUMN splash TEXT;
 ALTER TABLE maps ADD COLUMN list_icon TEXT;
+", "
+CREATE TABLE unavailable_matches (
+    match_id TEXT PRIMARY KEY,
+    checked_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
 "];
 
 pub fn open(path: &Path) -> AppResult<Connection> {

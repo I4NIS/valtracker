@@ -135,6 +135,23 @@ pub fn upsert_mmr_history(conn: &mut Connection, puuid: &str, history: &Value) -
     Ok(count)
 }
 
+pub fn missing_history_matches(conn: &Connection, puuid: &str) -> AppResult<Vec<String>> {
+    let mut stmt = conn.prepare(
+        "SELECT h.match_id FROM mmr_history h
+         WHERE h.puuid = ?1
+           AND NOT EXISTS (SELECT 1 FROM matches m WHERE m.match_id = h.match_id)
+           AND NOT EXISTS (SELECT 1 FROM unavailable_matches u WHERE u.match_id = h.match_id)
+         ORDER BY h.date DESC",
+    )?;
+    let ids = stmt.query_map(params![puuid], |row| row.get(0))?.collect::<Result<Vec<String>, _>>()?;
+    Ok(ids)
+}
+
+pub fn mark_unavailable(conn: &Connection, match_id: &str) -> AppResult<()> {
+    conn.execute("INSERT OR IGNORE INTO unavailable_matches (match_id) VALUES (?1)", params![match_id])?;
+    Ok(())
+}
+
 pub fn insert_match(conn: &mut Connection, game: &Value) -> AppResult<bool> {
     let Some(match_id) = text(game, "/metadata/match_id") else {
         return Ok(false);
