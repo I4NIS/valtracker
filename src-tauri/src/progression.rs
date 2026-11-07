@@ -204,7 +204,7 @@ pub fn rr_history(conn: &Connection, puuid: &str, season: Option<&str>) -> AppRe
 }
 
 pub fn progression(conn: &Connection, puuid: &str, season: Option<&str>) -> AppResult<Progression> {
-    let overview = stats::overview(conn, puuid, season)?;
+    let overview = stats::overview(conn, puuid, &stats::Filters::season(season))?;
     Ok(Progression {
         rr: rr_history(conn, puuid, season)?,
         games: games(conn, puuid, season, None)?,

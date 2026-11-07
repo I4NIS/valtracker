@@ -4,11 +4,13 @@ use tauri::{AppHandle, Manager};
 
 use crate::error::{AppError, AppResult};
 use crate::state::AppState;
+use crate::stats::Filters;
 use crate::{agent_stats, db, duels, journal, map_stats, progression, stats, weapon_stats};
 
 #[derive(Debug, Clone)]
 pub enum Report {
-    Overview(Option<String>),
+    Overview(Filters),
+    FilterOptions,
     Recent(i64, i64),
     Flaws,
     Progression(Option<String>),
@@ -35,7 +37,8 @@ impl Report {
 
     fn compute(&self, conn: &Connection, puuid: &str) -> AppResult<String> {
         match self {
-            Report::Overview(season) => json(stats::overview(conn, puuid, season.as_deref())),
+            Report::Overview(filters) => json(stats::overview(conn, puuid, filters)),
+            Report::FilterOptions => json(stats::filter_options(conn, puuid)),
             Report::Recent(limit, offset) => json(stats::recent_matches(conn, puuid, *limit, *offset)),
             Report::Flaws => json(progression::recent_flaws(conn, puuid)),
             Report::Progression(season) => json(progression::progression(conn, puuid, season.as_deref())),
@@ -60,7 +63,8 @@ pub fn warm(app: &AppHandle, puuid: String) {
         let Ok(conn) = db::open(&state.db_path) else { return };
         let current = stats::seasons(&conn, &puuid).ok().and_then(|list| list.first().map(|season| season.short.clone()));
         let mut list = vec![
-            Report::Overview(current.clone()),
+            Report::Overview(Filters::season(current.as_deref())),
+            Report::FilterOptions,
             Report::Recent(10, 0),
             Report::Recent(20, 0),
             Report::Flaws,
@@ -76,7 +80,7 @@ pub fn warm(app: &AppHandle, puuid: String) {
                 Report::Duels(season.clone()),
             ]);
         }
-        list.extend([Report::Overview(None), Report::Progression(None)]);
+        list.extend([Report::Overview(Filters::default()), Report::Progression(None)]);
         for report in list {
             let key = report.key(&puuid);
             if state.cached_json(&key).is_some() {

@@ -1,11 +1,13 @@
 import "../styles/home.css";
 import { useEffect, useState } from "react";
 import { ExportRecapButton } from "../components/ExportRecap";
+import { FilterPill, type PillOption } from "../components/FilterPill";
+import { Icon } from "../components/Icon";
 import { MatchList } from "../components/MatchList";
 import { RankBadge } from "../components/RankBadge";
-import type { Account, RecentMatch } from "../lib/api";
-import { seasonLabel, tierLabel } from "../lib/assets";
-import { fmt, greeting, pct, signed, timeAgo, tradeWindowText } from "../lib/format";
+import type { Account, OverviewFilters, Party, RecentMatch } from "../lib/api";
+import { agentIcon, seasonLabel, tierLabel } from "../lib/assets";
+import { fmt, greeting, pct, roleLabel, signed, timeAgo, tradeWindowText } from "../lib/format";
 import { useQuery } from "../lib/query";
 import { defaultSeason, queries } from "../lib/queries";
 
@@ -14,6 +16,22 @@ type Props = {
   refreshKey: number;
   onOpenMatch: (matchId: string) => void;
 };
+
+type Extra = Omit<OverviewFilters, "season">;
+
+const NO_EXTRA: Extra = { mapId: null, agentId: null, role: null, days: null, party: null };
+
+const PERIODS: PillOption<number>[] = [
+  { value: 7, label: "7 derniers jours" },
+  { value: 30, label: "30 derniers jours" },
+];
+
+const PARTIES: PillOption<Party>[] = [
+  { value: "solo", label: "Solo" },
+  { value: "group", label: "En groupe" },
+];
+
+let remembered: { puuid: string; extra: Extra } | null = null;
 
 type BigStat = {
   label: string;
@@ -31,7 +49,14 @@ export function Home({ account, onOpenMatch }: Props) {
   const [season, setSeason] = useState<string | null | undefined>(() => defaultSeason(account.puuid));
   const seasonsQuery = useQuery(queries.seasons(account.puuid));
   const seasons = seasonsQuery.data ?? [];
-  const overviewQuery = useQuery(season === undefined ? null : queries.overview(account.puuid, season));
+  const [scope, setScope] = useState(account.puuid);
+  const [extra, setExtra] = useState<Extra>(() => (remembered?.puuid === account.puuid ? remembered.extra : NO_EXTRA));
+  if (scope !== account.puuid) {
+    setScope(account.puuid);
+    setExtra(NO_EXTRA);
+  }
+  const options = useQuery(queries.filterOptions(account.puuid)).data ?? null;
+  const overviewQuery = useQuery(season === undefined ? null : queries.overview(account.puuid, { ...extra, season }));
   const recent = useQuery(queries.recent(account.puuid, 10)).data ?? [];
   const flaws = useQuery(queries.flaws(account.puuid)).data ?? null;
   const thresholds = useQuery(queries.thresholds()).data?.values;
@@ -39,9 +64,14 @@ export function Home({ account, onOpenMatch }: Props) {
   const error = overviewQuery.error ?? seasonsQuery.error;
 
   useEffect(() => {
+    remembered = { puuid: account.puuid, extra };
+  }, [account.puuid, extra]);
+
+  useEffect(() => {
     if (season === undefined && seasonsQuery.data) setSeason(seasonsQuery.data[0]?.short ?? null);
   }, [season, seasonsQuery.data]);
 
+  const filtered = Object.values(extra).some((value) => value !== null);
   const rr = account.rr ?? 0;
   const stats: BigStat[] = overview
     ? [
@@ -133,7 +163,10 @@ export function Home({ account, onOpenMatch }: Props) {
           <div className="home-record">
             <WinRing wins={overview.wins} losses={overview.losses} winPct={overview.winPct} />
             <div className="stack" style={{ gap: 10 }}>
-              <span className="label">{season ? seasonLabel(season) : "Global"}</span>
+              <span className="label">
+                {season ? seasonLabel(season) : "Global"}
+                {filtered ? ", avec filtres" : ""}
+              </span>
               <span className="home-legend">
                 <i className="home-dot is-win" aria-hidden="true" />
                 {overview.wins} victoires
@@ -183,20 +216,76 @@ export function Home({ account, onOpenMatch }: Props) {
       )}
 
       <section className="stack" style={{ gap: 20 }}>
-        <div className="chips" role="group" aria-label="Période">
-          {seasons.map((item) => (
-            <button
-              key={item.short}
-              type="button"
-              className={`chip${season === item.short ? " active" : ""}`}
-              onClick={() => setSeason(item.short)}
-            >
-              {seasonLabel(item.short)}
+        <div className="home-filters">
+          <div className="chips" role="group" aria-label="Acte">
+            {seasons.map((item) => (
+              <button
+                key={item.short}
+                type="button"
+                className={`chip${season === item.short ? " active" : ""}`}
+                onClick={() => setSeason(item.short)}
+              >
+                {seasonLabel(item.short)}
+              </button>
+            ))}
+            <button type="button" className={`chip${season === null ? " active" : ""}`} onClick={() => setSeason(null)}>
+              Global
             </button>
-          ))}
-          <button type="button" className={`chip${season === null ? " active" : ""}`} onClick={() => setSeason(null)}>
-            Global
-          </button>
+          </div>
+          <div className="chips" role="group" aria-label="Filtres">
+            {(options?.maps.length ?? 0) > 1 && (
+              <FilterPill
+                label="Map"
+                allLabel="Toutes les maps"
+                value={extra.mapId}
+                options={options!.maps.map((map) => ({ value: map.id, label: map.name, count: map.matches }))}
+                onChange={(mapId) => setExtra({ ...extra, mapId })}
+              />
+            )}
+            {(options?.agents.length ?? 0) > 1 && (
+              <FilterPill
+                label="Agent"
+                allLabel="Tous les agents"
+                value={extra.agentId}
+                options={options!.agents.map((agent) => ({
+                  value: agent.id,
+                  label: agent.name,
+                  count: agent.matches,
+                  image: agentIcon(agent.id),
+                }))}
+                onChange={(agentId) => setExtra({ ...extra, agentId })}
+              />
+            )}
+            {(options?.roles.length ?? 0) > 1 && (
+              <FilterPill
+                label="Rôle"
+                allLabel="Tous les rôles"
+                value={extra.role}
+                options={options!.roles.map((role) => ({ value: role.id, label: roleLabel(role.id), count: role.matches }))}
+                onChange={(role) => setExtra({ ...extra, role })}
+              />
+            )}
+            <FilterPill
+              label="Période"
+              allLabel="Tout"
+              value={extra.days}
+              options={PERIODS}
+              onChange={(days) => setExtra({ ...extra, days })}
+            />
+            <FilterPill
+              label="Solo ou en groupe"
+              allLabel="Solo et en groupe"
+              value={extra.party}
+              options={PARTIES}
+              onChange={(party) => setExtra({ ...extra, party })}
+            />
+            {filtered && (
+              <button type="button" className="chip filter-reset" onClick={() => setExtra(NO_EXTRA)}>
+                <Icon name="close" size={14} strokeWidth={2} />
+                Réinitialiser
+              </button>
+            )}
+          </div>
         </div>
 
         {overview && overview.matches > 0 ? (
@@ -231,7 +320,11 @@ export function Home({ account, onOpenMatch }: Props) {
           </>
         ) : (
           <div className="empty">
-            {overview ? "Aucun match compétitif synchronisé sur cette période pour l'instant." : "Chargement des statistiques..."}
+            {!overview
+              ? "Chargement des statistiques..."
+              : filtered
+                ? "Aucun match ne correspond à ces filtres."
+                : "Aucun match compétitif synchronisé sur cette période pour l'instant."}
           </div>
         )}
       </section>

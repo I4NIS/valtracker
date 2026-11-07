@@ -54,6 +54,25 @@ export type Overview = {
   lobby: LobbyAverages;
 };
 
+export type Party = "solo" | "group";
+
+export type OverviewFilters = {
+  season: string | null;
+  mapId: string | null;
+  agentId: string | null;
+  role: string | null;
+  days: number | null;
+  party: Party | null;
+};
+
+export type FilterOption = { id: string; name: string; matches: number };
+
+export type FilterOptions = {
+  maps: FilterOption[];
+  agents: FilterOption[];
+  roles: FilterOption[];
+};
+
 export type RecentMatch = {
   matchId: string;
   startedAt: string;
@@ -327,7 +346,8 @@ export const api = {
   removeAccount: (puuid: string) => invoke<void>("remove_account", { puuid }),
   listAccounts: () => invoke<Account[]>("list_accounts"),
   syncAccount: (puuid: string) => invoke<SyncReport>("sync_account", { puuid }),
-  getOverview: (puuid: string, season: string | null) => invoke<Overview>("get_overview", { puuid, season }),
+  getOverview: (puuid: string, filters: OverviewFilters) => invoke<Overview>("get_overview", { puuid, filters }),
+  getFilterOptions: (puuid: string) => invoke<FilterOptions>("get_filter_options", { puuid }),
   getRecentMatches: (puuid: string, limit = 10, offset = 0) =>
     invoke<RecentMatch[]>("get_recent_matches", { puuid, limit, offset }),
   getMatch: (puuid: string, matchId: string) => invoke<MatchDetail>("get_match", { puuid, matchId }),

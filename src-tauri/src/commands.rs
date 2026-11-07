@@ -107,8 +107,13 @@ pub async fn sync_account(app: AppHandle, puuid: String) -> AppResult<SyncReport
 }
 
 #[tauri::command(async)]
-pub fn get_overview(state: State<'_, AppState>, puuid: String, season: Option<String>) -> AppResult<Response> {
-    Report::Overview(season).serve(&state, &puuid)
+pub fn get_overview(state: State<'_, AppState>, puuid: String, filters: Option<stats::Filters>) -> AppResult<Response> {
+    Report::Overview(filters.unwrap_or_default()).serve(&state, &puuid)
+}
+
+#[tauri::command(async)]
+pub fn get_filter_options(state: State<'_, AppState>, puuid: String) -> AppResult<Response> {
+    Report::FilterOptions.serve(&state, &puuid)
 }
 
 #[tauri::command(async)]

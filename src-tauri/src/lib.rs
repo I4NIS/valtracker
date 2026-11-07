@@ -61,6 +61,7 @@ pub fn run() {
             commands::list_accounts,
             commands::sync_account,
             commands::get_overview,
+            commands::get_filter_options,
             commands::get_recent_matches,
             commands::get_match,
             commands::get_progression,
