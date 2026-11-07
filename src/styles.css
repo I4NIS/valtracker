@@ -1184,9 +1184,73 @@ a {
   }
 }
 
+@media (min-height: 1200px) {
+  .match-detail .timeline .bars {
+    height: 84px;
+  }
+
+  .match-detail .timeline .cell {
+    height: 38px;
+    font-size: 13px;
+  }
+
+  .summary-teams .score-row:not(.head) {
+    padding-top: 9px;
+    padding-bottom: 9px;
+  }
+
+  .summary-teams .score-row > img {
+    width: 36px;
+    height: 36px;
+  }
+}
+
+@media (min-width: 2200px) {
+  .match-detail .timeline .bars span {
+    width: 8px;
+  }
+}
+
+.match-sides {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.6fr);
+  gap: 16px;
+}
+
+.match-side {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px 20px;
+  border-radius: 16px;
+  background: var(--raised);
+}
+
+.match-side-title {
+  font-size: 16px;
+  letter-spacing: -0.02em;
+}
+
+.match-side-figures {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 32px;
+}
+
+.match-side-figures > span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.match-side-figures strong {
+  font-size: 22px;
+  letter-spacing: -0.03em;
+}
+
 .match-flaws {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
   gap: 16px 32px;
 }
 

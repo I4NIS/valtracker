@@ -14,6 +14,7 @@ import { duration, fmt, fullDate, pct, placeLabel, roleLabel, scoreTone, signed 
 import { t } from "../lib/i18n";
 import { useQuery } from "../lib/query";
 import { queries } from "../lib/queries";
+import { useViewport } from "../lib/viewport";
 
 type Tab = "summary" | "rounds" | "review" | "note";
 
@@ -39,6 +40,7 @@ function startTab(initialRound: number | undefined, initialDeath: boolean | unde
 }
 
 const VISIBLE_FLAWS = 3;
+const TALL_HEIGHT = 1200;
 
 export function MatchDetail({ account, matchId, initialRound, initialDeath, backLabel, onBack }: Props) {
   const query = useQuery(queries.match(account.puuid, matchId));
@@ -47,6 +49,7 @@ export function MatchDetail({ account, matchId, initialRound, initialDeath, back
   const [tab, setTab] = useState<Tab>(startTab(initialRound, initialDeath));
   const [allFlaws, setAllFlaws] = useState(false);
   const [roundIndex, setRoundIndex] = useState(initialRound ?? 0);
+  const tall = useViewport().height >= TALL_HEIGHT;
 
   useEffect(() => {
     setTab(startTab(initialRound, initialDeath));
@@ -132,7 +135,7 @@ export function MatchDetail({ account, matchId, initialRound, initialDeath, back
     );
   }
 
-  const flaws = allFlaws ? detail.flaws : detail.flaws.slice(0, VISIBLE_FLAWS);
+  const flaws = allFlaws || tall ? detail.flaws : detail.flaws.slice(0, VISIBLE_FLAWS);
 
   return (
     <div className="content match-detail">
@@ -236,6 +239,8 @@ export function MatchDetail({ account, matchId, initialRound, initialDeath, back
             <Timeline rounds={detail.rounds} onSelect={openRound} />
           </section>
 
+          {tall && detail.rounds.length > 0 && <SideSummary rounds={detail.rounds} />}
+
           <div className="summary-teams">
             {detail.teams.map((team) => (
               <section className="stack" style={{ gap: 4, minWidth: 0 }} key={team.mine ? "mine" : "enemy"}>
@@ -288,7 +293,7 @@ export function MatchDetail({ account, matchId, initialRound, initialDeath, back
           <section className="stack" style={{ gap: 12 }}>
             <div className="section-head">
               <h2 className="section-title">{t("Défauts détectés", "Detected flaws")}</h2>
-              {detail.flaws.length > VISIBLE_FLAWS && (
+              {detail.flaws.length > VISIBLE_FLAWS && !tall && (
                 <button type="button" className="chip" onClick={() => setAllFlaws(!allFlaws)}>
                   {allFlaws
                     ? t("Masquer", "Hide")
@@ -326,6 +331,65 @@ function BackButton({ label, onBack }: { label: string; onBack: () => void }) {
   );
 }
 
+function SideSummary({ rounds }: { rounds: RoundLine[] }) {
+  const sides = [true, false].map((attack) => {
+    const list = rounds.filter((round) => round.attack === attack);
+    return {
+      attack,
+      played: list.length,
+      won: list.filter((round) => round.won).length,
+      kills: list.reduce((sum, round) => sum + round.myKills, 0),
+      deaths: list.filter((round) => round.died).length,
+      withKill: list.filter((round) => round.myKills > 0).length,
+      planted: list.filter((round) => round.planted).length,
+    };
+  });
+  const pistols = rounds.filter((_, index) => index === 0 || index === 12);
+  return (
+    <section className="match-sides">
+      {sides.map((side) => (
+        <div className="match-side" key={side.attack ? "atk" : "def"}>
+          <div className="row between" style={{ alignItems: "baseline" }}>
+            <strong className="match-side-title">{side.attack ? t("En attaque", "On attack") : t("En défense", "On defense")}</strong>
+            <span className={side.played ? (side.won * 2 >= side.played ? "win" : "bad") : "faint"} style={{ fontWeight: 700 }}>
+              {t(`${side.won} sur ${side.played} rounds`, `${side.won} of ${side.played} rounds`)}
+            </span>
+          </div>
+          <div className="match-side-figures">
+            <span>
+              <small className="label">Kills</small>
+              <strong>{side.kills}</strong>
+            </span>
+            <span>
+              <small className="label">{t("Morts", "Deaths")}</small>
+              <strong>{side.deaths}</strong>
+            </span>
+            <span>
+              <small className="label">{t("Rounds avec un kill", "Rounds with a kill")}</small>
+              <strong>{side.withKill}</strong>
+            </span>
+            <span>
+              <small className="label">{side.attack ? t("Spike posé", "Spike planted") : t("Spike posé en face", "Enemy plants")}</small>
+              <strong>{side.planted}</strong>
+            </span>
+          </div>
+        </div>
+      ))}
+      <div className="match-side">
+        <strong className="match-side-title">{t("Rounds pistol", "Pistol rounds")}</strong>
+        <div className="match-side-figures">
+          {pistols.map((round) => (
+            <span key={round.number}>
+              <small className="label">{t(`Round ${round.number}`, `Round ${round.number}`)}</small>
+              <strong className={round.won ? "win" : "bad"}>{round.won ? t("Gagné", "Won") : t("Perdu", "Lost")}</strong>
+            </span>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function HeadStat({ label, value, sub, tone }: { label: string; value: string; sub: string; tone?: string }) {
   return (
     <div className="stack">
@@ -350,8 +414,8 @@ function Timeline({ rounds, onSelect }: { rounds: RoundLine[]; onSelect: (index:
           <div key={round.number} className={`round${i === firstDefense ? " half" : ""}`} title={t(`Round ${round.number}, ${round.attack ? "attaque" : "défense"}`, `Round ${round.number}, ${round.attack ? "attack" : "defense"}`)}>
             <span className="side">{i === 0 || i === firstDefense ? (round.attack ? t("ATT", "ATK") : "DEF") : ""}</span>
             <div className="bars">
-              <span className="mine" style={{ height: `${(round.teamLoadout / max) * 38}px` }} />
-              <span className="theirs" style={{ height: `${(round.enemyLoadout / max) * 38}px` }} />
+              <span className="mine" style={{ height: `${(round.teamLoadout / max) * 95}%` }} />
+              <span className="theirs" style={{ height: `${(round.enemyLoadout / max) * 95}%` }} />
             </div>
             <button type="button" className={`cell${round.won ? " won" : ""}`} onClick={() => onSelect(i)} aria-label={t(`Détail du round ${round.number}`, `Round ${round.number} details`)}>
               {round.number}
