@@ -111,6 +111,9 @@ CREATE TABLE match_summaries (
     isolated INTEGER NOT NULL,
     PRIMARY KEY (match_id, puuid)
 );
+", "
+ALTER TABLE maps ADD COLUMN splash TEXT;
+ALTER TABLE maps ADD COLUMN list_icon TEXT;
 "];
 
 pub fn open(path: &Path) -> AppResult<Connection> {

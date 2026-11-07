@@ -21,6 +21,7 @@ pub struct Callout {
 
 pub struct MapData {
     pub display_icon: Option<String>,
+    pub splash: Option<String>,
     pub x_multiplier: f64,
     pub y_multiplier: f64,
     pub x_scalar: f64,
@@ -31,6 +32,24 @@ pub struct MapData {
 impl MapData {
     pub fn project(&self, game_x: f64, game_y: f64) -> (f64, f64) {
         (game_y * self.x_multiplier + self.x_scalar, game_x * self.y_multiplier + self.y_scalar)
+    }
+
+    pub fn rotation(&self) -> i32 {
+        let spawn = |side: &str| {
+            self.callouts
+                .iter()
+                .find(|callout| callout.name.contains(side) && callout.name.contains("Spawn"))
+                .map(|callout| self.project(callout.x, callout.y))
+        };
+        let (Some(attack), Some(defense)) = (spawn("Attacker"), spawn("Defender")) else {
+            return 0;
+        };
+        let (dx, dy) = (defense.0 - attack.0, defense.1 - attack.1);
+        if dx.hypot(dy) < 0.01 {
+            return 0;
+        }
+        let wanted = -90.0 - dy.atan2(dx).to_degrees();
+        ((wanted / 90.0).round() as i32 * 90).rem_euclid(360)
     }
 
     pub fn zone(&self, game_x: f64, game_y: f64) -> Option<String> {
@@ -50,8 +69,9 @@ pub async fn refresh_if_needed(state: &AppState) -> AppResult<()> {
     let stale = {
         let conn = state.conn()?;
         let last = db::get_setting(&conn, REFRESHED_SETTING)?.and_then(|value| value.parse::<i64>().ok());
-        let empty: i64 = conn.query_row("SELECT COUNT(*) FROM maps", [], |row| row.get(0))?;
-        empty == 0 || last.is_none_or(|last| now - last > REFRESH_EVERY_SECS)
+        let total: i64 = conn.query_row("SELECT COUNT(*) FROM maps", [], |row| row.get(0))?;
+        let missing: i64 = conn.query_row("SELECT COUNT(*) FROM maps WHERE splash IS NULL", [], |row| row.get(0))?;
+        total == 0 || missing > 0 || last.is_none_or(|last| now - last > REFRESH_EVERY_SECS)
     };
     if !stale {
         return Ok(());
@@ -85,8 +105,9 @@ fn store(conn: &mut Connection, maps: &Value, agents: &Value) -> AppResult<()> {
             })
             .collect();
         tx.execute(
-            "INSERT OR REPLACE INTO maps (uuid, name, display_icon, x_multiplier, y_multiplier, x_scalar, y_scalar, callouts)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+            "INSERT OR REPLACE INTO maps
+                (uuid, name, display_icon, x_multiplier, y_multiplier, x_scalar, y_scalar, callouts, splash, list_icon)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
             params![
                 uuid,
                 name,
@@ -96,6 +117,8 @@ fn store(conn: &mut Connection, maps: &Value, agents: &Value) -> AppResult<()> {
                 map["xScalarToAdd"].as_f64().unwrap_or(0.0),
                 map["yScalarToAdd"].as_f64().unwrap_or(0.0),
                 Value::Array(callouts).to_string(),
+                map["splash"].as_str(),
+                map["listViewIcon"].as_str(),
             ],
         )?;
     }
@@ -114,7 +137,7 @@ fn store(conn: &mut Connection, maps: &Value, agents: &Value) -> AppResult<()> {
 
 pub fn load_map(conn: &Connection, map_id: &str) -> AppResult<Option<MapData>> {
     let mut stmt = conn.prepare(
-        "SELECT display_icon, x_multiplier, y_multiplier, x_scalar, y_scalar, callouts FROM maps WHERE uuid = ?1",
+        "SELECT display_icon, x_multiplier, y_multiplier, x_scalar, y_scalar, callouts, splash FROM maps WHERE uuid = ?1",
     )?;
     let mut rows = stmt.query(params![map_id])?;
     let Some(row) = rows.next()? else {
@@ -134,6 +157,7 @@ pub fn load_map(conn: &Connection, map_id: &str) -> AppResult<Option<MapData>> {
         .collect();
     Ok(Some(MapData {
         display_icon: row.get(0)?,
+        splash: row.get(6)?,
         x_multiplier: row.get(1)?,
         y_multiplier: row.get(2)?,
         x_scalar: row.get(3)?,
