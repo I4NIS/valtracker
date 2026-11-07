@@ -1,11 +1,16 @@
 import "../styles/palette.css";
-import { useEffect, useId, useMemo, useRef, useState, type Dispatch, type KeyboardEvent, type SetStateAction } from "react";
+import { memo, useEffect, useId, useMemo, useRef, useState, type Dispatch, type KeyboardEvent, type SetStateAction } from "react";
 import { createPortal } from "react-dom";
-import { api, type Account, type RecentMatch, type Theme } from "../lib/api";
+import type { Account, RecentMatch, Theme } from "../lib/api";
 import { agentIcon } from "../lib/assets";
-import { timeAgo } from "../lib/format";
-import { locale, t } from "../lib/i18n";
+import { formatDate, timeAgo } from "../lib/format";
+import { t } from "../lib/i18n";
+import { useQuery } from "../lib/query";
+import { queries } from "../lib/queries";
+import { useSyncRunning } from "../lib/sync";
+import { fadeIn } from "./GameArt";
 import { Icon, type IconName } from "./Icon";
+import { repeat, SkeletonBlock, SkeletonGroup, SkeletonLine } from "./Skeleton";
 import type { Page } from "./Shell";
 
 type Props = {
@@ -18,7 +23,6 @@ type Props = {
   onSync: () => void;
   onReplayTour: () => void;
   theme?: Theme;
-  syncing?: boolean;
 };
 
 type Item =
@@ -42,6 +46,10 @@ const PAGES = (): { page: Page; label: string; icon: IconName; keywords: string 
 ];
 
 const MATCH_LIMIT = 50;
+
+const NO_MATCHES: RecentMatch[] = [];
+
+const LONG_DATE: Intl.DateTimeFormatOptions = { weekday: "long", day: "numeric", month: "long", year: "numeric" };
 
 function normalize(text: string): string {
   return text.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
@@ -71,8 +79,8 @@ function dateWords(iso: string): string {
   yesterday.setDate(now.getDate() - 1);
   const parts = [
     timeAgo(iso, now),
-    date.toLocaleDateString(locale(), { weekday: "long", day: "numeric", month: "long", year: "numeric" }),
-    date.toLocaleDateString(locale()),
+    formatDate(date, LONG_DATE),
+    formatDate(date),
     `${date.getDate()}/${date.getMonth() + 1}`,
   ];
   if (date.toDateString() === now.toDateString()) parts.push(t("aujourd'hui aujourdhui", "today"));
@@ -101,72 +109,56 @@ function SearchGlyph() {
   );
 }
 
-export function CommandPalette({
-  open,
-  onClose,
-  account,
-  onNavigate,
-  onOpenMatch,
-  onToggleTheme,
-  onSync,
-  onReplayTour,
-  theme,
-  syncing = false,
-}: Props) {
+export const CommandPalette = memo(function CommandPalette(props: Props) {
+  return props.open ? <PaletteDialog {...props} /> : null;
+});
+
+function PaletteDialog({ onClose, account, onNavigate, onOpenMatch, onToggleTheme, onSync, onReplayTour, theme }: Props) {
+  const syncing = useSyncRunning();
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
-  const [recent, setRecent] = useState<RecentMatch[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [failed, setFailed] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
-  const returnFocus = useRef<HTMLElement | null>(null);
+  const handlers = useRef({ onClose, onNavigate, onOpenMatch, onToggleTheme, onSync, onReplayTour });
+  handlers.current = { onClose, onNavigate, onOpenMatch, onToggleTheme, onSync, onReplayTour };
   const baseId = useId();
   const listId = `${baseId}-list`;
   const optionId = (index: number) => `${baseId}-opt-${index}`;
   const puuid = account?.puuid ?? null;
+  const hasAccount = account !== null;
+  const recentQuery = useQuery(puuid ? queries.recent(puuid, MATCH_LIMIT) : null);
+  const recent = (puuid ? recentQuery.data : undefined) ?? NO_MATCHES;
+  const loading = puuid !== null && recentQuery.pending && recentQuery.error === null;
+  const failed = puuid !== null && recentQuery.error !== null;
 
   useEffect(() => {
-    if (!open) return;
-    returnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    setQuery("");
-    setActive(0);
+    const returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const frame = requestAnimationFrame(() => inputRef.current?.focus());
     return () => {
       cancelAnimationFrame(frame);
-      returnFocus.current?.focus?.();
+      returnFocus?.focus?.();
     };
-  }, [open]);
+  }, []);
 
-  useEffect(() => {
-    if (!open || !puuid) {
-      if (!puuid) setRecent([]);
-      return;
-    }
-    let alive = true;
-    setLoading(true);
-    setFailed(false);
-    api
-      .getRecentMatches(puuid, MATCH_LIMIT, 0)
-      .then((rows) => {
-        if (alive) setRecent(rows);
-      })
-      .catch(() => {
-        if (alive) setFailed(true);
-      })
-      .finally(() => {
-        if (alive) setLoading(false);
-      });
-    return () => {
-      alive = false;
-    };
-  }, [open, puuid]);
+  const games = useMemo<Item[]>(
+    () =>
+      recent.map((game) => ({
+        kind: "match" as const,
+        key: `match-${game.matchId}`,
+        match: game,
+        haystack: matchHaystack(game),
+        run: () => {
+          handlers.current.onClose();
+          handlers.current.onOpenMatch(game.matchId);
+        },
+      })),
+    [recent],
+  );
 
-  const sections = useMemo<Section[]>(() => {
-    const terms = words(query);
-    const finish = (run: () => void) => () => {
-      onClose();
-      run();
+  const commands = useMemo(() => {
+    const finish = (run: (target: typeof handlers.current) => void) => () => {
+      handlers.current.onClose();
+      run(handlers.current);
     };
 
     const pages: Item[] = PAGES().map((entry) => ({
@@ -175,11 +167,11 @@ export function CommandPalette({
       label: entry.label,
       icon: entry.icon,
       haystack: normalize(`${entry.label} ${entry.page} ${t("page aller", "page go")} ${entry.keywords}`),
-      run: finish(() => onNavigate(entry.page)),
+      run: finish((target) => target.onNavigate(entry.page)),
     }));
 
     const actions: Item[] = [];
-    if (account) {
+    if (hasAccount) {
       actions.push({
         kind: "action",
         key: "action-sync",
@@ -189,7 +181,7 @@ export function CommandPalette({
         haystack: normalize(
           t("Synchroniser maintenant sync synchro actualiser rafraichir mettre a jour", "Sync now synchronize refresh update reload"),
         ),
-        run: finish(onSync),
+        run: finish((target) => target.onSync()),
       });
     }
     actions.push(
@@ -205,7 +197,7 @@ export function CommandPalette({
               : t("Action", "Action"),
         icon: theme === "light" ? "moon" : "sun",
         haystack: normalize(t("Changer de thème theme clair sombre dark light mode apparence", "Change theme light dark mode appearance")),
-        run: finish(onToggleTheme),
+        run: finish((target) => target.onToggleTheme()),
       },
       {
         kind: "action",
@@ -214,18 +206,14 @@ export function CommandPalette({
         hint: t("Action", "Action"),
         icon: "arrowRight",
         haystack: normalize(t("Revoir le tutoriel tour aide guide visite decouverte", "Replay the tour tutorial help guide walkthrough")),
-        run: finish(onReplayTour),
+        run: finish((target) => target.onReplayTour()),
       },
     );
+    return { pages, actions };
+  }, [hasAccount, theme, syncing]);
 
-    const games: Item[] = recent.map((game) => ({
-      kind: "match" as const,
-      key: `match-${game.matchId}`,
-      match: game,
-      haystack: matchHaystack(game),
-      run: finish(() => onOpenMatch(game.matchId)),
-    }));
-
+  const sections = useMemo<Section[]>(() => {
+    const terms = words(query);
     const label = (item: Item) => (item.kind === "match" ? item.match.mapName ?? "" : item.label);
     const pick = (items: Item[], sort: boolean) => {
       const kept = items.filter((item) => matches(item.haystack, terms));
@@ -237,23 +225,20 @@ export function CommandPalette({
     };
 
     return [
-      { id: "pages", title: t("Pages", "Pages"), items: pick(pages, true) },
-      { id: "actions", title: t("Actions", "Actions"), items: pick(actions, true) },
+      { id: "pages", title: t("Pages", "Pages"), items: pick(commands.pages, true) },
+      { id: "actions", title: t("Actions", "Actions"), items: pick(commands.actions, true) },
       { id: "matches", title: t("Matchs", "Matches"), items: pick(games, false) },
     ].filter((section) => section.items.length > 0);
-  }, [query, recent, account, theme, syncing, onClose, onNavigate, onOpenMatch, onToggleTheme, onSync, onReplayTour]);
+  }, [query, games, commands]);
 
   const flat = useMemo(() => sections.flatMap((section) => section.items), [sections]);
   const count = flat.length;
   const current = Math.min(active, Math.max(count - 1, 0));
 
   useEffect(() => {
-    if (!open) return;
     const node = listRef.current?.querySelector<HTMLElement>(`[data-index="${current}"]`);
     node?.scrollIntoView({ block: "nearest" });
-  }, [current, open, count]);
-
-  if (!open) return null;
+  }, [current, count]);
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key === "Escape") {
@@ -337,7 +322,6 @@ export function CommandPalette({
             <div className="palette-section" role="group" aria-labelledby={`${baseId}-${section.id}`} key={section.id}>
               <div className="palette-section-title" id={`${baseId}-${section.id}`} role="presentation">
                 <span>{section.title}</span>
-                {section.id === "matches" && loading && <span className="palette-loading">{t("Chargement", "Loading")}</span>}
               </div>
               {section.items.map((item) => {
                 index += 1;
@@ -364,6 +348,24 @@ export function CommandPalette({
               })}
             </div>
           ))}
+          {loading && (
+            <SkeletonGroup className="palette-section" label={t("Chargement des matchs", "Loading matches")}>
+              <div className="palette-section-title" aria-hidden="true">
+                <span>{t("Matchs", "Matches")}</span>
+              </div>
+              {repeat(4, (row) => (
+                <div className="palette-item" key={row} aria-hidden="true">
+                  <SkeletonBlock width={30} height={30} radius={8} />
+                  <span className="palette-match-main" style={{ gap: 4 }}>
+                    <SkeletonLine width={row % 2 ? "34%" : "42%"} size={14} />
+                    <SkeletonLine width="24%" size={12} />
+                  </span>
+                  <SkeletonLine width={84} size={13} />
+                  <SkeletonLine width={60} size={13} />
+                </div>
+              ))}
+            </SkeletonGroup>
+          )}
           {!loading && failed && recent.length === 0 && (
             <div className="palette-note" role="presentation">
               {t("Impossible de charger les matchs récents.", "Couldn't load recent matches.")}
@@ -412,7 +414,7 @@ function MatchRow({ game }: { game: RecentMatch }) {
   return (
     <>
       <span className="palette-agent">
-        {icon ? <img src={icon} alt="" loading="lazy" /> : <Icon name="agents" size={16} />}
+        {icon ? <img src={icon} alt="" width={32} height={32} loading="lazy" decoding="async" {...fadeIn} /> : <Icon name="agents" size={16} />}
       </span>
       <span className="palette-match-main">
         <strong>{game.mapName ?? t("Map inconnue", "Unknown map")}</strong>

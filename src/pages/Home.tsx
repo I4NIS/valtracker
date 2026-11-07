@@ -1,16 +1,17 @@
 import "../styles/home.css";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ExportRecapButton } from "../components/ExportRecap";
 import { type ExtraFilters, hasExtra, MatchFilters, NO_EXTRA } from "../components/MatchFilters";
-import { MatchList } from "../components/MatchList";
+import { MatchList, MatchListSkeleton } from "../components/MatchList";
 import { RankBadge } from "../components/RankBadge";
 import { SeasonPicker } from "../components/SeasonPicker";
+import { repeat, SkeletonBlock, SkeletonGroup, SkeletonLine } from "../components/Skeleton";
 import type { Account, RecentMatch } from "../lib/api";
 import { seasonLabel, tierLabel } from "../lib/assets";
 import { fmt, greeting, pct, signed, tradeWindowText } from "../lib/format";
 import { t } from "../lib/i18n";
 import { useQuery } from "../lib/query";
-import { ALL_ACCOUNTS, defaultSeason, queries } from "../lib/queries";
+import { ALL_ACCOUNTS, defaultSeason, queries, RECENT_PAGE } from "../lib/queries";
 
 type Props = {
   account: Account;
@@ -18,6 +19,8 @@ type Props = {
   accounts: Account[] | null;
   onOpenMatch: (matchId: string, round?: number, puuid?: string) => void;
 };
+
+const RECENT_SHOWN = 10;
 
 let remembered: { puuid: string; extra: ExtraFilters } | null = null;
 
@@ -45,11 +48,15 @@ export function Home({ account, accounts, onOpenMatch }: Props) {
     setExtra(NO_EXTRA);
   }
   const overviewQuery = useQuery(season === undefined ? null : queries.overview(puuid, { ...extra, season }));
-  const recent = useQuery(queries.recent(puuid, 10)).data ?? [];
+  const latestQuery = useQuery(queries.recent(puuid, RECENT_PAGE));
+  const latest = latestQuery.data;
+  const recentLoading = latestQuery.pending && latestQuery.error === null;
+  const recent = useMemo(() => (latest ?? []).slice(0, RECENT_SHOWN), [latest]);
   const flaws = useQuery(accounts ? null : queries.flaws(puuid)).data ?? null;
   const thresholds = useQuery(queries.thresholds()).data?.values;
   const overview = overviewQuery.data ?? null;
   const error = overviewQuery.error ?? seasonsQuery.error;
+  const statsLoading = !overview && error === null;
 
   useEffect(() => {
     remembered = { puuid, extra };
@@ -195,6 +202,8 @@ export function Home({ account, accounts, onOpenMatch }: Props) {
             </div>
           </div>
         )}
+        {statsLoading && <RecordSkeleton />}
+        {recentLoading && <FormSkeleton />}
         {timeline.length > 0 && (
           <section className="home-form-block stack">
             <span className="label">
@@ -264,15 +273,15 @@ export function Home({ account, accounts, onOpenMatch }: Props) {
               {timeline.length >= 3 && <Sparkline matches={timeline} />}
             </div>
           </>
-        ) : (
+        ) : statsLoading ? (
+          <StatsSkeleton />
+        ) : overview ? (
           <div className="empty">
-            {!overview
-              ? t("Chargement des statistiques...", "Loading stats...")
-              : filtered
-                ? t("Aucun match ne correspond à ces filtres.", "No matches fit these filters.")
-                : t("Aucun match compétitif synchronisé sur cette période pour l'instant.", "No competitive matches synced for this period yet.")}
+            {filtered
+              ? t("Aucun match ne correspond à ces filtres.", "No matches fit these filters.")
+              : t("Aucun match compétitif synchronisé sur cette période pour l'instant.", "No competitive matches synced for this period yet.")}
           </div>
-        )}
+        ) : null}
       </section>
 
       <div className={`home-bottom${flaws && flaws.deaths > 0 ? "" : " is-single"}`}>
@@ -281,7 +290,9 @@ export function Home({ account, accounts, onOpenMatch }: Props) {
             <h2 className="section-title">{t("Derniers matchs", "Recent matches")}</h2>
             {recent.length > 0 && <span className="faint">{t("Clique sur un match pour son détail", "Click a match for its details")}</span>}
           </div>
-          {recent.length === 0 ? (
+          {recentLoading ? (
+            <MatchListSkeleton rows={RECENT_SHOWN} />
+          ) : recent.length === 0 ? (
             <div className="empty">{t("Tes matchs apparaîtront ici dès la fin de la synchro.", "Your matches will show up here once the sync is done.")}</div>
           ) : (
             <MatchList matches={recent} accounts={accounts} onOpen={(matchId, owner) => onOpenMatch(matchId, undefined, owner)} />
@@ -472,5 +483,59 @@ function Small({ label, value }: { label: string; value: string }) {
       <span className="label">{label}</span>
       <span className="value">{value}</span>
     </div>
+  );
+}
+
+function RecordSkeleton() {
+  return (
+    <SkeletonGroup className="home-record" label={t("Chargement du bilan", "Loading the record")}>
+      <SkeletonBlock width={104} height={104} radius="50%" />
+      <div className="stack" style={{ gap: 10 }}>
+        <SkeletonLine width={96} size={12} />
+        <SkeletonLine width={110} size={14} />
+        <SkeletonLine width={100} size={14} />
+        <SkeletonLine width={90} size={13} />
+      </div>
+    </SkeletonGroup>
+  );
+}
+
+function FormSkeleton() {
+  return (
+    <SkeletonGroup className="home-form-block stack" label={t("Chargement de la forme récente", "Loading recent form")}>
+      <SkeletonLine width={220} size={12} />
+      <div className="home-form" aria-hidden="true">
+        {repeat(RECENT_SHOWN, (index) => (
+          <SkeletonBlock key={index} width={36} height={36} radius={10} />
+        ))}
+      </div>
+    </SkeletonGroup>
+  );
+}
+
+function StatsSkeleton() {
+  return (
+    <SkeletonGroup className="stack" style={{ gap: 18 }} label={t("Chargement des statistiques", "Loading stats")}>
+      <div className="stat-grid home-stat-grid">
+        {repeat(4, (index) => (
+          <div className="big-stat stack" key={index}>
+            <SkeletonLine width="46%" size={13} />
+            <SkeletonLine width="58%" size={40} lineHeight={1.05} />
+            <SkeletonLine width="72%" size={13} />
+            <div className="home-compare">
+              <SkeletonBlock height={8} radius={999} />
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="small-stats">
+        {repeat(6, (index) => (
+          <div className="stack" key={index} style={{ gap: 2, minWidth: 76 }}>
+            <SkeletonLine width={58} size={12} />
+            <SkeletonLine width={44} size={17} />
+          </div>
+        ))}
+      </div>
+    </SkeletonGroup>
   );
 }

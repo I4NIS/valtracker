@@ -5,6 +5,7 @@ import { t } from "../lib/i18n";
 import { journal, sameTag, suggestedTags } from "../lib/journal";
 import { invalidate } from "../lib/query";
 import { Icon } from "./Icon";
+import { SkeletonLine } from "./Skeleton";
 
 type Status = "loading" | "idle" | "pending" | "saving" | "saved" | "error";
 
@@ -146,21 +147,31 @@ export function NoteEditor({ puuid, matchId }: Props) {
         <SaveStatus status={status} />
       </div>
 
-      <textarea
-        className="input note-text"
-        value={note}
-        disabled={disabled}
-        placeholder={
-          status === "loading"
-            ? t("Chargement...", "Loading...")
-            : t(
-                "Par exemple : trop de peeks secs en défense, bonne communication avec le duo.",
-                "For example: too many dry peeks on defense, good comms with the duo.",
-              )
-        }
-        onChange={(event) => changeNote(event.target.value)}
-        aria-label={t("Note du match", "Match note")}
-      />
+      <div className="note-field">
+        <textarea
+          className="input note-text"
+          value={note}
+          disabled={disabled}
+          aria-busy={status === "loading"}
+          placeholder={
+            status === "loading"
+              ? ""
+              : t(
+                  "Par exemple : trop de peeks secs en défense, bonne communication avec le duo.",
+                  "For example: too many dry peeks on defense, good comms with the duo.",
+                )
+          }
+          onChange={(event) => changeNote(event.target.value)}
+          aria-label={t("Note du match", "Match note")}
+        />
+        {status === "loading" && (
+          <span className="note-skeleton sk-late" aria-hidden="true">
+            <SkeletonLine width="72%" size={15} lineHeight={1.55} />
+            <SkeletonLine width="88%" size={15} lineHeight={1.55} />
+            <SkeletonLine width="46%" size={15} lineHeight={1.55} />
+          </span>
+        )}
+      </div>
 
       <div className="stack" style={{ gap: 12 }}>
         <span className="label">{t("Tags", "Tags")}</span>

@@ -164,25 +164,6 @@
   box-shadow: inset 0 0 0 1.5px var(--accent);
 }
 
-.minimap .heat-blob,
-.minimap .heat-dot {
-  transition: opacity 0.2s ease, transform 0.2s ease;
-}
-
-.minimap.has-focus .heat-blob:not(.in-zone),
-.minimap.has-focus .heat-dot:not(.in-zone) {
-  opacity: 0.12;
-}
-
-.minimap.has-focus .heat-dot.in-zone {
-  transform: scale(1.8);
-  box-shadow: 0 0 0 1px rgba(8, 9, 12, 0.6);
-}
-
-.minimap.has-focus .heat-blob.in-zone {
-  transform: scale(1.15);
-}
-
 .zone-pill {
   position: absolute;
   z-index: 2;

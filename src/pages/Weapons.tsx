@@ -1,7 +1,9 @@
 import "../styles/weapons.css";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { flushSync } from "react-dom";
 import { AbilityArt, Art, SpikeGlyph } from "../components/GameArt";
 import { Icon } from "../components/Icon";
+import { repeat, SkeletonBlock, SkeletonGroup, SkeletonLine } from "../components/Skeleton";
 import { SeasonPicker } from "../components/SeasonPicker";
 import type { Account } from "../lib/api";
 import { agentIcon, seasonLabel } from "../lib/assets";
@@ -38,6 +40,29 @@ const HISTORY_PAGE = 10;
 
 const meters = (value: number | null) => (value === null ? "-" : `${fmt(value, 1)} m`);
 const plural = (count: number, one: string, many: string) => `${fmt(count)} ${(lang() === "en" ? count !== 1 : count > 1) ? many : one}`;
+
+const DETAIL_INLINE_MAX = 860;
+
+function useBelow(limit: number): [(node: HTMLDivElement | null) => (() => void) | undefined, boolean] {
+  const [below, setBelow] = useState(false);
+  const ref = useCallback(
+    (node: HTMLDivElement | null) => {
+      if (!node) return undefined;
+      let current = node.getBoundingClientRect().width <= limit;
+      setBelow(current);
+      const observer = new ResizeObserver(([entry]) => {
+        const next = entry.contentRect.width <= limit;
+        if (next === current) return;
+        current = next;
+        flushSync(() => setBelow(next));
+      });
+      observer.observe(node);
+      return () => observer.disconnect();
+    },
+    [limit],
+  );
+  return [ref, below];
+}
 
 function displayName(name: string): string {
   if (name === ABILITIES) return t("Capacités", "Abilities");
@@ -123,6 +148,7 @@ export function Weapons({ account, onOpenRound }: Props) {
   const [view, setView] = useState<"arsenal" | "killers">("arsenal");
   const [historyOpen, setHistoryOpen] = useState(false);
   const catalog = useAgentCatalog();
+  const [wrapRef, narrow] = useBelow(DETAIL_INLINE_MAX);
 
   useEffect(() => {
     document.querySelector(".main")?.scrollTo({ top: 0 });
@@ -222,7 +248,7 @@ export function Weapons({ account, onOpenRound }: Props) {
       {error && !data && <p className="form-error">{error}</p>}
 
       {!data ? (
-        !error && <div className="empty">{t("Chargement de tes armes...", "Loading your weapons...")}</div>
+        !error && <WeaponsSkeleton />
       ) : empty ? (
         <div className="empty">
           {data.matches === 0
@@ -304,7 +330,7 @@ export function Weapons({ account, onOpenRound }: Props) {
             (data.weapons.length === 0 ? (
               <div className="empty">{t("Aucun kill enregistré sur cette période.", "No kills recorded in this period.")}</div>
             ) : (
-              <div className="weapons-wrap">
+              <div className="weapons-wrap" ref={wrapRef}>
                 <div className="weapons-layout">
                   <div className="stack" style={{ gap: 10, minWidth: 0 }}>
                     <div className="weapons-table weapons-pane" role="list">
@@ -344,7 +370,7 @@ export function Weapons({ account, onOpenRound }: Props) {
                               <span className="weapon-col-dist">{meters(item.avgKillDistance)}</span>
                               <span>{item.killsPerRoundHeld === null ? "-" : fmt(item.killsPerRoundHeld, 2)}</span>
                             </button>
-                            {active && (
+                            {active && narrow && (
                               <div className="weapon-inline">
                                 <WeaponDetail
                                   weapon={item}
@@ -365,7 +391,7 @@ export function Weapons({ account, onOpenRound }: Props) {
                       )}
                     </span>
                   </div>
-                  {weapon && (
+                  {weapon && !narrow && (
                     <aside className="weapons-side weapons-pane panel" aria-label={t(`Détail ${displayName(weapon.name)}`, `${displayName(weapon.name)} details`)}>
                       <WeaponDetail
                         weapon={weapon}
@@ -427,6 +453,87 @@ const BODY_ARM = "M23 70C20 84 18 100 17 114C16 124 15 132 15.5 140C15.8 145 21.
 const BODY_LEG =
   "M41 141H58.5C58.6 154 57.8 168 56.8 184C56.3 194 55.8 201 55.9 207C56.2 216 56.4 224 55.6 231C55.2 235.5 52 237 49 236.5C46.6 236 45.6 234.2 45.7 231C45.9 226 44.2 220 43.2 213C42.2 206 42.6 198 41.6 190C40.2 176 39 158 41 141Z";
 const BODY_LABEL_X = 142;
+
+function WeaponsSkeleton() {
+  return (
+    <SkeletonGroup className="stack" style={{ gap: 28 }} label={t("Chargement de tes armes", "Loading your weapons")}>
+      <section className="weapons-summary">
+        <div className="weapons-favorite">
+          <span className="weapons-favorite-art">
+            <SkeletonBlock width="80%" height={48} radius={12} />
+          </span>
+          <span className="stack" style={{ gap: 4, flex: "0 1 180px" }}>
+            <SkeletonLine width={90} size={12} />
+            <SkeletonLine width={110} size={20} />
+            <SkeletonLine width={160} size={14} />
+          </span>
+        </div>
+        <div className="stack weapons-totals" style={{ gap: 14 }}>
+          <div className="stack" style={{ gap: 4 }}>
+            <SkeletonLine width={110} size={52} lineHeight={1} />
+            <SkeletonLine width={150} size={14} />
+          </div>
+          <div className="weapons-facts">
+            {repeat(2, (index) => (
+              <div className="stack" style={{ gap: 2 }} key={index}>
+                <SkeletonLine width={96} size={12} />
+                <SkeletonLine width={60} size={20} />
+                <SkeletonLine width={120} size={12} />
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="body-split">
+          <SkeletonBlock width={292} height={240} radius={14} />
+        </div>
+      </section>
+      <SkeletonBlock width={320} height={36} radius={999} />
+      <div className="weapons-wrap">
+        <div className="weapons-layout">
+          <div className="stack" style={{ gap: 2, minWidth: 0 }}>
+            {repeat(8, (index) => (
+              <div className="weapon-row" key={index} aria-hidden="true">
+                <span className="weapon-ident">
+                  <SkeletonBlock width={84} height={28} radius={6} />
+                  <span className="stack" style={{ gap: 4, flex: 1 }}>
+                    <SkeletonLine width={index % 2 ? "54%" : "66%"} size={14} />
+                    <SkeletonLine width="40%" size={12} />
+                  </span>
+                </span>
+                <span className="stack" style={{ gap: 6 }}>
+                  <SkeletonLine width={30} size={14} />
+                  <SkeletonBlock height={6} radius={999} width={`${90 - index * 9}%`} />
+                </span>
+                <SkeletonLine width={42} size={14} />
+                <SkeletonLine width={34} size={14} />
+                <SkeletonLine width={44} size={14} />
+                <SkeletonLine width={34} size={14} />
+              </div>
+            ))}
+          </div>
+          <div className="weapons-side panel stack" style={{ gap: 16 }}>
+            <div className="row" style={{ gap: 16 }}>
+              <SkeletonBlock width={140} height={48} radius={10} />
+              <span className="stack" style={{ gap: 6, flex: 1 }}>
+                <SkeletonLine width="60%" size={20} />
+                <SkeletonLine width="40%" size={13} />
+              </span>
+            </div>
+            <div className="weapon-figures">
+              {repeat(4, (index) => (
+                <div className="stack" style={{ gap: 4 }} key={index}>
+                  <SkeletonLine width="70%" size={12} />
+                  <SkeletonLine width="50%" size={18} />
+                </div>
+              ))}
+            </div>
+            <SkeletonBlock height={120} radius={12} />
+          </div>
+        </div>
+      </div>
+    </SkeletonGroup>
+  );
+}
 
 function BodySplit({ report }: { report: WeaponReport }) {
   const total = report.headshots + report.bodyshots + report.legshots;
@@ -831,7 +938,7 @@ function WeaponHistory({
       ) : query.error && list === null ? (
         <span className="form-error">{query.error}</span>
       ) : visible === null ? (
-        <span className="faint">{t("Recherche dans tes matchs...", "Searching your matches...")}</span>
+        <HistorySkeleton />
       ) : visible.length === 0 ? (
         <span className="faint">{t("Aucun round retrouvé dans tes matchs.", "No round found in your matches.")}</span>
       ) : (
@@ -856,6 +963,29 @@ function WeaponHistory({
         </>
       )}
     </section>
+  );
+}
+
+function HistorySkeleton() {
+  return (
+    <SkeletonGroup className="weapon-history" label={t("Recherche dans tes matchs", "Searching your matches")}>
+      {repeat(8, (index) => (
+        <div className="weapon-history-row" key={index} aria-hidden="true">
+          <span className="weapon-history-map">
+            <SkeletonBlock width={112} height={44} radius={10} />
+          </span>
+          <span className="weapon-history-who">
+            <SkeletonBlock width={28} height={28} radius="50%" />
+            <span className="stack" style={{ gap: 4, minWidth: 0, flex: 1 }}>
+              <SkeletonLine width={index % 2 ? "34%" : "44%"} size={14} />
+              <SkeletonLine width="62%" size={12} />
+            </span>
+          </span>
+          <SkeletonLine width={44} size={14} className="weapon-history-dist" />
+          <SkeletonBlock width={96} height={26} radius={999} className="weapon-history-result" />
+        </div>
+      ))}
+    </SkeletonGroup>
   );
 }
 

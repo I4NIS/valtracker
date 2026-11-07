@@ -7,8 +7,9 @@ import { t } from "../lib/i18n";
 import type { MapAction, MapGame, MapHistory } from "../lib/mapStats";
 import { rotatePoint, rotationStyle, type Point } from "../lib/minimap";
 import { FilterPill, type PillOption } from "./FilterPill";
-import { Art, KillMeans, meansLabel } from "./GameArt";
+import { Art, fadeIn, KillMeans, meansLabel } from "./GameArt";
 import { Icon } from "./Icon";
+import { PointCanvas } from "./PointCanvas";
 
 type Kind = MapAction["kind"];
 type Side = "attack" | "defense";
@@ -151,10 +152,14 @@ export function MapHistoryView({ history, mapName, season, onOpenRound }: Props)
     .filter((zone) => countOf(zone.name) > 0)
     .map((zone) => ({ ...zone, ...rotatePoint(zone, history.rotation), count: countOf(zone.name) }))
     .sort((a, b) => a.count - b.count);
-  const dots = ofKind
-    .map((action) => ({ action, point: spot(action) }))
-    .filter((entry): entry is { action: MapAction; point: Point } => entry.point !== null)
-    .map(({ action, point }) => ({ zone: action.zone, ...rotatePoint(point, history.rotation) }));
+  const dots = useMemo(
+    () =>
+      ofKind
+        .map((action) => ({ action, point: spot(action) }))
+        .filter((entry): entry is { action: MapAction; point: Point } => entry.point !== null)
+        .map(({ action, point }) => ({ zone: action.zone, ...rotatePoint(point, history.rotation) })),
+    [ofKind, history.rotation],
+  );
 
   const zoneOptions: PillOption<string>[] = ranked.map((name) => ({ value: name, label: name, count: countOf(name) }));
   if (filters.zone !== null && !ranked.includes(filters.zone)) zoneOptions.push({ value: filters.zone, label: filters.zone, count: 0 });
@@ -168,15 +173,9 @@ export function MapHistoryView({ history, mapName, season, onOpenRound }: Props)
       <div className="maphist-side">
         <div className={`minimap maphist-map${filters.zone ? " has-focus" : ""}`}>
           {history.minimap && (
-            <img src={history.minimap} alt={t(`Minimap de ${mapName}`, `${mapName} minimap`)} style={rotationStyle(history.rotation)} />
+            <img src={history.minimap} alt={t(`Minimap de ${mapName}`, `${mapName} minimap`)} width={1024} height={1024} decoding="async" {...fadeIn} style={rotationStyle(history.rotation)} />
           )}
-          {dots.map((dot, index) => (
-            <span
-              key={index}
-              className={`maphist-dot ${kind}${filters.zone && dot.zone === filters.zone ? " in-zone" : ""}`}
-              style={{ left: pctOf(dot.x), top: pctOf(dot.y) }}
-            />
-          ))}
+          <PointCanvas points={dots} focus={filters.zone} className={`maphist-dots ${kind}`} opacity={0.75} focusScale={1.6} bleed={4} />
           {bubbles.map((zone) => {
             const stats = zoneStats.get(zone.name);
             const size = Math.round(22 + 18 * Math.sqrt(zone.count / top));
@@ -422,7 +421,7 @@ function ActionModal({ action, game, minimap, rotation, position, count, catalog
         <div className="maphist-modal-body">
           <div className="stack" style={{ gap: 10 }}>
             <div className="minimap maphist-modal-map">
-              {minimap && <img src={minimap} alt={t("Minimap", "Minimap")} style={rotationStyle(rotation)} />}
+              {minimap && <img src={minimap} alt={t("Minimap", "Minimap")} width={1024} height={1024} decoding="async" {...fadeIn} style={rotationStyle(rotation)} />}
               {me || opponent ? (
                 <>
                   {me && opponent && (

@@ -6,6 +6,7 @@ import { useQuery } from "../lib/query";
 import { queries } from "../lib/queries";
 import { FilterPill, type PillOption } from "./FilterPill";
 import { Icon } from "./Icon";
+import { repeat, SkeletonBlock } from "./Skeleton";
 
 export type ExtraFilters = Omit<OverviewFilters, "season">;
 
@@ -30,10 +31,12 @@ type Props = {
 };
 
 export function MatchFilters({ puuid, value, onChange }: Props) {
-  const options = useQuery(queries.filterOptions(puuid)).data ?? null;
+  const query = useQuery(queries.filterOptions(puuid));
+  const options = query.data ?? null;
 
   return (
     <div className="chips" role="group" aria-label={t("Filtres", "Filters")}>
+      {query.pending && query.error === null && repeat(3, (index) => <SkeletonBlock key={index} width={[96, 104, 90][index]} height={34} radius={999} />)}
       {(options?.maps.length ?? 0) > 1 && (
         <FilterPill
           label={t("Map", "Map")}

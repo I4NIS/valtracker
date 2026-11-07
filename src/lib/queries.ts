@@ -1,6 +1,7 @@
 import { getAgentStats } from "./agents";
 import { api, type HeatmapFilters, type OverviewFilters } from "./api";
 import { getDuels } from "./duels";
+import { whenIdle } from "./idle";
 import { favorites } from "./favorites";
 import { journal } from "./journal";
 import { getMapHistory, getMapStats } from "./mapStats";
@@ -12,6 +13,8 @@ type Season = string | null;
 const s = (season: Season) => season ?? "all";
 
 export const ALL_ACCOUNTS = "all";
+
+export const RECENT_PAGE = 20;
 
 export const NO_FILTERS: OverviewFilters = { season: null, mapId: null, agentId: null, role: null, days: null, party: null };
 
@@ -60,17 +63,44 @@ export function defaultSeason(puuid: string): Season | undefined {
   return list === undefined ? undefined : (list[0]?.short ?? null);
 }
 
-export async function prefetchAccount(puuid: string) {
+const NEEDS: Record<string, string[]> = {
+  home: ["overview|", "recent|", "flaws|", "thresholds", "filterOptions|"],
+  matches: ["recent|", "filterOptions|"],
+  progress: ["progression|", "thresholds"],
+  agents: ["agents|"],
+  maps: ["maps|"],
+  weapons: ["weapons|"],
+  duels: ["duels|"],
+  journal: ["journal|"],
+  settings: ["thresholds"],
+};
+
+let run = 0;
+
+export async function prefetchAccount(puuid: string, page = "home") {
+  run += 1;
+  const id = run;
   await prefetch(queries.seasons(puuid));
   const current = defaultSeason(puuid) ?? null;
   const tasks: Query<unknown>[] = [
     queries.overview(puuid, { ...NO_FILTERS, season: current }),
     queries.filterOptions(puuid),
-    queries.recent(puuid, 10),
-    queries.recent(puuid, 20),
+    queries.recent(puuid, RECENT_PAGE),
+    queries.thresholds(),
     ...(puuid === ALL_ACCOUNTS ? [] : accountOnly(puuid, current)),
   ];
-  for (const task of tasks) await prefetch(task);
+  const needs = NEEDS[page] ?? [];
+  const urgent = tasks.filter((task) => needs.some((prefix) => task.key.startsWith(prefix)));
+  const later = tasks.filter((task) => !urgent.includes(task));
+  for (const task of urgent) {
+    if (id !== run) return;
+    await prefetch(task);
+  }
+  for (const task of later) {
+    await whenIdle();
+    if (id !== run) return;
+    await prefetch(task);
+  }
 }
 
 function accountOnly(puuid: string, current: Season): Query<unknown>[] {

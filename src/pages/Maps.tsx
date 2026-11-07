@@ -1,6 +1,7 @@
 import "../styles/maps.css";
 import { useEffect, useMemo, useState } from "react";
-import { Art } from "../components/GameArt";
+import { Art, ThumbArt } from "../components/GameArt";
+import { repeat, SkeletonBlock, SkeletonGroup, SkeletonLine } from "../components/Skeleton";
 import { Icon } from "../components/Icon";
 import { MapHistoryView } from "../components/MapHistoryView";
 import { SeasonPicker } from "../components/SeasonPicker";
@@ -85,7 +86,13 @@ export function Maps({ account, onOpenRound }: Props) {
       {error && !maps && <p className="form-error">{error}</p>}
 
       {!maps ? (
-        <div className="empty">{t("Chargement de tes maps...", "Loading your maps...")}</div>
+        error ? null : (
+          <SkeletonGroup className="mapstat-grid" label={t("Chargement de tes maps", "Loading your maps")}>
+            {repeat(8, (index) => (
+              <SkeletonBlock key={index} height={128} radius={16} />
+            ))}
+          </SkeletonGroup>
+        )
       ) : maps.length === 0 ? (
         <div className="empty">{t("Aucun match compétitif synchronisé sur cette période.", "No competitive matches synced for this period.")}</div>
       ) : (
@@ -101,7 +108,7 @@ export function Maps({ account, onOpenRound }: Props) {
                 onFocus={() => warm(map.mapId)}
                 onClick={() => choose(map.mapId)}
               >
-                <Art src={map.splash ?? mapArt(map.mapId, "splash")} width={380} height={256} alt="" className="mapstat-card-art" />
+                <ThumbArt src={map.splash ?? mapArt(map.mapId, "splash")} width={384} height={128} alt="" className="mapstat-card-art" />
                 {map.rrMatches > 0 && (
                   <span className={`mapstat-card-rr ${rrTone(map.rrNet)}`}>{signed(map.rrNet)} RR</span>
                 )}
@@ -219,9 +226,54 @@ function MapView({ puuid, map, season, onBack, onOpenRound }: MapViewProps) {
         ) : history.error ? (
           <p className="form-error">{history.error}</p>
         ) : (
-          <div className="empty">{t("Chargement de l'historique...", "Loading the history...")}</div>
+          <MapHistorySkeleton />
         ))}
     </div>
+  );
+}
+
+function MapHistorySkeleton() {
+  return (
+    <SkeletonGroup className="maphist" label={t("Chargement de l'historique", "Loading the history")}>
+      <div className="maphist-side">
+        <SkeletonBlock height="auto" radius={16} style={{ aspectRatio: "1 / 1" }} />
+        <div className="stack" style={{ gap: 8 }}>
+          <SkeletonLine width={140} size={12} />
+          {repeat(5, (index) => (
+            <div className="row between" key={index} style={{ padding: "4px 10px" }}>
+              <SkeletonLine width={`${60 - index * 6}%`} size={14} />
+              <SkeletonLine width={56} size={14} />
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="maphist-main">
+        <div className="row between wrap" style={{ gap: 12 }}>
+          <SkeletonBlock width={230} height={36} radius={999} />
+          <SkeletonLine width={150} size={14} />
+        </div>
+        <div className="chips">
+          {repeat(5, (index) => (
+            <SkeletonBlock key={index} width={index === 0 ? 120 : 100} height={32} radius={999} />
+          ))}
+        </div>
+        <div className="maphist-list" aria-hidden="true">
+          {repeat(8, (index) => (
+            <div className="maphist-row" key={index}>
+              <span className="stack" style={{ gap: 4 }}>
+                <SkeletonLine width={48} size={14} />
+                <SkeletonLine width={40} size={12} />
+              </span>
+              <SkeletonBlock width={28} height={28} radius="50%" />
+              <SkeletonLine width={index % 2 ? "64%" : "52%"} size={14} />
+              <SkeletonLine width={64} size={13} />
+              <SkeletonLine width={36} size={13} />
+              <SkeletonLine width={40} size={13} />
+            </div>
+          ))}
+        </div>
+      </div>
+    </SkeletonGroup>
   );
 }
 

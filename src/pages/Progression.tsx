@@ -2,15 +2,17 @@ import "../styles/progression.css";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { ExportRecapButton } from "../components/ExportRecap";
 import { SeasonPicker } from "../components/SeasonPicker";
+import { repeat, SkeletonBlock, SkeletonGroup, SkeletonLine } from "../components/Skeleton";
 import type { Account, GameSummary, RrPoint } from "../lib/api";
 import { tierNameById } from "../lib/assets";
-import { fmt, fullDate, pct, signed, tradeWindowText } from "../lib/format";
-import { locale, t } from "../lib/i18n";
+import { fmt, formatDate, fullDate, pct, signed, tradeWindowText } from "../lib/format";
+import { t } from "../lib/i18n";
 import { useQuery } from "../lib/query";
 import { defaultSeason, queries } from "../lib/queries";
 
 const RECENT = 20;
 const GAUGE_LENGTH = 283;
+const DAY_SHORT: Intl.DateTimeFormatOptions = { day: "numeric", month: "short" };
 
 type Props = {
   account: Account;
@@ -49,7 +51,7 @@ export function Progression({ account }: Props) {
       {error && <p className="form-error">{error}</p>}
 
       {!data ? (
-        <div className="empty">{t("Chargement de ta progression...", "Loading your progression...")}</div>
+        error ? null : <ProgressionSkeleton />
       ) : games.length === 0 ? (
         <div className="empty">{t("Aucun match compétitif synchronisé sur cette période.", "No competitive matches synced for this period.")}</div>
       ) : (
@@ -177,6 +179,68 @@ export function Progression({ account }: Props) {
         </>
       )}
     </div>
+  );
+}
+
+function ProgressionSkeleton() {
+  return (
+    <SkeletonGroup className="stack" style={{ gap: 28 }} label={t("Chargement de ta progression", "Loading your progression")}>
+      <div className="stat-grid prog-stats" style={{ alignItems: "start" }}>
+        <div className="row" style={{ gap: 18 }}>
+          <SkeletonBlock width={120} height={72} radius="72px 72px 12px 12px" />
+          <div className="stack" style={{ gap: 6, flex: 1 }}>
+            <SkeletonLine width={70} size={17} />
+            <SkeletonLine width="86%" size={13} />
+            <SkeletonLine width="60%" size={13} />
+          </div>
+        </div>
+        {repeat(2, (index) => (
+          <div className="stack" key={index}>
+            <SkeletonLine width={80} size={13} />
+            <SkeletonLine width={110} size={24} />
+            <SkeletonLine width="92%" size={13} />
+            <SkeletonLine width="70%" size={13} />
+          </div>
+        ))}
+      </div>
+      <div className="prog-main">
+        <section className="panel stack" style={{ gap: 12 }}>
+          <div className="section-head">
+            <SkeletonLine width={40} size={19} />
+            <SkeletonLine width={120} size={14} />
+          </div>
+          <SkeletonBlock height={240} radius={12} />
+        </section>
+        <section className="stack" style={{ gap: 12 }}>
+          <SkeletonLine width={90} size={19} />
+          <div className="records">
+            {repeat(4, (index) => (
+              <div key={index}>
+                <SkeletonLine width="50%" size={12} />
+                <SkeletonLine width="42%" size={18} />
+                <SkeletonLine width="64%" size={12} />
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
+      <div className="stat-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 40 }}>
+        {repeat(3, (chart) => (
+          <div className="stack" style={{ gap: 10 }} key={chart}>
+            <div className="row between" style={{ alignItems: "center" }}>
+              <SkeletonLine width={110} size={16} />
+              <SkeletonLine width={54} size={22} />
+            </div>
+            <div className="bars-chart" aria-hidden="true">
+              {repeat(RECENT, (bar) => (
+                <SkeletonBlock key={bar} width="auto" height={`${30 + ((bar * 37 + chart * 11) % 60)}%`} radius={3} />
+              ))}
+            </div>
+            <SkeletonLine width="80%" size={12} />
+          </div>
+        ))}
+      </div>
+    </SkeletonGroup>
   );
 }
 
@@ -356,7 +420,7 @@ function RrChart({ points }: { points: RrPoint[] }) {
   const change = point?.change ?? null;
   const first = new Date(valid[0].date);
   const last = new Date(valid[valid.length - 1].date);
-  const short = (date: Date) => date.toLocaleDateString(locale(), { day: "numeric", month: "short" });
+  const short = (date: Date) => formatDate(date, DAY_SHORT);
 
   return (
     <div className="stack" style={{ gap: 8 }}>

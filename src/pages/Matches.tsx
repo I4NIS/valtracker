@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
 import { type ExtraFilters, hasExtra, MatchFilters, NO_EXTRA } from "../components/MatchFilters";
-import { MatchList } from "../components/MatchList";
+import { MatchList, MatchListSkeleton } from "../components/MatchList";
 import { SeasonPicker } from "../components/SeasonPicker";
 import type { Account } from "../lib/api";
 import { t } from "../lib/i18n";
 import { useQuery } from "../lib/query";
-import { ALL_ACCOUNTS, queries } from "../lib/queries";
+import { ALL_ACCOUNTS, queries, RECENT_PAGE } from "../lib/queries";
 
-const PAGE = 20;
+const PAGE = RECENT_PAGE;
 
 type Props = {
   account: Account;
@@ -29,8 +29,8 @@ export function Matches({ account, accounts, onOpen }: Props) {
   const { season, extra, count } = view;
   const query = useQuery(queries.recent(puuid, count, 0, { ...extra, season }));
   const matches = query.data ?? [];
-  const loading = query.pending;
   const error = query.error;
+  const loading = query.pending && error === null;
   const done = !loading && matches.length < count;
   const filtered = season !== null || hasExtra(extra);
 
@@ -57,7 +57,9 @@ export function Matches({ account, accounts, onOpen }: Props) {
         <MatchFilters puuid={puuid} value={extra} onChange={(next) => setView({ ...view, extra: next, count: PAGE })} />
       </div>
       {error && <p className="form-error">{error}</p>}
-      {matches.length === 0 && !loading ? (
+      {matches.length === 0 && loading ? (
+        <MatchListSkeleton rows={PAGE} />
+      ) : matches.length === 0 ? (
         <div className="empty">
           {filtered
             ? t("Aucun match ne correspond à ces filtres.", "No matches fit these filters.")
@@ -65,10 +67,13 @@ export function Matches({ account, accounts, onOpen }: Props) {
         </div>
       ) : (
         <section className="stack" style={{ gap: 16 }}>
-          <MatchList matches={matches} accounts={accounts} onOpen={(matchId, owner) => onOpen(matchId, undefined, owner)} />
+          <div className="stack" style={{ gap: 0 }}>
+            <MatchList matches={matches} accounts={accounts} onOpen={(matchId, owner) => onOpen(matchId, undefined, owner)} />
+            {loading && <MatchListSkeleton rows={5} head={false} />}
+          </div>
           {!done && (
             <button type="button" className="btn btn-secondary" style={{ alignSelf: "center" }} onClick={more} disabled={loading}>
-              {loading ? t("Chargement...", "Loading...") : t("Afficher plus", "Show more")}
+              {t("Afficher plus", "Show more")}
             </button>
           )}
         </section>

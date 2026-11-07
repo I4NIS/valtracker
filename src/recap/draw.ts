@@ -1,7 +1,7 @@
 import type { Account } from "../lib/api";
 import { tierIcon, tierLabel, tierNameById } from "../lib/assets";
-import { fmt } from "../lib/format";
-import { lang, locale, t } from "../lib/i18n";
+import { fmt, formatDate } from "../lib/format";
+import { lang, t } from "../lib/i18n";
 import type { RankPoint } from "../lib/recap";
 
 export const W = 1600;
@@ -301,18 +301,22 @@ export function playTime(ms: number): string {
   return rest ? `${hours} h ${String(rest).padStart(2, "0")}` : `${hours} h`;
 }
 
+const DAY: Intl.DateTimeFormatOptions = { day: "numeric", month: "long" };
+const LONG_DAY: Intl.DateTimeFormatOptions = { day: "numeric", month: "long", year: "numeric" };
+const HOUR: Intl.DateTimeFormatOptions = { hour: "2-digit", minute: "2-digit" };
+
 export function dayLabel(iso: string | null | undefined, year = false): string {
   if (!iso) return "";
-  return new Date(iso).toLocaleDateString(locale(), year ? { day: "numeric", month: "long", year: "numeric" } : { day: "numeric", month: "long" });
+  return formatDate(new Date(iso), year ? LONG_DAY : DAY);
 }
 
 export function timeLabel(iso: string | null | undefined): string {
   if (!iso) return "";
-  return new Date(iso).toLocaleTimeString(locale(), { hour: "2-digit", minute: "2-digit" });
+  return formatDate(new Date(iso), HOUR);
 }
 
 export function today(): string {
-  return new Date().toLocaleDateString(locale(), { day: "numeric", month: "long", year: "numeric" });
+  return formatDate(new Date(), LONG_DAY);
 }
 
 export function plural(count: number, one: string, many = `${one}s`): string {

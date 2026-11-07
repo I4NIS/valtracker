@@ -1,15 +1,17 @@
-import { Fragment, useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { CommandPalette, useCommandPaletteShortcut } from "./components/CommandPalette";
+import { loadExportDialog } from "./components/ExportRecap";
 import { PickAccount } from "./components/PickAccount";
-import { Shell, type Page, type SyncView, type TourTarget } from "./components/Shell";
+import { Shell, type Page, type TourTarget } from "./components/Shell";
 import { TitleBar } from "./components/TitleBar";
-import { Tour } from "./components/Tour";
 import { UpdateBanner } from "./components/UpdateBanner";
+import { whenIdle } from "./lib/idle";
 import { listen } from "@tauri-apps/api/event";
 import { asLang, setLang, type Lang } from "./lib/i18n";
 import { api, errorMessage, onSyncProgress, type Account, type Bootstrap, type Theme } from "./lib/api";
 import { ALL_ACCOUNTS, prefetchAccount } from "./lib/queries";
 import { invalidate } from "./lib/query";
+import { updateSync } from "./lib/sync";
 import { Agents } from "./pages/Agents";
 import { Duels } from "./pages/Duels";
 import { Heatmaps } from "./pages/Heatmaps";
@@ -19,13 +21,38 @@ import { Maps } from "./pages/Maps";
 import { Progression } from "./pages/Progression";
 import { MatchDetail } from "./pages/MatchDetail";
 import { Matches } from "./pages/Matches";
-import { Onboarding } from "./pages/Onboarding";
-import { Settings } from "./pages/Settings";
 import { Weapons } from "./pages/Weapons";
 
-const IDLE: SyncView = { running: false, stage: "", newMatches: 0, error: null, lastSyncAt: null };
+const loadOnboarding = () => import("./pages/Onboarding");
+const loadSettings = () => import("./pages/Settings");
+const loadTour = () => import("./components/Tour");
+
+const Onboarding = lazy(() => loadOnboarding().then((module) => ({ default: module.Onboarding })));
+const Settings = lazy(() => loadSettings().then((module) => ({ default: module.Settings })));
+const Tour = lazy(() => loadTour().then((module) => ({ default: module.Tour })));
+
+function preloadRareScreens() {
+  const steps: (() => Promise<unknown>)[] = [loadSettings, loadExportDialog, loadTour, loadOnboarding];
+  steps.reduce<Promise<unknown>>((chain, step) => chain.then(() => whenIdle()).then(step).catch(() => undefined), Promise.resolve());
+}
 
 const SINGLE_ACCOUNT_PAGES: Page[] = ["progress", "agents", "maps", "weapons", "duels", "heatmaps", "journal"];
+
+function shallowEqual<T extends object>(a: T, b: T): boolean {
+  const keys = Object.keys(b) as (keyof T)[];
+  return keys.length === Object.keys(a).length && keys.every((key) => a[key] === b[key]);
+}
+
+function keepSame(current: Bootstrap | null, next: Bootstrap): Bootstrap {
+  if (!current) return next;
+  const accounts = next.accounts.map((item) => {
+    const old = current.accounts.find((entry) => entry.puuid === item.puuid);
+    return old && shallowEqual(old, item) ? old : item;
+  });
+  const sameList = accounts.length === current.accounts.length && accounts.every((item, index) => item === current.accounts[index]);
+  const merged = { ...next, accounts: sameList ? current.accounts : accounts };
+  return shallowEqual(current, merged) ? current : merged;
+}
 
 export default function App() {
   const [boot, setBoot] = useState<Bootstrap | null>(null);
@@ -33,16 +60,18 @@ export default function App() {
   const [theme, setTheme] = useState<Theme>("dark");
   const [language, setLanguage] = useState<Lang>("fr");
   const [page, setPage] = useState<Page>("home");
+  const pageRef = useRef(page);
+  pageRef.current = page;
   const [openMatch, setOpenMatch] = useState<string | null>(null);
   const [openMatchOwner, setOpenMatchOwner] = useState<string | null>(null);
   const [openRound, setOpenRound] = useState<number | undefined>(undefined);
   const [openDeath, setOpenDeath] = useState(false);
-  const [sync, setSync] = useState<SyncView>(IDLE);
   const [refreshKey, setRefreshKey] = useState(0);
   const [tourOpen, setTourOpen] = useState(false);
   const [tourTarget, setTourTarget] = useState<TourTarget | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const launched = useRef(false);
+  const themeRef = useRef<Theme>("dark");
 
   useCommandPaletteShortcut(setPaletteOpen);
 
@@ -51,7 +80,8 @@ export default function App() {
     const nextLang = asLang(data.language);
     setLang(nextLang);
     setLanguage(nextLang);
-    setBoot(data);
+    setBoot((current) => keepSame(current, data));
+    themeRef.current = data.theme;
     setTheme(data.theme);
     return data;
   }, []);
@@ -61,6 +91,10 @@ export default function App() {
   }, [load]);
 
   useEffect(() => {
+    preloadRareScreens();
+  }, []);
+
+  useEffect(() => {
     document.documentElement.dataset.theme = theme;
   }, [theme]);
 
@@ -68,34 +102,27 @@ export default function App() {
     document.querySelector(".main")?.scrollTo({ top: 0 });
   }, [page, openMatch]);
 
-  const navigate = (next: Page) => {
+  const navigate = useCallback((next: Page) => {
     setOpenMatch(null);
     setPage(next);
-  };
+  }, []);
 
-  const showMatch = (matchId: string, round?: number, puuid?: string, death = false) => {
+  const showMatch = useCallback((matchId: string, round?: number, puuid?: string, death = false) => {
     setPage("matches");
     setOpenMatch(matchId);
     setOpenRound(round);
     setOpenMatchOwner(puuid ?? null);
     setOpenDeath(death);
-  };
+  }, []);
 
   useEffect(() => {
-    let stop: (() => void) | undefined;
-    onSyncProgress((progress) => {
-      setSync((current) => ({
-        ...current,
-        running: progress.running,
-        stage: progress.stage,
-        newMatches: progress.newMatches,
-        error: progress.error,
-      }));
+    const stop = onSyncProgress((progress) => {
+      updateSync({ running: progress.running, stage: progress.stage, newMatches: progress.newMatches, error: progress.error });
       if (!progress.running) load().catch(() => undefined);
-    }).then((unlisten) => {
-      stop = unlisten;
     });
-    return () => stop?.();
+    return () => {
+      stop.then((unlisten) => unlisten());
+    };
   }, [load]);
 
   useEffect(() => {
@@ -114,13 +141,13 @@ export default function App() {
   const single = combined ? null : account;
 
   useEffect(() => {
-    if (combined) prefetchAccount(ALL_ACCOUNTS).catch(() => undefined);
-    else if (account) prefetchAccount(account.puuid).catch(() => undefined);
+    if (combined) prefetchAccount(ALL_ACCOUNTS, pageRef.current).catch(() => undefined);
+    else if (account) prefetchAccount(account.puuid, pageRef.current).catch(() => undefined);
   }, [account?.puuid, combined !== null, refreshKey]);
   const needsSetup = boot !== null && (!boot.hasApiKey || boot.accounts.length === 0);
 
   useEffect(() => {
-    setSync((current) => ({ ...current, lastSyncAt: account?.lastSyncAt ?? null }));
+    updateSync({ lastSyncAt: account?.lastSyncAt ?? null });
   }, [account?.lastSyncAt]);
 
   const runSync = useCallback(async () => {
@@ -141,10 +168,15 @@ export default function App() {
     api.setPreference("language", next).catch(() => undefined);
   };
 
-  const changeTheme = (next: Theme) => {
+  const changeTheme = useCallback((next: Theme) => {
+    themeRef.current = next;
     setTheme(next);
     api.setPreference("theme", next).catch(() => undefined);
-  };
+  }, []);
+
+  const toggleTheme = useCallback(() => changeTheme(themeRef.current === "dark" ? "light" : "dark"), [changeTheme]);
+  const closePalette = useCallback(() => setPaletteOpen(false), []);
+  const replayTour = useCallback(() => setTourOpen(true), []);
 
   const changeNotify = (next: boolean) => {
     setBoot((current) => (current ? { ...current, notifyMatches: next } : current));
@@ -193,7 +225,13 @@ export default function App() {
 
   if (!boot) return null;
 
-  if (needsSetup) return <Onboarding hasApiKey={boot.hasApiKey} onDone={finishSetup} />;
+  if (needsSetup) {
+    return (
+      <Suspense fallback={null}>
+        <Onboarding hasApiKey={boot.hasApiKey} onDone={finishSetup} />
+      </Suspense>
+    );
+  }
 
   return (
     <Fragment key={language}>
@@ -203,8 +241,7 @@ export default function App() {
         account={account}
         combinedCount={combined?.length ?? 0}
         theme={theme}
-        onToggleTheme={() => changeTheme(theme === "dark" ? "light" : "dark")}
-        sync={sync}
+        onToggleTheme={toggleTheme}
         onSync={runSync}
         tourTarget={tourOpen ? tourTarget : null}
         onSearch={() => setPaletteOpen(true)}
@@ -227,34 +264,39 @@ export default function App() {
           <MatchDetail account={matchAccount} matchId={openMatch} initialRound={openRound} initialDeath={openDeath} onBack={() => setOpenMatch(null)} />
         )}
         {page === "settings" && (
-          <Settings
-            accounts={boot.accounts}
-            activePuuid={boot.activePuuid}
-            combined={combined !== null}
-            theme={theme}
-            onTheme={changeTheme}
-            language={language}
-            onLanguage={changeLanguage}
-            notifyMatches={boot.notifyMatches}
-            onNotifyMatches={changeNotify}
-            onAccountsChanged={accountsChanged}
-            onCombined={showCombined}
-            onReplayTour={() => setTourOpen(true)}
-          />
+          <Suspense fallback={null}>
+            <Settings
+              accounts={boot.accounts}
+              activePuuid={boot.activePuuid}
+              combined={combined !== null}
+              theme={theme}
+              onTheme={changeTheme}
+              language={language}
+              onLanguage={changeLanguage}
+              notifyMatches={boot.notifyMatches}
+              onNotifyMatches={changeNotify}
+              onAccountsChanged={accountsChanged}
+              onCombined={showCombined}
+              onReplayTour={replayTour}
+            />
+          </Suspense>
         )}
       </Shell>
-      {tourOpen && <Tour onTarget={setTourTarget} onClose={closeTour} />}
+      {tourOpen && (
+        <Suspense fallback={null}>
+          <Tour onTarget={setTourTarget} onClose={closeTour} />
+        </Suspense>
+      )}
       <CommandPalette
         open={paletteOpen}
-        onClose={() => setPaletteOpen(false)}
+        onClose={closePalette}
         account={account}
         theme={theme}
-        syncing={sync.running}
         onNavigate={navigate}
         onOpenMatch={showMatch}
-        onToggleTheme={() => changeTheme(theme === "dark" ? "light" : "dark")}
+        onToggleTheme={toggleTheme}
         onSync={runSync}
-        onReplayTour={() => setTourOpen(true)}
+        onReplayTour={replayTour}
       />
       <UpdateBanner />
     </Fragment>

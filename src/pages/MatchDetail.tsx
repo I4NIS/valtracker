@@ -2,11 +2,13 @@ import { useEffect, useState } from "react";
 import { DeathReview } from "../components/DeathReview";
 import { ExportRecapButton } from "../components/ExportRecap";
 import { FavoriteButton } from "../components/FavoriteButton";
+import { fadeIn } from "../components/GameArt";
 import { Icon } from "../components/Icon";
 import { NoteEditor } from "../components/NoteEditor";
 import type { Account, RoundLine } from "../lib/api";
 import { RankBadge } from "../components/RankBadge";
 import { RoundDetail } from "../components/RoundDetail";
+import { repeat, SkeletonBlock, SkeletonGroup, SkeletonLine } from "../components/Skeleton";
 import { agentIcon } from "../lib/assets";
 import { duration, fmt, fullDate, pct, placeLabel, roleLabel, scoreTone, signed } from "../lib/format";
 import { t } from "../lib/i18n";
@@ -66,10 +68,66 @@ export function MatchDetail({ account, matchId, initialRound, initialDeath, onBa
 
   if (!detail) {
     return (
-      <div className="content">
-        <BackButton onBack={onBack} />
-        <div className="empty">{t("Analyse du match...", "Analyzing the match...")}</div>
-      </div>
+      <SkeletonGroup className="content match-detail" label={t("Analyse du match", "Analyzing the match")}>
+        <header className="match-hero">
+          <BackButton onBack={onBack} />
+          <SkeletonBlock width={60} height={60} radius={12} />
+          <div className="stack" style={{ gap: 8, flex: "1 1 280px", minWidth: 0 }}>
+            <SkeletonLine width={180} size={30} lineHeight={1.05} />
+            <SkeletonLine width="56%" size={14} />
+          </div>
+          <div className="row wrap" style={{ gap: 8 }}>
+            <SkeletonBlock width={150} height={38} radius={10} />
+            <SkeletonBlock width={140} height={38} radius={10} />
+            <SkeletonBlock width={110} height={38} radius={10} />
+          </div>
+        </header>
+        <SkeletonBlock width={380} height={36} radius={999} />
+        <div className="stat-grid match-stats">
+          {repeat(4, (index) => (
+            <div className="stack" key={index}>
+              <SkeletonLine width="44%" size={13} />
+              <SkeletonLine width="38%" size={24} />
+              <SkeletonLine width="66%" size={13} />
+            </div>
+          ))}
+        </div>
+        <section className="stack" style={{ gap: 10 }}>
+          <SkeletonLine width={90} size={19} />
+          <div className="timeline">
+            {repeat(22, (index) => (
+              <div className={`round${index === 12 ? " half" : ""}`} key={index}>
+                <SkeletonBlock width={12} height={20 + ((index * 7) % 19)} radius={3} />
+                <SkeletonBlock width={14} height={14} radius="50%" />
+              </div>
+            ))}
+          </div>
+        </section>
+        <div className="summary-teams">
+          {repeat(2, (team) => (
+            <section className="stack" style={{ gap: 4, minWidth: 0 }} key={team}>
+              <div className="section-head">
+                <SkeletonLine width={120} size={19} />
+              </div>
+              {repeat(5, (row) => (
+                <div className="score-row" key={row}>
+                  <SkeletonBlock width={30} height={30} radius={6} />
+                  <span className="stack" style={{ gap: 4 }}>
+                    <SkeletonLine width={`${70 - row * 7}%`} size={14} />
+                    <SkeletonLine width="40%" size={12} />
+                  </span>
+                  <SkeletonBlock width={24} height={24} radius="50%" />
+                  <SkeletonLine width={26} size={14} />
+                  <SkeletonLine width={70} size={14} />
+                  <SkeletonLine width={30} size={14} />
+                  <SkeletonLine width={30} size={14} />
+                  <SkeletonLine width={32} size={14} />
+                </div>
+              ))}
+            </section>
+          ))}
+        </div>
+      </SkeletonGroup>
     );
   }
 
@@ -79,7 +137,7 @@ export function MatchDetail({ account, matchId, initialRound, initialDeath, onBa
     <div className="content match-detail">
       <header className="match-hero">
         <BackButton onBack={onBack} />
-        {agentIcon(detail.agentId) && <img src={agentIcon(detail.agentId)} alt={detail.agentName ?? ""} />}
+        {agentIcon(detail.agentId) && <img src={agentIcon(detail.agentId)} alt={detail.agentName ?? ""} width={60} height={60} decoding="async" {...fadeIn} />}
         <div className="stack" style={{ gap: 4, flex: "1 1 280px", minWidth: 0 }}>
           <h1 className="match-title">{detail.mapName ?? t("Map inconnue", "Unknown map")}</h1>
           <span className="muted">
@@ -203,7 +261,7 @@ export function MatchDetail({ account, matchId, initialRound, initialDeath, onBa
                     </div>
                     {team.players.map((player) => (
                       <div className={`score-row${player.isMe ? " me" : ""}`} key={player.puuid}>
-                        {agentIcon(player.agentId) ? <img src={agentIcon(player.agentId)} alt={player.agentName ?? ""} /> : <span />}
+                        {agentIcon(player.agentId) ? <img src={agentIcon(player.agentId)} alt={player.agentName ?? ""} width={36} height={36} loading="lazy" decoding="async" {...fadeIn} /> : <span />}
                         <span className="stack" style={{ gap: 0, minWidth: 0 }}>
                           <strong className="ellipsis">{player.name}</strong>
                           <span className="faint ellipsis" style={{ fontSize: 12 }}>

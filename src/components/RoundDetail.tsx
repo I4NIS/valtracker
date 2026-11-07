@@ -7,7 +7,7 @@ import { findAbility, useAgentCatalog, weaponArt, type Catalog } from "../lib/ga
 import { t } from "../lib/i18n";
 import { rotatePoint, rotationStyle } from "../lib/minimap";
 import { FavoriteButton } from "./FavoriteButton";
-import { Art, KillMeans, meansLabel, SpikeGlyph } from "./GameArt";
+import { Art, fadeIn, KillMeans, meansLabel, SpikeGlyph } from "./GameArt";
 import { Icon } from "./Icon";
 
 const ARMOR: Record<string, string> = {
@@ -191,7 +191,7 @@ function RoundMap({ events, minimap, rotation, focus, catalog, onHover, onPick }
   return (
     <div className="stack" style={{ gap: 10, minWidth: 0 }}>
       <div className={`minimap round-map${shown ? " has-focus" : ""}`} onMouseLeave={() => onHover(null)}>
-        {minimap && <img src={minimap} alt={t("Minimap", "Minimap")} style={rotationStyle(rotation)} />}
+        {minimap && <img src={minimap} alt={t("Minimap", "Minimap")} width={1024} height={1024} decoding="async" {...fadeIn} style={rotationStyle(rotation)} />}
         <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
           {marks.map(
             (mark) =>

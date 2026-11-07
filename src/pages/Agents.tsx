@@ -1,6 +1,7 @@
 import "../styles/agents.css";
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { Art } from "../components/GameArt";
+import { repeat, SkeletonBlock, SkeletonGroup, SkeletonLine } from "../components/Skeleton";
 import { Icon } from "../components/Icon";
 import { SeasonPicker } from "../components/SeasonPicker";
 import type { Account } from "../lib/api";
@@ -111,7 +112,7 @@ export function Agents({ account }: Props) {
       {error && !data && <p className="form-error">{error}</p>}
 
       {!data ? (
-        <div className="empty">{t("Chargement de tes agents...", "Loading your agents...")}</div>
+        error ? null : <AgentsSkeleton />
       ) : data.length === 0 ? (
         <div className="empty">{t("Aucun match compétitif synchronisé sur cette période.", "No competitive matches synced for this period.")}</div>
       ) : agents.length === 0 ? (
@@ -129,6 +130,34 @@ export function Agents({ account }: Props) {
         </div>
       )}
     </div>
+  );
+}
+
+function AgentsSkeleton() {
+  return (
+    <SkeletonGroup className="agent-grid" label={t("Chargement de tes agents", "Loading your agents")}>
+      {repeat(8, (index) => (
+        <div className="agent-card" key={index} aria-hidden="true">
+          <div className="row" style={{ gap: 12, alignItems: "center" }}>
+            <SkeletonBlock width={52} height={52} radius={14} />
+            <div className="stack agent-card-name">
+              <SkeletonLine width={index % 2 ? "64%" : "52%"} size={16} />
+              <SkeletonLine width="40%" size={12} />
+              <SkeletonLine width="34%" size={12} />
+            </div>
+            <SkeletonBlock width={52} height={52} radius="50%" />
+          </div>
+          <div className="agent-card-stats">
+            {repeat(4, (stat) => (
+              <div key={stat}>
+                <SkeletonLine width={26} size={12} />
+                <SkeletonLine width={38} size={15} />
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </SkeletonGroup>
   );
 }
 
