@@ -14,6 +14,7 @@ mod error;
 mod favorites;
 mod heatmap;
 mod henrik;
+mod http;
 mod models;
 mod notify;
 mod progression;

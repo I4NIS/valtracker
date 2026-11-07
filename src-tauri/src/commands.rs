@@ -87,7 +87,7 @@ pub async fn add_account(state: State<'_, AppState>, riot_id: String, region: St
     }
     let key = db::get_setting(&*state.conn()?, API_KEY_SETTING)?
         .ok_or_else(|| AppError::Invalid(tr("Ajoute d'abord ta clé API HenrikDev", "Add your HenrikDev API key first").into()))?;
-    let data = Henrik::new(key).account(&name, &tag).await?;
+    let data = Henrik::new(key)?.account(&name, &tag).await?;
     let conn = state.conn()?;
     let puuid = repo::upsert_account(&conn, &data, &region)?
         .ok_or_else(|| AppError::Api(tr("Réponse inattendue de l'API HenrikDev", "Unexpected response from the HenrikDev API").into()))?;

@@ -2,10 +2,10 @@ use reqwest::Client;
 use rusqlite::{Connection, params};
 use serde_json::Value;
 use std::collections::HashMap;
-use std::time::Duration;
 
 use crate::db;
-use crate::error::AppResult;
+use crate::error::{AppError, AppResult};
+use crate::http;
 use crate::state::AppState;
 
 const MAPS_URL: &str = "https://valorant-api.com/v1/maps";
@@ -89,12 +89,17 @@ pub async fn refresh_if_needed(state: &AppState) -> AppResult<()> {
     if !stale {
         return Ok(());
     }
-    let client = Client::builder().timeout(Duration::from_secs(30)).build().unwrap_or_default();
-    let maps: Value = client.get(MAPS_URL).send().await?.json().await?;
-    let agents: Value = client.get(AGENTS_URL).send().await?.json().await?;
+    let client = http::client()?;
+    let maps = fetch(&client, MAPS_URL).await?;
+    let agents = fetch(&client, AGENTS_URL).await?;
     let mut conn = state.conn()?;
     store(&mut conn, &maps, &agents)?;
     db::set_setting(&conn, REFRESHED_SETTING, &now.to_string())
+}
+
+async fn fetch(client: &Client, url: &str) -> AppResult<Value> {
+    let body = http::body(client.get(url).send().await?.error_for_status()?).await?;
+    serde_json::from_slice(&body).map_err(|err| AppError::Api(err.to_string()))
 }
 
 fn store(conn: &mut Connection, maps: &Value, agents: &Value) -> AppResult<()> {

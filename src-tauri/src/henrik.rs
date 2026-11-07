@@ -3,6 +3,7 @@ use serde_json::Value;
 use std::time::Duration;
 
 use crate::error::{AppError, AppResult};
+use crate::http;
 use crate::i18n::{english, tr};
 
 const BASE_URL: &str = "https://api.henrikdev.xyz/valorant/";
@@ -16,13 +17,8 @@ pub struct Henrik {
 }
 
 impl Henrik {
-    pub fn new(key: impl Into<String>) -> Self {
-        let client = Client::builder()
-            .timeout(Duration::from_secs(30))
-            .user_agent("Valtracker")
-            .build()
-            .unwrap_or_default();
-        Self { client, key: key.into() }
+    pub fn new(key: impl Into<String>) -> AppResult<Self> {
+        Ok(Self { client: http::client()?, key: key.into() })
     }
 
     pub async fn account(&self, name: &str, tag: &str) -> AppResult<Value> {
@@ -69,7 +65,7 @@ impl Henrik {
                 continue;
             }
             let remaining = header_secs(&response, "x-ratelimit-remaining");
-            let body: Value = response.json().await.unwrap_or(Value::Null);
+            let body: Value = serde_json::from_slice(&http::body(response).await?).unwrap_or(Value::Null);
             if !status.is_success() {
                 return Err(api_error(status, &body));
             }

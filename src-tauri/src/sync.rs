@@ -43,7 +43,7 @@ async fn sync(app: &AppHandle, state: &AppState, puuid: &str) -> AppResult<SyncR
             .ok_or_else(|| AppError::Invalid(tr("Compte introuvable", "Account not found").into()))?;
         (key, account, notify::has_matches(&conn, puuid)?)
     };
-    let api = Henrik::new(key);
+    let api = Henrik::new(key)?;
     let (region, platform) = (account.region.as_str(), account.platform.as_str());
 
     emit(app, puuid, tr("Données des maps", "Map data"), 0, true, None);
