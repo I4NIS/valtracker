@@ -32,7 +32,7 @@ export function MatchList({ matches, onOpen, startIndex = 0 }: Props) {
                 {timeAgo(game.startedAt)}
               </span>
             </span>
-            <strong className={game.won ? "good" : "bad"}>
+            <strong className={game.won ? "win" : "bad"}>
               {game.won ? "Victoire" : "Défaite"} {game.roundsWon}-{game.roundsLost}
             </strong>
             <span className="muted">

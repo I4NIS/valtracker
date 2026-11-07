@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
 import type { Account, Theme } from "../lib/api";
-import { tierIcon } from "../lib/assets";
 import { timeAgo } from "../lib/format";
 import { Icon, type IconName } from "./Icon";
+import { RankBadge } from "./RankBadge";
 import { TitleBar } from "./TitleBar";
 
 export type Page =
@@ -105,7 +105,7 @@ export function Shell({ page, onNavigate, account, theme, onToggleTheme, sync, o
             onClick={() => onNavigate("settings")}
             aria-label="Paramètres et comptes"
           >
-            <img src={tierIcon(account?.tier)} alt="" />
+            <RankBadge tier={account?.tier} size={36} />
             <span className="names">
               <strong>{account?.name ?? "Aucun compte"}</strong>
               <span className="faint">{account ? `#${account.tag}` : "Ajoute un compte"}</span>

@@ -1,0 +1,16 @@
+import { tierIcon, tierNameById } from "../lib/assets";
+
+type Props = {
+  tier: number | null | undefined;
+  size: number;
+  label?: string;
+};
+
+export function RankBadge({ tier, size, label }: Props) {
+  const name = label ?? tierNameById(tier);
+  return (
+    <span className="rank-badge" style={{ width: size, height: size }} title={name}>
+      <img src={tierIcon(tier)} alt={name} />
+    </span>
+  );
+}
