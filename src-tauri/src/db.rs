@@ -119,6 +119,8 @@ CREATE TABLE unavailable_matches (
     match_id TEXT PRIMARY KEY,
     checked_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+", "
+DELETE FROM matches WHERE queue IS NOT 'competitive';
 "];
 
 pub fn open(path: &Path) -> AppResult<Connection> {

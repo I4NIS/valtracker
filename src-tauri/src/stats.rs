@@ -74,12 +74,12 @@ pub fn recent_matches(conn: &Connection, puuid: &str, limit: i64, offset: i64) -
                 p.kills, p.deaths, p.assists, p.score * 1.0 / m.rounds, p.won, p.rounds_won, p.rounds_lost,
                 (SELECT COUNT(*) + 1 FROM match_players q WHERE q.match_id = p.match_id AND q.score > p.score)
          FROM match_players p JOIN matches m ON m.match_id = p.match_id
-         WHERE p.puuid = ?1
+         WHERE p.puuid = ?1 AND m.queue = ?4
          ORDER BY m.started_at DESC
          LIMIT ?2 OFFSET ?3",
     )?;
     let rows = stmt
-        .query_map(params![puuid, limit, offset], |row| {
+        .query_map(params![puuid, limit, offset, COMPETITIVE], |row| {
             Ok(RecentMatch {
                 match_id: row.get(0)?,
                 started_at: row.get(1)?,
