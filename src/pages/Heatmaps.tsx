@@ -1,6 +1,7 @@
 import "../styles/heatmap.css";
 import { useEffect, useMemo, useState } from "react";
 import { ThumbArt } from "../components/GameArt";
+import { PointCanvas } from "../components/PointCanvas";
 import { SeasonPicker } from "../components/SeasonPicker";
 import type { Account, HeatPoint, Heatmap } from "../lib/api";
 import { agentIcon, seasonLabel } from "../lib/assets";
@@ -145,7 +146,6 @@ export function Heatmaps({ account }: Props) {
   const top = zones[0]?.[1] ?? 1;
   const selectedMap = data?.maps.find((map) => map.id === data.mapId);
   const mapName = selectedMap?.name ?? "Heatmaps";
-  const pointClass = (base: string, pointZone: string | null) => (zone && pointZone === zone ? `${base} in-zone` : base);
 
   return (
     <div className="content heatmaps">
@@ -262,24 +262,7 @@ export function Heatmaps({ account }: Props) {
           <div className="review heat-layout">
             <div className={`minimap${zone ? " has-focus" : ""}`}>
               {data?.minimap && <img src={data.minimap} alt={t(`Minimap de ${mapName}`, `${mapName} minimap`)} style={rotationStyle(rotation)} />}
-              {points.map((point, i) => (
-                <span
-                  key={`b${i}`}
-                  className={pointClass("heat-blob", point.zone)}
-                  style={{
-                    left: `${point.x * 100}%`,
-                    top: `${point.y * 100}%`,
-                    background: `radial-gradient(circle, rgba(${style.color}, 0.55) 0%, rgba(${style.color}, 0) 70%)`,
-                  }}
-                />
-              ))}
-              {points.map((point, i) => (
-                <span
-                  key={`d${i}`}
-                  className={pointClass("heat-dot", point.zone)}
-                  style={{ left: `${point.x * 100}%`, top: `${point.y * 100}%`, background: `rgb(${style.color})` }}
-                />
-              ))}
+              <PointCanvas points={points} focus={zone} color={`rgb(${style.color})`} glow={style.color} focusScale={1.8} ring />
               {zone && zoneLabel && (
                 <span className="zone-pill" style={{ left: `${zoneLabel.x * 100}%`, top: `${zoneLabel.y * 100}%` }}>
                   {zone}

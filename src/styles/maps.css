@@ -587,28 +587,12 @@
   overflow: visible;
 }
 
-.maphist-dot {
-  position: absolute;
-  width: 5px;
-  height: 5px;
-  margin: -2.5px 0 0 -2.5px;
-  border-radius: 50%;
-  background: var(--bad);
-  opacity: 0.75;
-  pointer-events: none;
-  transition: opacity 0.2s ease, transform 0.2s ease;
+.maphist-dots {
+  color: var(--bad);
 }
 
-.maphist-dot.kill {
-  background: var(--good);
-}
-
-.minimap.has-focus .maphist-dot:not(.in-zone) {
-  opacity: 0.12;
-}
-
-.minimap.has-focus .maphist-dot.in-zone {
-  transform: scale(1.6);
+.maphist-dots.kill {
+  color: var(--good);
 }
 
 .maphist-zone {

@@ -1680,21 +1680,11 @@ a {
   object-fit: cover;
 }
 
-.heat-blob {
+.point-canvas {
   position: absolute;
-  width: 64px;
-  height: 64px;
-  margin: -32px 0 0 -32px;
-  border-radius: 50%;
-  pointer-events: none;
-}
-
-.heat-dot {
-  position: absolute;
-  width: 5px;
-  height: 5px;
-  margin: -2.5px 0 0 -2.5px;
-  border-radius: 50%;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   pointer-events: none;
 }
 
