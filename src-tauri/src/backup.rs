@@ -14,6 +14,7 @@ use crate::sync::{ACTIVE_ACCOUNT_SETTING, API_KEY_SETTING};
 
 const REQUIRED_TABLES: [&str; 5] = ["settings", "accounts", "matches", "match_players", "mmr_history"];
 const PAGES_PER_STEP: i32 = 512;
+const SECRET_SETTINGS: [&str; 1] = [API_KEY_SETTING];
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -61,11 +62,25 @@ pub fn export_to(source: &Path, target: &Path) -> AppResult<()> {
             tr("Choisis un autre emplacement que la base actuelle", "Choose a location other than the current database").into(),
         ));
     }
-    if target.exists() {
-        std::fs::remove_file(target)?;
-    }
+    let mut name = target.file_name().unwrap_or_default().to_owned();
+    name.push(".valtracker-export.tmp");
+    let temp = target.with_file_name(name);
+    remove_with_journals(&temp);
+    let result = write_export(source, &temp).and_then(|()| Ok(std::fs::rename(&temp, target)?));
+    remove_with_journals(&temp);
+    result
+}
+
+fn write_export(source: &Path, temp: &Path) -> AppResult<()> {
     let conn = Connection::open_with_flags(source, OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_NO_MUTEX)?;
-    conn.execute("VACUUM INTO ?1", params![target.to_string_lossy()])?;
+    conn.execute("VACUUM INTO ?1", params![temp.to_string_lossy()])?;
+    drop(conn);
+    let copy = Connection::open_with_flags(temp, OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_NO_MUTEX)?;
+    copy.execute_batch("PRAGMA secure_delete = ON; PRAGMA journal_mode = MEMORY;")?;
+    for key in SECRET_SETTINGS {
+        copy.execute("DELETE FROM settings WHERE key = ?1", params![key])?;
+    }
+    copy.execute_batch("VACUUM;")?;
     Ok(())
 }
 
@@ -307,6 +322,32 @@ mod tests {
         let version: i64 = live.pragma_query_value(None, "user_version", |row| row.get(0)).unwrap();
         assert_eq!(version, db::schema_version());
         assert!(!scratch.path("valtracker-import.tmp.db").exists());
+    }
+
+    #[test]
+    fn export_leaves_out_the_api_key() {
+        let scratch = Scratch::new();
+        let live_path = scratch.path("valtracker.db");
+        let live = db::open(&live_path).unwrap();
+        account(&live, "a");
+        db::set_setting(&live, API_KEY_SETTING, "HDEV-secret-key-to-hide").unwrap();
+        db::set_setting(&live, "theme", "dark").unwrap();
+        let export_path = scratch.path("export.db");
+        std::fs::write(&export_path, "ancien export").unwrap();
+        export_to(&live_path, &export_path).unwrap();
+        drop(live);
+
+        let bytes = std::fs::read(&export_path).unwrap();
+        assert!(!bytes.windows(b"HDEV-secret-key-to-hide".len()).any(|window| window == b"HDEV-secret-key-to-hide"));
+        let exported = Connection::open(&export_path).unwrap();
+        assert_eq!(db::get_setting(&exported, API_KEY_SETTING).unwrap(), None);
+        assert_eq!(db::get_setting(&exported, "theme").unwrap().as_deref(), Some("dark"));
+        let leftovers: Vec<_> = std::fs::read_dir(&scratch.0)
+            .unwrap()
+            .filter_map(Result::ok)
+            .filter(|entry| entry.file_name().to_string_lossy().contains(".tmp"))
+            .collect();
+        assert!(leftovers.is_empty());
     }
 
     #[test]
