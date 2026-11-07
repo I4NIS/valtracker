@@ -294,8 +294,8 @@ a {
 }
 
 .content {
-  max-width: 1120px;
-  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
   padding: 16px 40px 64px;
   display: flex;
   flex-direction: column;
@@ -1029,7 +1029,7 @@ a {
 .minimap {
   position: relative;
   width: 100%;
-  max-width: 620px;
+  max-width: max(420px, calc(100vh - 180px));
   aspect-ratio: 1 / 1;
   border-radius: 16px;
   background: #15171b;
@@ -1508,7 +1508,7 @@ a {
   }
 
   .minimap {
-    max-width: 560px;
+    max-width: min(100%, max(420px, calc(100vh - 180px)));
   }
 }
 
