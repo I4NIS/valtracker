@@ -232,12 +232,25 @@ export type HeatPoint = {
   attack: boolean;
   phase: "early" | "mid" | "post";
   zone: string | null;
+  won: boolean;
 };
 
 export type MapOption = { id: string; name: string; matches: number; image: string | null };
 
+export type AgentOption = { id: string; name: string; matches: number };
+
+export type HeatmapFilters = {
+  mapId: string | null;
+  season: string | null;
+  agentId: string | null;
+  queue: string | null;
+  limit: number | null;
+};
+
 export type Heatmap = {
   maps: MapOption[];
+  agents: AgentOption[];
+  available: number;
   mapId: string | null;
   minimap: string | null;
   splash: string | null;
@@ -302,8 +315,7 @@ export const api = {
   getRecentMatches: (puuid: string, limit = 10, offset = 0) =>
     invoke<RecentMatch[]>("get_recent_matches", { puuid, limit, offset }),
   getMatch: (puuid: string, matchId: string) => invoke<MatchDetail>("get_match", { puuid, matchId }),
-  getHeatmap: (puuid: string, mapId: string | null, season: string | null) =>
-    invoke<Heatmap>("get_heatmap", { puuid, mapId, season }),
+  getHeatmap: (puuid: string, filters: HeatmapFilters) => invoke<Heatmap>("get_heatmap", { puuid, ...filters }),
   getProgression: (puuid: string, season: string | null) => invoke<Progression>("get_progression", { puuid, season }),
   getRecentFlaws: (puuid: string) => invoke<RecentFlaws>("get_recent_flaws", { puuid }),
   getSeasons: (puuid: string) => invoke<Season[]>("get_seasons", { puuid }),

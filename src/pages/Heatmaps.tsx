@@ -2,6 +2,7 @@ import "../styles/heatmap.css";
 import { useEffect, useMemo, useState } from "react";
 import { SeasonPicker } from "../components/SeasonPicker";
 import { api, errorMessage, type Account, type HeatPoint, type Heatmap } from "../lib/api";
+import { agentIcon, seasonLabel } from "../lib/assets";
 import { pct } from "../lib/format";
 import { rotatePoint, rotationStyle } from "../lib/minimap";
 
@@ -28,7 +29,38 @@ const PHASES: { id: Phase; label: string }[] = [
   { id: "post", label: "Après le plant" },
 ];
 
+type Queue = "all" | "competitive" | "premier";
+type Result = "all" | "win" | "loss";
+
+const QUEUES: { id: Queue; label: string }[] = [
+  { id: "all", label: "Tous" },
+  { id: "competitive", label: "Compétitif" },
+  { id: "premier", label: "Premier" },
+];
+
+const RESULTS: { id: Result; label: string }[] = [
+  { id: "all", label: "Tous" },
+  { id: "win", label: "Victoires" },
+  { id: "loss", label: "Défaites" },
+];
+
 const matchCount = (count: number) => `${count} ${count > 1 ? "matchs" : "match"}`;
+
+function summary(
+  season: string | null | undefined,
+  data: Heatmap | null,
+  agentId: string | null,
+  queue: Queue,
+  result: Result,
+  limit: number | null,
+) {
+  const parts = [season ? seasonLabel(season) : "Toutes les saisons"];
+  parts.push(data?.agents.find((agent) => agent.id === agentId)?.name ?? "tous les agents");
+  if (queue !== "all") parts.push(queue === "premier" ? "Premier" : "compétitif");
+  if (result !== "all") parts.push(result === "win" ? "victoires" : "défaites");
+  parts.push(limit ? `${limit} derniers matchs` : "tous les matchs");
+  return parts.join(", ");
+}
 const clamp = (value: number) => Math.min(0.92, Math.max(0.08, value));
 
 type Props = {
@@ -45,19 +77,53 @@ export function Heatmaps({ account, refreshKey }: Props) {
   const [side, setSide] = useState<Side>("all");
   const [phase, setPhase] = useState<Phase>("all");
   const [zone, setZone] = useState<string | null>(null);
+  const [advanced, setAdvanced] = useState(false);
+  const [agentId, setAgentId] = useState<string | null>(null);
+  const [queue, setQueue] = useState<Queue>("all");
+  const [result, setResult] = useState<Result>("all");
+  const [limit, setLimit] = useState<number | null>(null);
+  const [limitDraft, setLimitDraft] = useState<number | null>(null);
+
+  useEffect(() => {
+    api
+      .getSeasons(account.puuid)
+      .then((list) => setSeason((current) => (current === undefined ? (list[0]?.short ?? null) : current)))
+      .catch(() => setSeason(null));
+  }, [account.puuid]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setLimit(limitDraft), 250);
+    return () => window.clearTimeout(timer);
+  }, [limitDraft]);
 
   useEffect(() => {
     if (season === undefined) return;
     setError(null);
     api
-      .getHeatmap(account.puuid, mapId, season)
+      .getHeatmap(account.puuid, { mapId, season, agentId, queue: queue === "all" ? null : queue, limit })
       .then(setData)
       .catch((err) => setError(errorMessage(err)));
-  }, [account.puuid, mapId, season, refreshKey]);
+  }, [account.puuid, mapId, season, agentId, queue, limit, refreshKey]);
 
   useEffect(() => {
     setZone(null);
-  }, [mapId, season, layer, side, phase, data?.mapId]);
+  }, [mapId, season, layer, side, phase, agentId, queue, result, limit, data?.mapId]);
+
+  const resetAdvanced = () => {
+    setAgentId(null);
+    setQueue("all");
+    setResult("all");
+    setLimitDraft(null);
+  };
+
+  const changeMap = (id: string) => {
+    setMapId(id);
+    setAgentId(null);
+    setLimitDraft(null);
+  };
+
+  const activeFilters = [agentId !== null, queue !== "all", result !== "all", limit !== null].filter(Boolean).length;
+  const available = data?.available ?? 0;
 
   const style = LAYERS.find((item) => item.id === layer) ?? LAYERS[0];
   const rotation = data?.rotation ?? 0;
@@ -68,10 +134,11 @@ export function Heatmaps({ account, refreshKey }: Props) {
           (point) =>
             point.kind === layer &&
             (side === "all" || point.attack === (side === "attack")) &&
-            (phase === "all" || point.phase === phase),
+            (phase === "all" || point.phase === phase) &&
+            (result === "all" || point.won === (result === "win")),
         )
         .map((point) => ({ ...point, ...rotatePoint(point, rotation) })),
-    [data, layer, side, phase, rotation],
+    [data, layer, side, phase, result, rotation],
   );
   const zones = useMemo(() => {
     const counts = new Map<string, number>();
@@ -105,7 +172,88 @@ export function Heatmaps({ account, refreshKey }: Props) {
         </div>
       </header>
 
-      <SeasonPicker puuid={account.puuid} value={season} onChange={(next) => { setSeason(next); setMapId(null); }} />
+      <div className="row wrap between">
+        <span className="muted">{summary(season, data, agentId, queue, result, limit)}</span>
+        <button
+          type="button"
+          className={`btn ${advanced ? "btn-primary" : "btn-secondary"}`}
+          onClick={() => setAdvanced(!advanced)}
+          aria-expanded={advanced}
+        >
+          Filtres avancés{activeFilters > 0 ? ` (${activeFilters})` : ""}
+        </button>
+      </div>
+
+      {advanced && (
+        <section className="advanced-filters" aria-label="Filtres avancés">
+          <div className="filter-block">
+            <span className="label">Acte</span>
+            <SeasonPicker
+              puuid={account.puuid}
+              value={season}
+              onChange={(next) => {
+                setSeason(next);
+                setMapId(null);
+                setAgentId(null);
+                setLimitDraft(null);
+              }}
+            />
+          </div>
+          <div className="filter-block">
+            <span className="label">Agent</span>
+            <div className="chips" role="group" aria-label="Agent">
+              <button type="button" className={`chip${agentId === null ? " active" : ""}`} onClick={() => setAgentId(null)}>
+                Tous les agents
+              </button>
+              {data?.agents.map((agent) => (
+                <button
+                  key={agent.id}
+                  type="button"
+                  className={`chip agent-chip${agentId === agent.id ? " active" : ""}`}
+                  onClick={() => setAgentId(agent.id)}
+                >
+                  {agentIcon(agent.id) && <img src={agentIcon(agent.id)} alt="" />}
+                  {agent.name} <span className="chip-count">{agent.matches}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="row wrap" style={{ gap: 24 }}>
+            <div className="filter-block">
+              <span className="label">Mode</span>
+              <Segmented label="Mode" options={QUEUES} value={queue} onChange={setQueue} />
+            </div>
+            <div className="filter-block">
+              <span className="label">Résultat</span>
+              <Segmented label="Résultat" options={RESULTS} value={result} onChange={setResult} />
+            </div>
+          </div>
+          {available > 1 && (
+            <div className="filter-block">
+              <label className="label" htmlFor="heat-limit">
+                Matchs pris en compte : {limitDraft === null ? `tous (${available})` : `les ${limitDraft} derniers`}
+              </label>
+              <input
+                id="heat-limit"
+                className="range"
+                type="range"
+                min={1}
+                max={available}
+                value={limitDraft ?? available}
+                onChange={(event) => {
+                  const next = Number(event.target.value);
+                  setLimitDraft(next >= available ? null : next);
+                }}
+              />
+            </div>
+          )}
+          {activeFilters > 0 && (
+            <button type="button" className="btn btn-secondary" style={{ alignSelf: "flex-start" }} onClick={resetAdvanced}>
+              Réinitialiser
+            </button>
+          )}
+        </section>
+      )}
 
       {error && <p className="form-error">{error}</p>}
 
@@ -121,7 +269,7 @@ export function Heatmaps({ account, refreshKey }: Props) {
                   type="button"
                   className={`map-card${data.mapId === map.id ? " active" : ""}`}
                   aria-pressed={data.mapId === map.id}
-                  onClick={() => setMapId(map.id)}
+                  onClick={() => changeMap(map.id)}
                 >
                   {map.image && <img src={map.image} alt="" />}
                   <span className="map-card-text">
