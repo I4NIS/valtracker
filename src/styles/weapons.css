@@ -1,0 +1,395 @@
+.weapons-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 40px 56px;
+}
+
+.weapons-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px 40px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+
+.weapons-fact {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.weapons-fact-sub {
+  font-size: 12px;
+}
+
+.weapons-note {
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.body-split {
+  display: grid;
+  grid-template-columns: 96px minmax(0, auto);
+  column-gap: 20px;
+  row-gap: 6px;
+  padding: 20px 28px;
+  border-radius: 20px;
+  background: var(--raised);
+}
+
+.body-line {
+  display: contents;
+}
+
+.body-slot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.body-line > .stack {
+  justify-content: center;
+}
+
+.body-part {
+  display: block;
+  transition: background 0.3s ease;
+}
+
+.body-head .body-part {
+  width: 44px;
+  height: 44px;
+  border-radius: 16px;
+}
+
+.body-torso .body-part {
+  width: 88px;
+  height: 92px;
+  border-radius: 22px 22px 14px 14px;
+}
+
+.body-legs-pair {
+  display: flex;
+  gap: 8px;
+}
+
+.body-legs .body-part {
+  width: 36px;
+  height: 84px;
+  border-radius: 12px 12px 14px 14px;
+}
+
+.body-value {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+.body-label {
+  font-size: 12px;
+}
+
+.weapons-wrap {
+  container: weapons / inline-size;
+}
+
+.weapons-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(300px, 1fr);
+  align-items: start;
+  gap: 28px;
+}
+
+.weapons-side {
+  position: sticky;
+  top: 80px;
+}
+
+.weapon-inline {
+  display: none;
+  margin: 6px 0 12px;
+  padding: 20px;
+  border-radius: 16px;
+  background: var(--raised);
+}
+
+.weapons-table,
+.killers-table {
+  container: wtable / inline-size;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.weapon-row,
+.killer-row {
+  display: grid;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  min-height: 56px;
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  font-size: 14px;
+}
+
+.weapon-row {
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1.5fr) 64px 52px 70px 64px;
+}
+
+.killer-row {
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1.6fr) 64px 70px minmax(80px, 1fr);
+}
+
+.weapon-row.head {
+  min-height: 0;
+  padding-top: 0;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  color: var(--text-3);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.weapon-row > :nth-child(n + 3) {
+  text-align: right;
+}
+
+.killer-row > :nth-child(3),
+.killer-row > :nth-child(4) {
+  text-align: right;
+}
+
+button.weapon-row:hover,
+button.killer-row:hover {
+  background: var(--raised);
+}
+
+button.weapon-row.active,
+button.killer-row.active {
+  background: var(--field);
+}
+
+.weapon-row.active .weapon-name strong,
+.killer-row.active .weapon-name strong {
+  color: var(--accent);
+}
+
+.weapon-name {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.weapon-name strong {
+  overflow: hidden;
+  font-size: 15px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.weapon-name .faint {
+  overflow: hidden;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.weapon-kills {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.weapon-kills strong {
+  min-width: 36px;
+  font-weight: 700;
+}
+
+.weapon-kills .bar {
+  flex: 1 1 auto;
+}
+
+.weapon-kills .bar > span,
+.range-bar.is-good > span {
+  background: var(--good);
+}
+
+.range-bar.is-bad > span {
+  background: var(--bad);
+}
+
+.weapon-kills .bar > span,
+.range-bar > span {
+  transition: width 0.35s ease;
+}
+
+.weapon-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.weapon-detail-title {
+  margin: 0;
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  line-height: 1.05;
+}
+
+.weapon-detail-sub {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.weapon-figures {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: 16px;
+}
+
+.weapon-figure {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+.range-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.range-row .bar {
+  height: 8px;
+  border-radius: 4px;
+}
+
+.killer-ranges {
+  display: flex;
+  height: 8px;
+  overflow: hidden;
+  border-radius: 4px;
+  background: var(--field);
+}
+
+.killer-ranges > span {
+  display: block;
+  height: 100%;
+}
+
+.range-short {
+  background: var(--bad);
+}
+
+.range-medium {
+  background: color-mix(in srgb, var(--bad) 55%, var(--field));
+}
+
+.range-long {
+  background: color-mix(in srgb, var(--bad) 25%, var(--field));
+}
+
+.range-legend {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  color: var(--text-2);
+  font-size: 12px;
+}
+
+.range-legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.range-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+
+@container weapons (max-width: 860px) {
+  .weapons-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .weapons-side {
+    display: none;
+  }
+
+  .weapon-inline {
+    display: block;
+  }
+}
+
+@container wtable (max-width: 560px) {
+  .weapon-row {
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.3fr) 48px 60px;
+    gap: 12px;
+  }
+
+  .weapon-col-share,
+  .weapon-col-dist {
+    display: none;
+  }
+
+  .killer-row {
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.4fr) 60px;
+    gap: 12px;
+  }
+
+  .killer-col-share,
+  .killer-ranges {
+    display: none;
+  }
+}
+
+@container wtable (max-width: 380px) {
+  .weapon-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) 52px;
+    padding: 8px 10px;
+  }
+
+  .weapon-col-hs {
+    display: none;
+  }
+
+  .weapon-inline {
+    padding: 16px;
+  }
+}
+
+@container main (max-width: 640px) {
+  .body-split {
+    width: 100%;
+    padding: 18px 20px;
+  }
+
+  .weapon-detail-title {
+    font-size: 26px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .body-part,
+  .weapon-kills .bar > span,
+  .range-bar > span {
+    transition: none;
+  }
+}
