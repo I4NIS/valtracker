@@ -3,8 +3,10 @@ mod assets;
 mod commands;
 mod db;
 mod error;
+mod heatmap;
 mod henrik;
 mod models;
+mod progression;
 mod repo;
 mod state;
 mod stats;
@@ -38,6 +40,9 @@ pub fn run() {
             commands::get_overview,
             commands::get_recent_matches,
             commands::get_match,
+            commands::get_progression,
+            commands::get_recent_flaws,
+            commands::get_heatmap,
             commands::get_seasons,
             commands::set_preference,
         ])

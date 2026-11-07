@@ -7,7 +7,9 @@ use crate::analysis::{self, MatchDetail};
 use crate::assets;
 use crate::db;
 use crate::error::{AppError, AppResult};
+use crate::heatmap::{self, Heatmap};
 use crate::henrik::Henrik;
+use crate::progression::{self, Progression, RecentFlaws};
 use crate::models::{Account, Overview, RecentMatch, Season, SyncReport};
 use crate::repo;
 use crate::state::AppState;
@@ -141,6 +143,26 @@ pub fn get_match(state: State<'_, AppState>, puuid: String, match_id: String) ->
         detail.rr_after = rr;
     }
     Ok(detail)
+}
+
+#[tauri::command]
+pub fn get_progression(state: State<'_, AppState>, puuid: String, season: Option<String>) -> AppResult<Progression> {
+    progression::progression(&*state.conn()?, &puuid, season.as_deref())
+}
+
+#[tauri::command]
+pub fn get_recent_flaws(state: State<'_, AppState>, puuid: String) -> AppResult<RecentFlaws> {
+    progression::recent_flaws(&*state.conn()?, &puuid)
+}
+
+#[tauri::command]
+pub fn get_heatmap(
+    state: State<'_, AppState>,
+    puuid: String,
+    map_id: Option<String>,
+    season: Option<String>,
+) -> AppResult<Heatmap> {
+    heatmap::heatmap(&*state.conn()?, &puuid, map_id.as_deref(), season.as_deref())
 }
 
 #[tauri::command]
