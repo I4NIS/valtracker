@@ -11,6 +11,7 @@ import { cardArt, mapArt } from "../lib/gameAssets";
 import { t } from "../lib/i18n";
 import { useQuery } from "../lib/query";
 import { defaultSeason, queries } from "../lib/queries";
+import { useViewport } from "../lib/viewport";
 
 type Props = {
   account: Account;
@@ -21,7 +22,11 @@ type Props = {
 type Sort = "matches" | "rate";
 
 const MATCHUP_PREVIEW = 12;
+const MATCHUP_ROW = 44;
 const CLUTCH_PAGE = 10;
+const TALL_HEIGHT = 1000;
+const LARGE_WIDTH = 1700;
+const OPENING_ROW = 44;
 
 const en = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
 
@@ -95,7 +100,7 @@ export function Duels({ account, onOpenRound }: Props) {
         <div className="empty">{t("Aucun match compétitif synchronisé sur cette période.", "No competitive matches synced for this period.")}</div>
       ) : (
         <>
-          {tab === "opening" && <OpeningSection data={data} />}
+          {tab === "opening" && <OpeningSection data={data} puuid={account.puuid} season={season ?? null} />}
           {tab === "clutch" && <ClutchSection key={season ?? "all"} data={data} onOpenRound={onOpenRound} />}
           {tab === "agents" && <MatchupSection matchups={data.matchups} />}
           {tab === "distance" && <DistanceSection buckets={data.distances} />}
@@ -210,7 +215,8 @@ function Split({ kills, deaths, label }: { kills: number; deaths: number; label:
   );
 }
 
-function OpeningSection({ data }: { data: DuelReport }) {
+function OpeningSection({ data, puuid, season }: { data: DuelReport; puuid: string; season: string | null }) {
+  const height = useViewport().height;
   const all = data.opening.all;
   const involved = all.firstKills + all.firstDeaths;
   return (
@@ -255,6 +261,7 @@ function OpeningSection({ data }: { data: DuelReport }) {
             <OpeningCard title={t("En attaque", "On attack")} side={data.opening.attack} />
             <OpeningCard title={t("En défense", "On defense")} side={data.opening.defense} />
           </div>
+          {height >= TALL_HEIGHT && <OpeningsByAgent puuid={puuid} season={season} rows={Math.floor((height - 800) / OPENING_ROW)} />}
         </>
       )}
     </section>
@@ -385,6 +392,7 @@ function ClutchSection({ data, onOpenRound }: { data: DuelReport; onOpenRound?: 
 }
 
 function ClutchTile({ size, active, onToggle }: { size: ClutchSize; active: boolean; onToggle: () => void }) {
+  const ringSize = useViewport().width >= LARGE_WIDTH ? 104 : 76;
   const empty = size.attempts === 0;
   return (
     <button
@@ -397,7 +405,7 @@ function ClutchTile({ size, active, onToggle }: { size: ClutchSize; active: bool
       <span className="duel-clutch-name">1v{size.enemies}</span>
       <Ring
         value={size.winRate}
-        size={76}
+        size={ringSize}
         tone="win"
         empty={empty}
         label={
@@ -472,14 +480,16 @@ function MatchupSection({ matchups }: { matchups: Matchup[] }) {
     }
     return list;
   }, [matchups, sort]);
-  const shown = expanded ? sorted : sorted.slice(0, MATCHUP_PREVIEW);
+  const height = useViewport().height;
+  const preview = Math.max(MATCHUP_PREVIEW, Math.floor((height - 360) / MATCHUP_ROW));
+  const shown = expanded ? sorted : sorted.slice(0, preview);
 
   return (
     <section className="stack" style={{ gap: 12 }}>
       <div className="row between wrap" style={{ alignItems: "center" }}>
         <h2 className="section-title">{t("Face à chaque agent", "Against each agent")}</h2>
         <div className="row wrap" style={{ gap: 8 }}>
-          {sorted.length > MATCHUP_PREVIEW && (
+          {sorted.length > preview && (
             <button type="button" className="chip" onClick={() => setExpanded((value) => !value)}>
               {expanded ? t("Afficher moins", "Show less") : t(`Afficher les ${sorted.length} agents`, `Show all ${sorted.length} agents`)}
             </button>
@@ -512,6 +522,62 @@ function MatchupSection({ matchups }: { matchups: Matchup[] }) {
           ))}
         </div>
       )}
+    </section>
+  );
+}
+
+function OpeningsByAgent({ puuid, season, rows }: { puuid: string; season: string | null; rows: number }) {
+  const agents = useQuery(queries.agents(puuid, season)).data ?? null;
+  const list = useMemo(
+    () =>
+      (agents ?? [])
+        .filter((agent) => agent.firstBloods + agent.firstDeaths > 0)
+        .sort((a, b) => b.firstBloods + b.firstDeaths - (a.firstBloods + a.firstDeaths))
+        .slice(0, Math.max(0, rows)),
+    [agents, rows],
+  );
+  if (rows < 2 || list.length === 0) return null;
+  return (
+    <section className="stack" style={{ gap: 12 }}>
+      <SectionHead title={t("Ouvertures par agent joué", "Openings by agent played")} note={t("Agents triés par nombre de duels d'ouverture", "Agents sorted by opening duels")} />
+      <div className="duel-table">
+        <div className="duel-matchup head" aria-hidden="true">
+          <span />
+          <span>Agent</span>
+          <span className="duel-num">{t("Matchs", "Matches")}</span>
+          <span className="duel-num duel-kd">{t("FK / FD", "FK / FD")}</span>
+          <span>{t("Duels d'ouverture gagnés", "Opening duels won")}</span>
+        </div>
+        {list.map((agent) => {
+          const total = agent.firstBloods + agent.firstDeaths;
+          const rate = (agent.firstBloods * 100) / total;
+          return (
+            <div className="duel-matchup" key={agent.agentId}>
+              <Art src={agentIcon(agent.agentId)} width={36} height={36} alt={agent.name} className="duel-agent" />
+              <div className="stack" style={{ gap: 2, minWidth: 0 }}>
+                <strong className="ellipsis">{agent.name}</strong>
+                <span className="faint ellipsis" style={{ fontSize: 12 }}>
+                  {roleLabel(agent.role) || "Agent"}
+                </span>
+              </div>
+              <span className="duel-num">{agent.matches}</span>
+              <span className="duel-num duel-kd">
+                <span className="good">{agent.firstBloods}</span>
+                <span className="faint"> / </span>
+                <span className="bad">{agent.firstDeaths}</span>
+              </span>
+              <div className="duel-rate">
+                <Split
+                  kills={agent.firstBloods}
+                  deaths={agent.firstDeaths}
+                  label={t(`${agent.firstBloods} first kills et ${agent.firstDeaths} first deaths`, `${agent.firstBloods} first kills and ${agent.firstDeaths} first deaths`)}
+                />
+                <strong className={rate >= 50 ? "good" : "bad"}>{pct(rate, 0)}</strong>
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </section>
   );
 }
