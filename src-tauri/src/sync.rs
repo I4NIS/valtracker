@@ -1,6 +1,7 @@
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter, Manager};
 
+use crate::assets;
 use crate::db;
 use crate::error::{AppError, AppResult};
 use crate::henrik::Henrik;
@@ -38,6 +39,9 @@ async fn sync(app: &AppHandle, state: &AppState, puuid: &str) -> AppResult<SyncR
     };
     let api = Henrik::new(key);
     let (region, platform) = (account.region.as_str(), account.platform.as_str());
+
+    emit(app, puuid, "Données des maps", 0, true, None);
+    let _ = assets::refresh_if_needed(state).await;
 
     emit(app, puuid, "Rang", 0, true, None);
     let mmr = api.mmr(region, platform, puuid).await?;

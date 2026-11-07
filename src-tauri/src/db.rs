@@ -81,6 +81,24 @@ CREATE TABLE mmr_history (
     elo INTEGER,
     PRIMARY KEY (puuid, match_id)
 );
+", "
+CREATE TABLE maps (
+    uuid TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    display_icon TEXT,
+    x_multiplier REAL NOT NULL,
+    y_multiplier REAL NOT NULL,
+    x_scalar REAL NOT NULL,
+    y_scalar REAL NOT NULL,
+    callouts TEXT NOT NULL DEFAULT '[]'
+);
+
+CREATE TABLE agents (
+    uuid TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    role TEXT,
+    icon TEXT
+);
 "];
 
 pub fn open(path: &Path) -> AppResult<Connection> {
