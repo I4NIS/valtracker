@@ -109,7 +109,12 @@ export type RrBreakdown = {
 
 export type RrFact = { key: string; value: string; label: string; tone: "good" | "bad" | "" };
 
-const rr = (value: number) => Math.round(Math.abs(value));
+const rr = (value: number) => {
+  const size = Math.abs(value);
+  return size < 1 ? fmt(size, 1) : fmt(Math.round(size));
+};
+
+const shown = (value: number | null | undefined) => value != null && Math.abs(value) >= 0.05;
 
 const matchWord = (count: number) => t(count > 1 ? "matchs" : "match", count === 1 ? "match" : "matches");
 
@@ -126,11 +131,11 @@ export function rrSummary(detail: RrDetail): string | null {
 
 export function rrFacts(detail: RrDetail): RrFact[] {
   const facts: RrFact[] = [];
-  if (detail.penalty) facts.push({ key: "penalty", value: `-${rr(detail.penalty)} RR`, label: t("pénalité de groupe", "party penalty"), tone: "bad" });
-  if (detail.afkPenalty) facts.push({ key: "afk", value: `-${rr(detail.afkPenalty)} RR`, label: t("pénalité d'inactivité", "AFK penalty"), tone: "bad" });
-  if (detail.refunded) facts.push({ key: "refund", value: `+${rr(detail.refunded)} RR`, label: t("remboursés", "refunded"), tone: "good" });
-  if (detail.mapIncentiveForgiven)
-    facts.push({ key: "map", value: `${rr(detail.mapIncentiveForgiven)} RR`, label: t("épargnés par le bonus nouvelle map", "spared by the new map incentive"), tone: "good" });
+  if (shown(detail.penalty)) facts.push({ key: "penalty", value: `-${rr(detail.penalty ?? 0)} RR`, label: t("pénalité de groupe", "party penalty"), tone: "bad" });
+  if (shown(detail.afkPenalty)) facts.push({ key: "afk", value: `-${rr(detail.afkPenalty ?? 0)} RR`, label: t("pénalité d'inactivité", "AFK penalty"), tone: "bad" });
+  if (shown(detail.refunded)) facts.push({ key: "refund", value: `+${rr(detail.refunded ?? 0)} RR`, label: t("remboursés", "refunded"), tone: "good" });
+  if (shown(detail.mapIncentiveForgiven))
+    facts.push({ key: "map", value: `${rr(detail.mapIncentiveForgiven ?? 0)} RR`, label: t("épargnés par le bonus nouvelle map", "spared by the new map incentive"), tone: "good" });
   if (detail.derankProtected) facts.push({ key: "protected", value: t("Protection", "Protection"), label: t("de rang utilisée", "used against a derank"), tone: "" });
   if (detail.protectionReplenished) facts.push({ key: "replenished", value: t("Protection", "Protection"), label: t("rechargée", "replenished"), tone: "good" });
   if (detail.placement) facts.push({ key: "placement", value: t("Placement", "Placement"), label: t("match de placement", "placement match"), tone: "" });
@@ -143,35 +148,35 @@ export function breakdownFacts(breakdown: RrBreakdown): RrFact[] {
   if (performanceBonus.matches)
     facts.push({
       key: "bonus",
-      value: `+${fmt(performanceBonus.total)} RR`,
+      value: `+${rr(performanceBonus.total)} RR`,
       label: t(`de bonus de performance sur ${performanceBonus.matches} ${matchWord(performanceBonus.matches)}`, `performance bonus over ${performanceBonus.matches} ${matchWord(performanceBonus.matches)}`),
       tone: "good",
     });
   if (penalty.matches)
     facts.push({
       key: "penalty",
-      value: `-${fmt(penalty.total)} RR`,
+      value: `-${rr(penalty.total)} RR`,
       label: t(`de pénalité de groupe sur ${penalty.matches} ${matchWord(penalty.matches)}`, `party penalty over ${penalty.matches} ${matchWord(penalty.matches)}`),
       tone: "bad",
     });
   if (afkPenalty.matches)
     facts.push({
       key: "afk",
-      value: `-${fmt(afkPenalty.total)} RR`,
+      value: `-${rr(afkPenalty.total)} RR`,
       label: t(`de pénalité d'inactivité sur ${afkPenalty.matches} ${matchWord(afkPenalty.matches)}`, `AFK penalty over ${afkPenalty.matches} ${matchWord(afkPenalty.matches)}`),
       tone: "bad",
     });
   if (refunded.matches)
     facts.push({
       key: "refund",
-      value: `+${fmt(refunded.total)} RR`,
+      value: `+${rr(refunded.total)} RR`,
       label: t(`remboursés sur ${refunded.matches} ${matchWord(refunded.matches)}`, `refunded over ${refunded.matches} ${matchWord(refunded.matches)}`),
       tone: "good",
     });
   if (mapIncentiveForgiven.matches)
     facts.push({
       key: "map",
-      value: `${fmt(mapIncentiveForgiven.total)} RR`,
+      value: `${rr(mapIncentiveForgiven.total)} RR`,
       label: t(`épargnés par le bonus nouvelle map sur ${mapIncentiveForgiven.matches} ${matchWord(mapIncentiveForgiven.matches)}`, `spared by the new map incentive over ${mapIncentiveForgiven.matches} ${matchWord(mapIncentiveForgiven.matches)}`),
       tone: "good",
     });
