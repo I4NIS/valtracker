@@ -59,22 +59,24 @@ export function DeathReview({ puuid, matchId, deaths, minimap, rotation, focusRo
   ];
 
   return (
-    <div className="stack" style={{ gap: 28 }}>
-      <div className="row between wrap">
-        <span className="faint">
-          {t(
-            `Tes ${deaths.length} morts, une par une. Flèches du clavier pour naviguer.`,
-            `Your ${deaths.length} ${deaths.length === 1 ? "death" : "deaths"}, one by one. Use the arrow keys to navigate.`,
-          )}
-        </span>
-        <div className="segmented" role="group" aria-label={t("Ordre des morts", "Death order")}>
-          <button type="button" className={order === "gravity" ? "active" : undefined} onClick={() => { setOrder("gravity"); setIndex(0); }}>
-            {t("Les plus lourdes d'abord", "Worst first")}
+    <div className="stack" style={{ gap: 18 }}>
+      <div className="death-strip" role="group" aria-label={t("Toutes tes morts", "All your deaths")}>
+        {list.map((item, i) => (
+          <button
+            type="button"
+            key={`${item.round}-${item.timeS}`}
+            className={i === index ? "active" : undefined}
+            onClick={() => setIndex(i)}
+            aria-label={`Round ${item.round}`}
+          >
+            <span>R{item.round}</span>
+            <span className="dots">
+              {item.flaws.map((flaw) => (
+                <i key={flaw} />
+              ))}
+            </span>
           </button>
-          <button type="button" className={order === "chrono" ? "active" : undefined} onClick={() => { setOrder("chrono"); setIndex(0); }}>
-            {t("Dans l'ordre", "In order")}
-          </button>
-        </div>
+        ))}
       </div>
 
       <div className="review">
@@ -118,25 +120,33 @@ export function DeathReview({ puuid, matchId, deaths, minimap, rotation, focusRo
           </div>
         </div>
 
-        <div className="stack" style={{ gap: 22 }}>
+        <div className="stack" style={{ gap: 16 }}>
           <div className="row between">
-            <span className="faint">
-              {t(
-                `Mort ${Math.min(index, list.length - 1) + 1} sur ${list.length}`,
-                `Death ${Math.min(index, list.length - 1) + 1} of ${list.length}`,
-              )}
-            </span>
+            <div className="segmented" role="group" aria-label={t("Ordre des morts", "Death order")}>
+              <button type="button" className={order === "gravity" ? "active" : undefined} onClick={() => { setOrder("gravity"); setIndex(0); }}>
+                {t("Les plus lourdes d'abord", "Worst first")}
+              </button>
+              <button type="button" className={order === "chrono" ? "active" : undefined} onClick={() => { setOrder("chrono"); setIndex(0); }}>
+                {t("Dans l'ordre", "In order")}
+              </button>
+            </div>
             <div className="row" style={{ gap: 8 }}>
-              <button type="button" className="icon-btn round-lg" onClick={() => setIndex((i) => (i + list.length - 1) % list.length)} aria-label={t("Mort précédente", "Previous death")}>
+              <button type="button" className="icon-btn round-lg" onClick={() => setIndex((i) => (i + list.length - 1) % list.length)} aria-label={t("Mort précédente", "Previous death")} title={t("Mort précédente, flèche gauche", "Previous death, left arrow")}>
                 <Icon name="arrowRight" size={16} strokeWidth={2} className="flip" />
               </button>
-              <button type="button" className="icon-btn round-lg primary" onClick={() => setIndex((i) => (i + 1) % list.length)} aria-label={t("Mort suivante", "Next death")}>
+              <button type="button" className="icon-btn round-lg primary" onClick={() => setIndex((i) => (i + 1) % list.length)} aria-label={t("Mort suivante", "Next death")} title={t("Mort suivante, flèche droite", "Next death, right arrow")}>
                 <Icon name="arrowRight" size={16} strokeWidth={2} />
               </button>
             </div>
           </div>
           <div className="row between" style={{ alignItems: "flex-start", gap: 16 }}>
             <div className="stack" style={{ minWidth: 0 }}>
+              <span className="faint" style={{ fontSize: 13 }}>
+                {t(
+                  `Mort ${Math.min(index, list.length - 1) + 1} sur ${list.length}`,
+                  `Death ${Math.min(index, list.length - 1) + 1} of ${list.length}`,
+                )}
+              </span>
               <span className="review-title">
                 Round {death.round}, {death.attack ? t("attaque", "attack") : t("défense", "defense")}
               </span>
@@ -198,25 +208,6 @@ export function DeathReview({ puuid, matchId, deaths, minimap, rotation, focusRo
             ))}
           </div>
         </div>
-      </div>
-
-      <div className="death-strip" role="group" aria-label={t("Toutes tes morts", "All your deaths")}>
-        {list.map((item, i) => (
-          <button
-            type="button"
-            key={`${item.round}-${item.timeS}`}
-            className={i === index ? "active" : undefined}
-            onClick={() => setIndex(i)}
-            aria-label={`Round ${item.round}`}
-          >
-            <span>R{item.round}</span>
-            <span className="dots">
-              {item.flaws.map((flaw) => (
-                <i key={flaw} />
-              ))}
-            </span>
-          </button>
-        ))}
       </div>
     </div>
   );

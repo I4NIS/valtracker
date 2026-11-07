@@ -50,7 +50,7 @@ export function RoundDetail({ puuid, matchId, rounds, selected, onSelect, minima
   const pick = (event: number) => setPinned((current) => (current === event ? null : event));
 
   return (
-    <div className="stack" style={{ gap: 24 }}>
+    <div className="stack" style={{ gap: 18 }}>
       <div className="round-picker" role="group" aria-label={t("Choisir un round", "Pick a round")}>
         {rounds.map((item, index) => (
           <button
@@ -66,19 +66,6 @@ export function RoundDetail({ puuid, matchId, rounds, selected, onSelect, minima
         ))}
       </div>
 
-      <div className="row between" style={{ alignItems: "flex-start", gap: 16 }}>
-        <div className="stack" style={{ gap: 6, minWidth: 0 }}>
-          <span className="review-title">
-            Round {round.number}, {round.attack ? t("attaque", "attack") : t("défense", "defense")}
-          </span>
-          <span className="muted">
-            <strong className={round.won ? "win" : "bad"}>{round.won ? t("Gagné", "Won") : t("Perdu", "Lost")}</strong>, {round.result.toLowerCase()}
-            {round.ceremony ? `, ${round.ceremony}` : ""}
-          </span>
-        </div>
-        <FavoriteButton puuid={puuid} matchId={matchId} kind="round" roundIndex={index} />
-      </div>
-
       <div className="round-layout">
         <RoundMap
           events={round.events}
@@ -91,6 +78,18 @@ export function RoundDetail({ puuid, matchId, rounds, selected, onSelect, minima
         />
 
         <section className="stack" style={{ gap: 12, minWidth: 0 }}>
+          <div className="row between" style={{ alignItems: "flex-start", gap: 16 }}>
+            <div className="stack" style={{ gap: 4, minWidth: 0 }}>
+              <span className="review-title">
+                Round {round.number}, {round.attack ? t("attaque", "attack") : t("défense", "defense")}
+              </span>
+              <span className="muted">
+                <strong className={round.won ? "win" : "bad"}>{round.won ? t("Gagné", "Won") : t("Perdu", "Lost")}</strong>, {round.result.toLowerCase()}
+                {round.ceremony ? `, ${round.ceremony}` : ""}
+              </span>
+            </div>
+            <FavoriteButton puuid={puuid} matchId={matchId} kind="round" roundIndex={index} />
+          </div>
           <div className="segmented" role="tablist" aria-label={t("Détail du round", "Round details")} style={{ alignSelf: "flex-start" }}>
             <button type="button" role="tab" aria-selected={pane === "events"} className={pane === "events" ? "active" : undefined} onClick={() => setPane("events")}>
               {t("Actions", "Events")} <span className="chip-count">{round.events.length}</span>

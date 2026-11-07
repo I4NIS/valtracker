@@ -763,7 +763,9 @@ a {
   .track > :nth-child(7) {
     display: none;
   }
+}
 
+@container (max-width: 480px) {
   .score-row {
     grid-template-columns: 32px minmax(0, 1.6fr) 22px 36px minmax(64px, 0.9fr) 40px;
     gap: 10px;
@@ -1108,24 +1110,107 @@ a {
 .match-hero {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 28px;
+  align-items: center;
+  gap: 12px 18px;
+}
+
+.match-hero > .back-btn {
+  align-self: center;
 }
 
 .match-hero > img {
-  width: 148px;
-  height: 148px;
-  border-radius: 16px;
+  width: 60px;
+  height: 60px;
+  border-radius: 12px;
   object-fit: cover;
   background: var(--raised);
 }
 
 .match-title {
   margin: 0;
-  font-size: 60px;
+  font-size: 30px;
   font-weight: 700;
-  letter-spacing: -0.05em;
-  line-height: 1;
+  letter-spacing: -0.04em;
+  line-height: 1.05;
+}
+
+.match-detail {
+  gap: 18px;
+}
+
+.match-stats {
+  gap: 24px;
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.match-stats .head-value {
+  font-size: 24px;
+}
+
+.match-stats .stack {
+  gap: 2px;
+}
+
+.summary-teams {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px 32px;
+  align-items: start;
+}
+
+.summary-teams .score-row {
+  grid-template-columns: 30px minmax(0, 1.8fr) 24px 34px minmax(86px, 0.9fr) 36px 34px 40px;
+  padding: 3px 10px;
+  gap: 10px;
+  white-space: nowrap;
+}
+
+.summary-teams .score-row.head {
+  padding-top: 2px;
+  padding-bottom: 6px;
+}
+
+.summary-teams .score-row > img {
+  width: 30px;
+  height: 30px;
+}
+
+.summary-teams .score-row .stack > .faint {
+  line-height: 1.25;
+}
+
+.match-detail .minimap {
+  max-width: min(100%, max(360px, calc(100vh - 300px)));
+}
+
+.match-detail .review .minimap {
+  max-width: min(100%, max(360px, calc(100vh - 370px)));
+}
+
+@container main (min-width: 1001px) {
+  .match-detail .review {
+    grid-template-columns: minmax(0, max(360px, calc(100vh - 370px))) minmax(320px, 1fr);
+  }
+}
+
+.match-flaws {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px 32px;
+}
+
+.match-flaw {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.match-flaw .flaw-value {
+  flex-shrink: 0;
+  min-width: 64px;
+  font-size: 26px;
 }
 
 .head-value {
@@ -1147,7 +1232,7 @@ a {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .timeline .round.half {
@@ -1155,14 +1240,14 @@ a {
 }
 
 .timeline .side {
-  min-height: 14px;
+  min-height: 12px;
   color: var(--text-3);
   font-size: 11px;
   font-weight: 600;
 }
 
 .timeline .bars {
-  height: 48px;
+  height: 40px;
   display: flex;
   gap: 2px;
   align-items: flex-end;
@@ -1183,7 +1268,7 @@ a {
 
 .timeline .cell {
   width: 100%;
-  height: 32px;
+  height: 30px;
   border-radius: 8px;
   background: var(--field);
   color: var(--text-2);
@@ -1394,7 +1479,7 @@ a {
 }
 
 .review-title {
-  font-size: 30px;
+  font-size: 24px;
   font-weight: 700;
   letter-spacing: -0.04em;
 }
@@ -1455,19 +1540,19 @@ a {
 
 .death-strip {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(52px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(44px, 1fr));
   gap: 6px;
 }
 
 .death-strip button {
-  min-height: 56px;
+  min-height: 44px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 4px;
   border: 0;
-  border-radius: 12px;
+  border-radius: 10px;
   background: var(--field);
   color: var(--text);
   font-size: 13px;
@@ -1746,6 +1831,7 @@ a {
 
 @container main (max-width: 1000px) {
   .summary-grid,
+  .summary-teams,
   .review {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -1823,12 +1909,12 @@ a {
   }
 
   .match-hero > img {
-    width: 96px;
-    height: 96px;
+    width: 48px;
+    height: 48px;
   }
 
   .match-title {
-    font-size: 42px;
+    font-size: 24px;
   }
 
   .head-value,
