@@ -123,6 +123,34 @@ export type TeamBlock = {
   players: PlayerLine[];
 };
 
+export type RoundEvent = {
+  timeS: number;
+  kind: "kill" | "plant" | "defuse";
+  actor: string;
+  actorAgentId: string | null;
+  actorAlly: boolean;
+  actorMe: boolean;
+  target: string | null;
+  targetAgentId: string | null;
+  targetAlly: boolean;
+  targetMe: boolean;
+  weapon: string | null;
+  site: string | null;
+};
+
+export type EconomyLine = {
+  name: string;
+  agentId: string | null;
+  ally: boolean;
+  me: boolean;
+  loadout: number;
+  remaining: number;
+  weapon: string | null;
+  armor: string | null;
+  kills: number;
+  damage: number;
+};
+
 export type RoundLine = {
   number: number;
   won: boolean;
@@ -133,6 +161,10 @@ export type RoundLine = {
   enemyLoadout: number;
   myKills: number;
   died: boolean;
+  result: string;
+  ceremony: string | null;
+  events: RoundEvent[];
+  economy: EconomyLine[];
 };
 
 export type Death = {
