@@ -8,10 +8,11 @@ on:
 
 permissions:
   contents: write
+  actions: read
 
 jobs:
   release:
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v') && vars.SIGNPATH_ORGANIZATION_ID == ''
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -53,3 +54,113 @@ jobs:
           $installer = Get-ChildItem src-tauri/target/release/bundle/nsis/*-setup.exe | Select-Object -First 1
           Copy-Item $installer.FullName Valtracker-setup.exe
           gh release upload "$env:TAG" Valtracker-setup.exe --clobber
+
+  signed-release:
+    if: startsWith(github.ref, 'refs/tags/v') && vars.SIGNPATH_ORGANIZATION_ID != ''
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: stable
+
+      - uses: swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
+        with:
+          workspaces: src-tauri
+
+      - run: npm ci
+
+      - run: npx tauri build --no-bundle
+
+      - name: Mark the app as an NSIS install
+        shell: pwsh
+        run: |
+          $path = "src-tauri/target/release/valtracker.exe"
+          $bytes = [IO.File]::ReadAllBytes($path)
+          $index = [Text.Encoding]::ASCII.GetString($bytes).IndexOf("__TAURI_BUNDLE_TYPE_VAR_UNK")
+          if ($index -lt 0) { throw "bundle type marker not found" }
+          $marker = [Text.Encoding]::ASCII.GetBytes("__TAURI_BUNDLE_TYPE_VAR_NSS")
+          [Array]::Copy($marker, 0, $bytes, $index, $marker.Length)
+          [IO.File]::WriteAllBytes($path, $bytes)
+
+      - name: Upload the unsigned app
+        id: unsigned-app
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: unsigned-app
+          path: src-tauri/target/release/valtracker.exe
+
+      - name: Sign the app
+        uses: signpath/github-action-submit-signing-request@f6d04783b4569d051e0c80105fe66e82819d0092 # v3
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG }}
+          github-artifact-id: ${{ steps.unsigned-app.outputs.artifact-id }}
+          wait-for-completion: true
+          wait-for-completion-timeout-in-seconds: 7200
+          output-artifact-directory: signed-app
+
+      - name: Bundle the signed app
+        shell: pwsh
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          Copy-Item signed-app/valtracker.exe src-tauri/target/release/valtracker.exe -Force
+          if ((Get-AuthenticodeSignature src-tauri/target/release/valtracker.exe).Status -ne "Valid") { throw "valtracker.exe is not signed" }
+          npx tauri bundle --bundles nsis --no-binary-patching
+          if ((Get-AuthenticodeSignature src-tauri/target/release/valtracker.exe).Status -ne "Valid") { throw "bundling changed valtracker.exe" }
+
+      - name: Upload the unsigned installer
+        id: unsigned-installer
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: unsigned-installer
+          path: src-tauri/target/release/bundle/nsis/*-setup.exe
+
+      - name: Sign the installer
+        uses: signpath/github-action-submit-signing-request@f6d04783b4569d051e0c80105fe66e82819d0092 # v3
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG }}
+          github-artifact-id: ${{ steps.unsigned-installer.outputs.artifact-id }}
+          wait-for-completion: true
+          wait-for-completion-timeout-in-seconds: 7200
+          output-artifact-directory: signed-installer
+
+      - name: Publish the release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          $installer = Get-ChildItem signed-installer/*-setup.exe | Select-Object -First 1
+          if ((Get-AuthenticodeSignature $installer.FullName).Status -ne "Valid") { throw "$($installer.Name) is not signed" }
+          npx tauri signer sign $installer.FullName
+          $version = $env:TAG.TrimStart("v")
+          $latest = [ordered]@{
+            version = $version
+            notes = "Télécharge Valtracker-setup.exe, lance-le, c'est installé. Les versions déjà installées se mettent à jour toutes seules au prochain lancement."
+            pub_date = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
+            platforms = [ordered]@{
+              "windows-x86_64" = [ordered]@{
+                signature = (Get-Content "$($installer.FullName).sig" -Raw).Trim()
+                url = "https://github.com/I4NIS/valtracker/releases/download/$env:TAG/$($installer.Name)"
+              }
+            }
+          }
+          $latest | ConvertTo-Json -Depth 4 | Set-Content latest.json -Encoding utf8NoBOM
+          Copy-Item $installer.FullName Valtracker-setup.exe
+          gh release create "$env:TAG" --title "Valtracker $env:TAG" --notes $latest.notes $installer.FullName "$($installer.FullName).sig" latest.json Valtracker-setup.exe

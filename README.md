@@ -128,7 +128,18 @@ git tag v0.2.0
 git push origin v0.2.0
 ```
 
-Le workflow GitHub Actions compile et signe l'installateur, puis publie la release avec `Valtracker-setup.exe` et le `latest.json` de la mise à jour automatique. Secrets requis : `TAURI_SIGNING_PRIVATE_KEY`, et `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` si la clé a un mot de passe.
+Le workflow GitHub Actions compile l'application, la fait signer par SignPath, puis publie la release avec `Valtracker-setup.exe` et le `latest.json` de la mise à jour automatique. Chaque release attend deux approbations dans SignPath : l'exécutable, puis l'installateur.
+
+| Réglage GitHub | Type | Rôle |
+| --- | --- | --- |
+| `TAURI_SIGNING_PRIVATE_KEY` | Secret | Signature des mises à jour |
+| `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | Secret | Mot de passe de cette clé, s'il y en a un |
+| `SIGNPATH_API_TOKEN` | Secret | Jeton d'un utilisateur SignPath qui peut soumettre |
+| `SIGNPATH_ORGANIZATION_ID` | Variable | Identifiant de l'organisation SignPath |
+| `SIGNPATH_PROJECT_SLUG` | Variable | Projet SignPath |
+| `SIGNPATH_SIGNING_POLICY_SLUG` | Variable | Politique de signature SignPath |
+
+Sans `SIGNPATH_ORGANIZATION_ID`, la release est publiée sans signature Windows.
 
 ### Architecture
 
