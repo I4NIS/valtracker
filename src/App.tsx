@@ -57,6 +57,7 @@ export default function App() {
   const [tourTarget, setTourTarget] = useState<TourTarget | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const launched = useRef(false);
+  const themeRef = useRef<Theme>("dark");
 
   useCommandPaletteShortcut(setPaletteOpen);
 
@@ -66,6 +67,7 @@ export default function App() {
     setLang(nextLang);
     setLanguage(nextLang);
     setBoot((current) => keepSame(current, data));
+    themeRef.current = data.theme;
     setTheme(data.theme);
     return data;
   }, []);
@@ -82,18 +84,18 @@ export default function App() {
     document.querySelector(".main")?.scrollTo({ top: 0 });
   }, [page, openMatch]);
 
-  const navigate = (next: Page) => {
+  const navigate = useCallback((next: Page) => {
     setOpenMatch(null);
     setPage(next);
-  };
+  }, []);
 
-  const showMatch = (matchId: string, round?: number, puuid?: string, death = false) => {
+  const showMatch = useCallback((matchId: string, round?: number, puuid?: string, death = false) => {
     setPage("matches");
     setOpenMatch(matchId);
     setOpenRound(round);
     setOpenMatchOwner(puuid ?? null);
     setOpenDeath(death);
-  };
+  }, []);
 
   useEffect(() => {
     const stop = onSyncProgress((progress) => {
@@ -148,10 +150,15 @@ export default function App() {
     api.setPreference("language", next).catch(() => undefined);
   };
 
-  const changeTheme = (next: Theme) => {
+  const changeTheme = useCallback((next: Theme) => {
+    themeRef.current = next;
     setTheme(next);
     api.setPreference("theme", next).catch(() => undefined);
-  };
+  }, []);
+
+  const toggleTheme = useCallback(() => changeTheme(themeRef.current === "dark" ? "light" : "dark"), [changeTheme]);
+  const closePalette = useCallback(() => setPaletteOpen(false), []);
+  const replayTour = useCallback(() => setTourOpen(true), []);
 
   const changeNotify = (next: boolean) => {
     setBoot((current) => (current ? { ...current, notifyMatches: next } : current));
@@ -210,7 +217,7 @@ export default function App() {
         account={account}
         combinedCount={combined?.length ?? 0}
         theme={theme}
-        onToggleTheme={() => changeTheme(theme === "dark" ? "light" : "dark")}
+        onToggleTheme={toggleTheme}
         onSync={runSync}
         tourTarget={tourOpen ? tourTarget : null}
         onSearch={() => setPaletteOpen(true)}
@@ -245,21 +252,21 @@ export default function App() {
             onNotifyMatches={changeNotify}
             onAccountsChanged={accountsChanged}
             onCombined={showCombined}
-            onReplayTour={() => setTourOpen(true)}
+            onReplayTour={replayTour}
           />
         )}
       </Shell>
       {tourOpen && <Tour onTarget={setTourTarget} onClose={closeTour} />}
       <CommandPalette
         open={paletteOpen}
-        onClose={() => setPaletteOpen(false)}
+        onClose={closePalette}
         account={account}
         theme={theme}
         onNavigate={navigate}
         onOpenMatch={showMatch}
-        onToggleTheme={() => changeTheme(theme === "dark" ? "light" : "dark")}
+        onToggleTheme={toggleTheme}
         onSync={runSync}
-        onReplayTour={() => setTourOpen(true)}
+        onReplayTour={replayTour}
       />
       <UpdateBanner />
     </Fragment>
