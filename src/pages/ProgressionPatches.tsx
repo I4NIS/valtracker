@@ -1,5 +1,4 @@
 import "../styles/riot.css";
-import { useEffect } from "react";
 import { repeat, SkeletonBlock, SkeletonGroup, SkeletonLine } from "../components/Skeleton";
 import { onSyncProgress, type PatchLine } from "../lib/api";
 import { fmt, formatDate, pct, signed } from "../lib/format";
@@ -90,19 +89,14 @@ function PatchesSkeleton() {
   );
 }
 
+onSyncProgress((progress) => {
+  if (!progress.running) invalidate("patches|");
+}).catch(() => undefined);
+
 export function Patches({ puuid, season }: { puuid: string; season: string | null }) {
   const query = useQuery(queries.patches(puuid, season));
   const data = query.data;
   const columns = COLUMNS();
-
-  useEffect(() => {
-    const stop = onSyncProgress((progress) => {
-      if (!progress.running) invalidate("patches|");
-    });
-    return () => {
-      stop.then((unlisten) => unlisten());
-    };
-  }, []);
 
   if (query.error && !data) return <p className="form-error">{query.error}</p>;
   if (!data) return <PatchesSkeleton />;
