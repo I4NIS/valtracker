@@ -1,3 +1,5 @@
+#[cfg(test)]
+mod equivalence;
 mod i18n;
 mod journal;
 mod map_stats;
