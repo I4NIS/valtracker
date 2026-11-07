@@ -65,7 +65,7 @@ function MatchRank({ tier, change }: { tier: number | null; change: number | nul
   const tone = change === null ? "" : change > 0 ? "win" : change < 0 ? "bad" : "muted";
   return (
     <span className="match-rank">
-      {ranked && <img src={tierIcon(tier)} alt={name} title={name} />}
+      {ranked && <img src={tierIcon(tier)} alt={name} title={name} width={28} height={28} loading="lazy" decoding="async" />}
       {change !== null && (
         <strong className={tone} title={t(`${signed(change)} RR sur ce match`, `${signed(change)} RR on this match`)}>
           {signed(change)}

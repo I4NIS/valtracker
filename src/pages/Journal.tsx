@@ -125,7 +125,7 @@ function FavoritesView({ account, onOpenMatch }: Pick<Props, "account" | "onOpen
         {visible.map((entry) => (
           <div className="fav-item" key={`${entry.kind}-${entry.matchId}-${entry.roundIndex ?? "all"}`}>
             <button type="button" className="journal-row" onClick={() => open(entry)}>
-              {agentIcon(entry.agentId) ? <img src={agentIcon(entry.agentId)} alt={entry.agentName ?? ""} /> : <span className="journal-row-icon" />}
+              {agentIcon(entry.agentId) ? <img src={agentIcon(entry.agentId)} alt={entry.agentName ?? ""} width={44} height={44} loading="lazy" decoding="async" /> : <span className="journal-row-icon" />}
               <span className="stack journal-row-main">
                 <span className="row wrap" style={{ gap: 4, columnGap: 10 }}>
                   <strong>{entry.mapName ?? t("Map inconnue", "Unknown map")}</strong>
@@ -331,7 +331,7 @@ function NoteRow({ entry, onOpen }: { entry: NoteEntry; onOpen: () => void }) {
   const line = firstLine(entry.note);
   return (
     <button type="button" className="journal-row" onClick={onOpen}>
-      {agentIcon(entry.agentId) ? <img src={agentIcon(entry.agentId)} alt={entry.agentName ?? ""} /> : <span className="journal-row-icon" />}
+      {agentIcon(entry.agentId) ? <img src={agentIcon(entry.agentId)} alt={entry.agentName ?? ""} width={44} height={44} loading="lazy" decoding="async" /> : <span className="journal-row-icon" />}
       <span className="stack journal-row-main">
         <span className="row wrap" style={{ gap: 4, columnGap: 10 }}>
           <strong>{entry.mapName ?? t("Map inconnue", "Unknown map")}</strong>

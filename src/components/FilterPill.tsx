@@ -57,7 +57,7 @@ export function FilterPill<T extends string | number>({ label, allLabel, value, 
         aria-expanded={open}
         onClick={() => setOpen(!open)}
       >
-        {selected?.image && <img src={selected.image} alt="" />}
+        {selected?.image && <img src={selected.image} alt="" width={20} height={20} decoding="async" />}
         {selected ? selected.label : label}
         <Icon name="chevron" size={14} strokeWidth={2} />
       </button>
@@ -75,7 +75,7 @@ export function FilterPill<T extends string | number>({ label, allLabel, value, 
               onClick={() => pick(option.value)}
             >
               <span className="filter-menu-name">
-                {option.image && <img src={option.image} alt="" />}
+                {option.image && <img src={option.image} alt="" width={20} height={20} loading="lazy" decoding="async" />}
                 {option.label}
               </span>
               {option.count !== undefined && <span className="faint">{option.count}</span>}

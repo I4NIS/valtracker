@@ -395,7 +395,7 @@ function MatchRow({ game }: { game: RecentMatch }) {
   return (
     <>
       <span className="palette-agent">
-        {icon ? <img src={icon} alt="" loading="lazy" /> : <Icon name="agents" size={16} />}
+        {icon ? <img src={icon} alt="" width={32} height={32} loading="lazy" decoding="async" /> : <Icon name="agents" size={16} />}
       </span>
       <span className="palette-match-main">
         <strong>{game.mapName ?? t("Map inconnue", "Unknown map")}</strong>

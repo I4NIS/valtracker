@@ -79,7 +79,7 @@ export function MatchDetail({ account, matchId, initialRound, initialDeath, onBa
     <div className="content match-detail">
       <header className="match-hero">
         <BackButton onBack={onBack} />
-        {agentIcon(detail.agentId) && <img src={agentIcon(detail.agentId)} alt={detail.agentName ?? ""} />}
+        {agentIcon(detail.agentId) && <img src={agentIcon(detail.agentId)} alt={detail.agentName ?? ""} width={60} height={60} decoding="async" />}
         <div className="stack" style={{ gap: 4, flex: "1 1 280px", minWidth: 0 }}>
           <h1 className="match-title">{detail.mapName ?? t("Map inconnue", "Unknown map")}</h1>
           <span className="muted">
@@ -203,7 +203,7 @@ export function MatchDetail({ account, matchId, initialRound, initialDeath, onBa
                     </div>
                     {team.players.map((player) => (
                       <div className={`score-row${player.isMe ? " me" : ""}`} key={player.puuid}>
-                        {agentIcon(player.agentId) ? <img src={agentIcon(player.agentId)} alt={player.agentName ?? ""} /> : <span />}
+                        {agentIcon(player.agentId) ? <img src={agentIcon(player.agentId)} alt={player.agentName ?? ""} width={36} height={36} loading="lazy" decoding="async" /> : <span />}
                         <span className="stack" style={{ gap: 0, minWidth: 0 }}>
                           <strong className="ellipsis">{player.name}</strong>
                           <span className="faint ellipsis" style={{ fontSize: 12 }}>

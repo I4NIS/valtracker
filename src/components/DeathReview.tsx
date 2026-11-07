@@ -82,7 +82,7 @@ export function DeathReview({ puuid, matchId, deaths, minimap, rotation, focusRo
       <div className="review">
         <div className="stack" style={{ gap: 12 }}>
           <div className="minimap">
-            {minimap && <img src={minimap} alt={t("Minimap", "Minimap")} style={rotationStyle(rotation)} />}
+            {minimap && <img src={minimap} alt={t("Minimap", "Minimap")} width={1024} height={1024} decoding="async" style={rotationStyle(rotation)} />}
             {position ? (
               <>
                 {killerPosition && (

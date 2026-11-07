@@ -193,7 +193,7 @@ export function Heatmaps({ account }: Props) {
                   className={`chip agent-chip${agentId === agent.id ? " active" : ""}`}
                   onClick={() => setAgentId(agent.id)}
                 >
-                  {agentIcon(agent.id) && <img src={agentIcon(agent.id)} alt="" />}
+                  {agentIcon(agent.id) && <img src={agentIcon(agent.id)} alt="" width={22} height={22} loading="lazy" decoding="async" />}
                   {agent.name} <span className="chip-count">{agent.matches}</span>
                 </button>
               ))}
@@ -261,7 +261,7 @@ export function Heatmaps({ account }: Props) {
 
           <div className="review heat-layout">
             <div className={`minimap${zone ? " has-focus" : ""}`}>
-              {data?.minimap && <img src={data.minimap} alt={t(`Minimap de ${mapName}`, `${mapName} minimap`)} style={rotationStyle(rotation)} />}
+              {data?.minimap && <img src={data.minimap} alt={t(`Minimap de ${mapName}`, `${mapName} minimap`)} width={1024} height={1024} decoding="async" style={rotationStyle(rotation)} />}
               <PointCanvas points={points} focus={zone} color={`rgb(${style.color})`} glow={style.color} focusScale={1.8} ring />
               {zone && zoneLabel && (
                 <span className="zone-pill" style={{ left: `${zoneLabel.x * 100}%`, top: `${zoneLabel.y * 100}%` }}>

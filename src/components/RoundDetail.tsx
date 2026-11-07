@@ -191,7 +191,7 @@ function RoundMap({ events, minimap, rotation, focus, catalog, onHover, onPick }
   return (
     <div className="stack" style={{ gap: 10, minWidth: 0 }}>
       <div className={`minimap round-map${shown ? " has-focus" : ""}`} onMouseLeave={() => onHover(null)}>
-        {minimap && <img src={minimap} alt={t("Minimap", "Minimap")} style={rotationStyle(rotation)} />}
+        {minimap && <img src={minimap} alt={t("Minimap", "Minimap")} width={1024} height={1024} decoding="async" style={rotationStyle(rotation)} />}
         <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
           {marks.map(
             (mark) =>
