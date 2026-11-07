@@ -125,7 +125,7 @@ pub fn start(app: AppHandle) {
 }
 
 #[cfg(windows)]
-fn lower_priority() {
+pub fn lower_priority() {
     use windows_sys::Win32::System::Threading::{GetCurrentThread, SetThreadPriority, THREAD_PRIORITY_BELOW_NORMAL};
     unsafe {
         SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_BELOW_NORMAL);
@@ -133,7 +133,7 @@ fn lower_priority() {
 }
 
 #[cfg(not(windows))]
-fn lower_priority() {}
+pub fn lower_priority() {}
 
 fn compute(state: &AppState, puuid: &str, list: Vec<Report>, cancelled: &dyn Fn() -> bool) -> bool {
     for report in list {

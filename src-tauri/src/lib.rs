@@ -59,7 +59,7 @@ pub fn run() {
             app.manage(reports::Warmer::default());
             reports::start(app.handle().clone());
             let handle = app.handle().clone();
-            tauri::async_runtime::spawn_blocking(move || {
+            std::thread::Builder::new().name("startup".into()).spawn(move || {
                 let active = handle.state::<AppState>().conn().ok().and_then(|conn| {
                     let _ = storage::compact_existing(&conn);
                     db::get_setting(&conn, sync::ACTIVE_ACCOUNT_SETTING).ok().flatten()
@@ -69,7 +69,9 @@ pub fn run() {
                 }
                 std::thread::sleep(STARTUP_WARM_DELAY);
                 reports::ready(&handle);
-            });
+                reports::lower_priority();
+                let _ = storage::recompress_existing(&handle.state::<AppState>());
+            })?;
             sync::spawn_auto_sync(app.handle().clone());
             tray::install(app)?;
             Ok(())

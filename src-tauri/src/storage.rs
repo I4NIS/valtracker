@@ -5,7 +5,14 @@ use rusqlite::{Connection, params};
 use serde_json::{Map, Value};
 use std::io::{Read, Write};
 
+use crate::db;
 use crate::error::{AppError, AppResult};
+use crate::state::AppState;
+
+const LEVEL: u32 = 9;
+const BATCH: i64 = 50;
+pub const FORMAT_SETTING: &str = "raw_format";
+const FORMAT: &str = "2";
 
 const MAX_INFLATED: u64 = 16 * 1024 * 1024;
 
@@ -145,11 +152,14 @@ pub fn slim(mut game: Value) -> Value {
     ])
 }
 
-pub fn encode(game: Value) -> AppResult<Vec<u8>> {
-    let bytes = serde_json::to_vec(&slim(game)).map_err(|e| AppError::Invalid(e.to_string()))?;
-    let mut encoder = DeflateEncoder::new(Vec::new(), Compression::new(7));
-    encoder.write_all(&bytes)?;
+fn compress(json: &[u8]) -> AppResult<Vec<u8>> {
+    let mut encoder = DeflateEncoder::new(Vec::new(), Compression::new(LEVEL));
+    encoder.write_all(json)?;
     Ok(encoder.finish()?)
+}
+
+pub fn encode(game: Value) -> AppResult<Vec<u8>> {
+    compress(&serde_json::to_vec(&slim(game)).map_err(|e| AppError::Invalid(e.to_string()))?)
 }
 
 pub fn inflate(bytes: &[u8]) -> Option<Vec<u8>> {
@@ -190,6 +200,46 @@ pub fn compact_existing(conn: &Connection) -> AppResult<usize> {
         crate::db::checkpoint(conn)?;
     }
     Ok(ids.len())
+}
+
+pub fn recompress_existing(state: &AppState) -> AppResult<usize> {
+    if db::get_setting(&*state.conn()?, FORMAT_SETTING)?.as_deref() == Some(FORMAT) {
+        return Ok(0);
+    }
+    let mut after = String::new();
+    let mut done = 0;
+    loop {
+        let batch: Vec<(String, Vec<u8>)> = state.read(|conn| {
+            let mut stmt = conn.prepare(
+                "SELECT match_id, raw FROM matches WHERE match_id > ?1 AND typeof(raw) = 'blob' ORDER BY match_id LIMIT ?2",
+            )?;
+            let rows = stmt.query_map(params![after, BATCH], |row| Ok((row.get(0)?, row.get(1)?)))?.collect::<Result<_, _>>()?;
+            Ok(rows)
+        })?;
+        let Some((last, _)) = batch.last() else {
+            break;
+        };
+        after = last.clone();
+        let mut packed = Vec::with_capacity(batch.len());
+        for (id, raw) in batch {
+            if let Some(json) = inflate(&raw).filter(|_| raw.first() != Some(&b'{')) {
+                packed.push((id, compress(&json)?));
+            }
+        }
+        let mut conn = state.conn()?;
+        let tx = conn.transaction()?;
+        for (id, raw) in &packed {
+            tx.execute("UPDATE matches SET raw = ?2 WHERE match_id = ?1", params![id, raw])?;
+        }
+        tx.commit()?;
+        drop(conn);
+        done += packed.len();
+    }
+    let conn = state.conn()?;
+    db::set_setting(&conn, FORMAT_SETTING, FORMAT)?;
+    conn.execute_batch("VACUUM;")?;
+    db::checkpoint(&conn)?;
+    Ok(done)
 }
 
 #[cfg(test)]
@@ -345,6 +395,43 @@ mod tests {
     fn inflates_a_stored_match() {
         let game = json!({ "metadata": { "match_id": "abc" } });
         assert_eq!(decode(&encode(game).unwrap()).unwrap()["metadata"]["match_id"], "abc");
+    }
+
+    #[test]
+    fn recompresses_stored_matches_once_without_changing_them() {
+        let path = std::env::temp_dir().join(format!("valtracker-recompress-{}.db", std::process::id()));
+        let _ = std::fs::remove_file(&path);
+        let state = AppState::new(db::open(&path).unwrap(), path.clone());
+        let mut originals = Vec::new();
+        {
+            let conn = state.conn().unwrap();
+            for index in 0..120 {
+                let json = serde_json::to_vec(&json!({ "metadata": { "match_id": format!("m{index:03}") }, "kills": vec![index; 200] })).unwrap();
+                let mut encoder = DeflateEncoder::new(Vec::new(), Compression::new(1));
+                encoder.write_all(&json).unwrap();
+                conn.execute(
+                    "INSERT INTO matches (match_id, started_at, rounds, raw) VALUES (?1, '2026-01-01', 1, ?2)",
+                    params![format!("m{index:03}"), encoder.finish().unwrap()],
+                )
+                .unwrap();
+                originals.push(json);
+            }
+            conn.execute("INSERT INTO matches (match_id, started_at, rounds, raw) VALUES ('text', '2026-01-01', 1, '{}')", []).unwrap();
+        }
+        assert_eq!(recompress_existing(&state).unwrap(), 120);
+        let conn = state.conn().unwrap();
+        for (index, json) in originals.iter().enumerate() {
+            let raw: Vec<u8> = conn.query_row("SELECT raw FROM matches WHERE match_id = ?1", [format!("m{index:03}")], |row| row.get(0)).unwrap();
+            assert_eq!(&inflate(&raw).unwrap(), json);
+            assert_eq!(raw, compress(json).unwrap());
+        }
+        let text: String = conn.query_row("SELECT raw FROM matches WHERE match_id = 'text'", [], |row| row.get(0)).unwrap();
+        assert_eq!(text, "{}");
+        assert_eq!(db::get_setting(&conn, FORMAT_SETTING).unwrap().as_deref(), Some(FORMAT));
+        drop(conn);
+        assert_eq!(recompress_existing(&state).unwrap(), 0);
+        drop(state);
+        let _ = std::fs::remove_file(path);
     }
 
     #[test]
