@@ -4,7 +4,7 @@ use tauri::{AppHandle, Emitter, Manager};
 use crate::assets;
 use crate::db;
 use crate::error::{AppError, AppResult};
-use crate::henrik::Henrik;
+use crate::henrik::{Henrik, NOT_FOUND};
 use crate::models::{SyncProgress, SyncReport};
 use crate::repo;
 use crate::state::AppState;
@@ -13,7 +13,8 @@ pub const API_KEY_SETTING: &str = "api_key";
 pub const ACTIVE_ACCOUNT_SETTING: &str = "active_account";
 
 const PAGE_SIZE: usize = 10;
-const MAX_MATCHES_PER_MODE: usize = 100;
+const MAX_MATCHES_PER_MODE: usize = 2000;
+const MAX_CONSECUTIVE_MISSING: usize = 5;
 const AUTO_SYNC_INTERVAL: Duration = Duration::from_secs(10 * 60);
 const MODES: [(&str, &str); 2] = [("competitive", "compétitifs"), ("premier", "Premier")];
 
@@ -66,6 +67,8 @@ async fn sync(app: &AppHandle, state: &AppState, puuid: &str) -> AppResult<SyncR
         }
     }
 
+    new_matches += backfill(app, state, &api, region, puuid, new_matches).await;
+
     let finished_at = now_iso();
     {
         let conn = state.conn()?;
@@ -111,6 +114,49 @@ async fn sync_mode(
         start += PAGE_SIZE;
     }
     Ok(added_total)
+}
+
+async fn backfill(app: &AppHandle, state: &AppState, api: &Henrik, region: &str, puuid: &str, already: usize) -> usize {
+    let Ok(missing) = state.conn().and_then(|conn| repo::missing_history_matches(&conn, puuid)) else {
+        return 0;
+    };
+    let mut added = 0;
+    let mut consecutive_missing = 0;
+    for (index, match_id) in missing.iter().enumerate() {
+        emit(
+            app,
+            puuid,
+            &format!("Matchs plus anciens, {} sur {}", index + 1, missing.len()),
+            already + added,
+            true,
+            None,
+        );
+        match api.match_detail(region, match_id).await {
+            Ok(game) => {
+                consecutive_missing = 0;
+                let Ok(mut conn) = state.conn() else {
+                    break;
+                };
+                match repo::insert_match(&mut conn, &game) {
+                    Ok(true) => added += 1,
+                    _ => {
+                        let _ = repo::mark_unavailable(&conn, match_id);
+                    }
+                }
+            }
+            Err(AppError::Api(message)) if message == NOT_FOUND => {
+                if let Ok(conn) = state.conn() {
+                    let _ = repo::mark_unavailable(&conn, match_id);
+                }
+                consecutive_missing += 1;
+                if consecutive_missing >= MAX_CONSECUTIVE_MISSING {
+                    break;
+                }
+            }
+            Err(_) => break,
+        }
+    }
+    added
 }
 
 pub fn spawn_auto_sync(app: AppHandle) {

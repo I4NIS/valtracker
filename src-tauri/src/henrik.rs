@@ -6,6 +6,7 @@ use crate::error::{AppError, AppResult};
 
 const BASE_URL: &str = "https://api.henrikdev.xyz/valorant/";
 const MAX_ATTEMPTS: usize = 4;
+pub const NOT_FOUND: &str = "Joueur ou match introuvable";
 
 pub struct Henrik {
     client: Client,
@@ -48,6 +49,10 @@ impl Henrik {
             &[("mode", mode.to_string()), ("start", start.to_string()), ("size", size.to_string())],
         )
         .await
+    }
+
+    pub async fn match_detail(&self, region: &str, match_id: &str) -> AppResult<Value> {
+        self.get(&["v4", "match", region, match_id], &[]).await
     }
 
     async fn get(&self, segments: &[&str], query: &[(&str, String)]) -> AppResult<Value> {
@@ -98,7 +103,7 @@ fn api_error(status: StatusCode, body: &Value) -> AppError {
         .unwrap_or_default();
     let message = match status.as_u16() {
         401 | 403 => "Clé API HenrikDev invalide ou expirée".to_string(),
-        404 => "Joueur ou match introuvable".to_string(),
+        404 => NOT_FOUND.to_string(),
         code if detail.is_empty() => format!("L'API HenrikDev a répondu avec l'erreur {code}"),
         code => format!("L'API HenrikDev a répondu avec l'erreur {code} : {detail}"),
     };
