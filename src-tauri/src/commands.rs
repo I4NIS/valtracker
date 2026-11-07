@@ -11,7 +11,7 @@ use crate::stats;
 use crate::sync::{self, ACTIVE_ACCOUNT_SETTING, API_KEY_SETTING};
 
 const REGIONS: [&str; 6] = ["eu", "na", "ap", "kr", "latam", "br"];
-const PREFERENCES: [&str; 2] = ["theme", "language"];
+const PREFERENCES: [&str; 3] = ["theme", "language", "tutorial_done"];
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -21,6 +21,7 @@ pub struct Bootstrap {
     active_puuid: Option<String>,
     theme: String,
     language: String,
+    tutorial_done: bool,
 }
 
 #[tauri::command]
@@ -36,6 +37,7 @@ pub fn bootstrap(state: State<'_, AppState>) -> AppResult<Bootstrap> {
         active_puuid: active,
         theme: db::get_setting(&conn, "theme")?.unwrap_or_else(|| "dark".into()),
         language: db::get_setting(&conn, "language")?.unwrap_or_else(|| "fr".into()),
+        tutorial_done: db::get_setting(&conn, "tutorial_done")?.as_deref() == Some("true"),
     })
 }
 
