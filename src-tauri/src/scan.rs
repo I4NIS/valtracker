@@ -89,8 +89,8 @@ pub fn scan(
         if cancelled() {
             return Ok(false);
         }
-        let info = GameRow { match_id: row.get(19)?, started_at: row.get(20)?, map_id: row.get(21)?, map_name: row.get(22)? };
-        let in_season = current.is_some() && row.get::<_, Option<String>>(23)?.as_deref() == current;
+        let info = GameRow { match_id: row.get(20)?, started_at: row.get(21)?, map_id: row.get(22)?, map_name: row.get(23)? };
+        let in_season = current.is_some() && row.get::<_, Option<String>>(24)?.as_deref() == current;
         let json = row.get_ref(RAW_COLUMN)?.as_bytes().ok().and_then(storage::inflate);
         let game = json.as_deref().and_then(Game::parse);
         all.add(conn, row, game.as_ref(), puuid, &info)?;

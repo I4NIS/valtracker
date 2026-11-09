@@ -112,6 +112,7 @@ struct Line {
     puuid: String,
     won: bool,
     rounds: i64,
+    length_ms: i64,
     kills: i64,
     deaths: i64,
     assists: i64,
@@ -137,7 +138,7 @@ fn lines(conn: &Connection, puuid: &str, filters: &Filters) -> AppResult<Vec<Lin
                 COALESCE(SUM(o.damage_dealt * 1.0 / m.rounds), 0),
                 COALESCE(SUM(o.kills), 0), COALESCE(SUM(o.deaths), 0),
                 COALESCE(SUM(o.headshots), 0), COALESCE(SUM(o.headshots + o.bodyshots + o.legshots), 0),
-                p.puuid
+                p.puuid, COALESCE(m.game_length_ms, 0)
          FROM match_players p
          JOIN matches m ON m.match_id = p.match_id
          LEFT JOIN match_players o ON o.match_id = p.match_id AND o.puuid <> p.puuid
@@ -158,6 +159,7 @@ fn lines(conn: &Connection, puuid: &str, filters: &Filters) -> AppResult<Vec<Lin
                     puuid: row.get(17)?,
                     won: row.get(1)?,
                     rounds: row.get(2)?,
+                    length_ms: row.get(18)?,
                     kills: row.get(3)?,
                     deaths: row.get(4)?,
                     assists: row.get(5)?,
@@ -203,6 +205,7 @@ fn summarize(lines: &[Line]) -> Overview {
         wins,
         losses: matches - wins,
         rounds,
+        played_ms: sum(|line| line.length_ms),
         kills,
         deaths,
         assists,
@@ -219,11 +222,25 @@ fn summarize(lines: &[Line]) -> Overview {
             kd: ratio(sum(|line| line.others_kills) as f64, sum(|line| line.others_deaths) as f64),
             hs_pct: ratio(sum(|line| line.others_headshots) as f64 * 100.0, others_shots),
         },
+        riot_matches: None,
     }
 }
 
 pub fn overview(conn: &Connection, puuid: &str, filters: &Filters) -> AppResult<Overview> {
-    Ok(summarize(&lines(conn, puuid, filters)?))
+    let mut overview = summarize(&lines(conn, puuid, filters)?);
+    if *filters == Filters::default() {
+        overview.riot_matches = riot_matches(conn, puuid)?;
+    }
+    Ok(overview)
+}
+
+fn riot_matches(conn: &Connection, puuid: &str) -> AppResult<Option<i64>> {
+    Ok(conn.query_row(
+        "SELECT SUM(games) FROM account_seasons WHERE puuid IN (SELECT ?1 UNION ALL SELECT puuid FROM accounts WHERE ?1 = 'all')",
+        params![puuid],
+        |row| row.get::<_, Option<i64>>(0),
+    )?
+    .filter(|games| *games > 0))
 }
 
 fn options(conn: &Connection, sql: &str, puuid: &str) -> AppResult<Vec<FilterOption>> {
@@ -369,6 +386,7 @@ mod tests {
         won: bool,
         kills: i64,
         deaths: i64,
+        length_ms: i64,
     }
 
     fn player(puuid: &str, team: &str, party: &str, agent: &str, kills: i64, deaths: i64) -> Value {
@@ -407,6 +425,7 @@ mod tests {
             "metadata": {
                 "match_id": game.id,
                 "started_at": game.started_at,
+                "game_length_in_ms": game.length_ms,
                 "map": { "id": game.map, "name": game.map.to_uppercase() },
                 "queue": { "id": "competitive" },
                 "season": { "short": game.season },
@@ -435,9 +454,9 @@ mod tests {
             .query_row("SELECT strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-2 days')", [], |row| row.get(0))
             .unwrap();
         let games = [
-            Game { id: "a", started_at: recent, map: "ascent", season: "e9a3", agent: "jett", grouped: true, won: true, kills: 20, deaths: 10 },
-            Game { id: "b", started_at: "2024-01-10T20:00:00.000Z".into(), map: "bind", season: "e9a3", agent: "jett", grouped: false, won: false, kills: 10, deaths: 20 },
-            Game { id: "c", started_at: "2024-01-05T20:00:00.000Z".into(), map: "ascent", season: "e9a2", agent: "omen", grouped: false, won: true, kills: 15, deaths: 15 },
+            Game { id: "a", started_at: recent, map: "ascent", season: "e9a3", agent: "jett", grouped: true, won: true, kills: 20, deaths: 10, length_ms: 2_100_000 },
+            Game { id: "b", started_at: "2024-01-10T20:00:00.000Z".into(), map: "bind", season: "e9a3", agent: "jett", grouped: false, won: false, kills: 10, deaths: 20, length_ms: 1_800_000 },
+            Game { id: "c", started_at: "2024-01-05T20:00:00.000Z".into(), map: "ascent", season: "e9a2", agent: "omen", grouped: false, won: true, kills: 15, deaths: 15, length_ms: 2_400_000 },
         ];
         for game in &games {
             insert(&mut conn, game);
@@ -493,6 +512,20 @@ mod tests {
         let none = overview(&conn, ME, &Filters { map_id: Some("haven".into()), ..Filters::default() }).unwrap();
         assert_eq!(none.matches, 0);
         assert_eq!(none.acs, 0.0);
+        drop(conn);
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn sums_played_time() {
+        let (conn, path) = database();
+        let played = |filters: Filters| overview(&conn, ME, &filters).unwrap().played_ms;
+        assert_eq!(played(Filters::default()), 6_300_000);
+        assert_eq!(played(Filters::season(Some("e9a3"))), 3_900_000);
+        assert_eq!(played(Filters { map_id: Some("ascent".into()), ..Filters::default() }), 4_500_000);
+        assert_eq!(played(Filters { party: Some(Party::Solo), ..Filters::default() }), 4_200_000);
+        conn.execute("UPDATE matches SET game_length_ms = NULL WHERE match_id = 'b'", []).unwrap();
+        assert_eq!(played(Filters::default()), 4_500_000);
         drop(conn);
         let _ = std::fs::remove_file(path);
     }

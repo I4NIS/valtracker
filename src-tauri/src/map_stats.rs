@@ -49,6 +49,7 @@ pub struct MapStat {
     pub rr_net: i64,
     pub rr_matches: i64,
     pub rounds: i64,
+    pub played_ms: i64,
     pub analyzed: i64,
     pub attack_played: i64,
     pub attack_won: i64,
@@ -132,7 +133,7 @@ fn rounds_of(game: &Game, puuid: &str, map: Option<&MapData>, stat: &mut MapStat
 pub const MAP_COLUMNS: &str = "COALESCE(m.map_id, m.map_name, ''), COALESCE(m.map_name, mp.name, ''), mp.splash,
         p.agent_id, p.agent_name, p.won, p.rounds_won, p.rounds_lost, m.rounds,
         p.score, p.kills, p.deaths, p.headshots, p.headshots + p.bodyshots + p.legshots, p.damage_dealt,
-        h.last_change, m.raw, mp.list_icon, mp.display_icon";
+        h.last_change, m.raw, mp.list_icon, mp.display_icon, COALESCE(m.game_length_ms, 0)";
 
 pub const MAP_JOINS: &str = "FROM match_players p
      JOIN matches m ON m.match_id = p.match_id
@@ -175,6 +176,7 @@ impl MapAcc {
         stat.wins += won as i64;
         stat.draws += draw as i64;
         stat.rounds += row.get::<_, i64>(8)?;
+        stat.played_ms += row.get::<_, i64>(19)?;
         entry.score += row.get::<_, i64>(9)?;
         entry.kills += row.get::<_, i64>(10)?;
         entry.deaths += row.get::<_, i64>(11)?;

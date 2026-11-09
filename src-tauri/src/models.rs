@@ -53,6 +53,7 @@ pub struct Overview {
     pub wins: i64,
     pub losses: i64,
     pub rounds: i64,
+    pub played_ms: i64,
     pub kills: i64,
     pub deaths: i64,
     pub assists: i64,
@@ -64,6 +65,7 @@ pub struct Overview {
     pub win_pct: f64,
     pub kills_per_round: f64,
     pub lobby: LobbyAverages,
+    pub riot_matches: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize)]

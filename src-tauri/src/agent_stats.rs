@@ -32,6 +32,7 @@ pub struct AgentMap {
     pub wins: i64,
     pub win_pct: f64,
     pub acs: f64,
+    pub played_ms: i64,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -45,6 +46,7 @@ pub struct AgentStat {
     pub losses: i64,
     pub win_pct: f64,
     pub rounds: i64,
+    pub played_ms: i64,
     pub kills: i64,
     pub deaths: i64,
     pub assists: i64,
@@ -71,6 +73,7 @@ struct Row {
     map_name: Option<String>,
     won: bool,
     rounds: i64,
+    length_ms: i64,
     kills: i64,
     deaths: i64,
     assists: i64,
@@ -87,6 +90,7 @@ struct MapAcc {
     wins: i64,
     score: i64,
     rounds: i64,
+    played_ms: i64,
 }
 
 #[derive(Default)]
@@ -95,6 +99,7 @@ struct Acc {
     matches: i64,
     wins: i64,
     rounds: i64,
+    played_ms: i64,
     kills: i64,
     deaths: i64,
     assists: i64,
@@ -205,7 +210,7 @@ fn agent_stats_with(
 ) -> AppResult<Vec<AgentStat>> {
     let mut stmt = conn.prepare(
         "SELECT m.match_id, LOWER(p.agent_id), p.agent_name, m.map_id, m.map_name, p.won, m.rounds, p.kills, p.deaths,
-                p.assists, p.score, p.damage_dealt, p.headshots, p.headshots + p.bodyshots + p.legshots
+                p.assists, p.score, p.damage_dealt, p.headshots, p.headshots + p.bodyshots + p.legshots, COALESCE(m.game_length_ms, 0)
          FROM match_players p JOIN matches m ON m.match_id = p.match_id
          WHERE p.puuid = ?1 AND m.queue = ?2 AND (?3 IS NULL OR m.season_short = ?3) AND p.agent_id IS NOT NULL",
     )?;
@@ -226,6 +231,7 @@ fn agent_stats_with(
                 damage: row.get(11)?,
                 headshots: row.get(12)?,
                 shots: row.get(13)?,
+                length_ms: row.get(14)?,
             })
         })?
         .collect::<Result<Vec<_>, _>>()?;
@@ -286,6 +292,7 @@ fn agent_stats_with(
         acc.matches += 1;
         acc.wins += row.won as i64;
         acc.rounds += row.rounds;
+        acc.played_ms += row.length_ms;
         acc.kills += row.kills;
         acc.deaths += row.deaths;
         acc.assists += row.assists;
@@ -310,6 +317,7 @@ fn agent_stats_with(
         map.wins += row.won as i64;
         map.score += row.score;
         map.rounds += row.rounds;
+        map.played_ms += row.length_ms;
     }
 
     let mut list: Vec<AgentStat> = totals
@@ -326,6 +334,7 @@ fn agent_stats_with(
                     wins: map.wins,
                     win_pct: ratio(map.wins as f64 * 100.0, map.matches as f64),
                     acs: ratio(map.score as f64, map.rounds as f64),
+                    played_ms: map.played_ms,
                 })
                 .collect();
             maps.sort_by(|a, b| b.matches.cmp(&a.matches).then(b.win_pct.total_cmp(&a.win_pct)).then(a.map_name.cmp(&b.map_name)));
@@ -347,6 +356,7 @@ fn agent_stats_with(
                 losses: acc.matches - acc.wins,
                 win_pct: ratio(acc.wins as f64 * 100.0, acc.matches as f64),
                 rounds: acc.rounds,
+                played_ms: acc.played_ms,
                 kills: acc.kills,
                 deaths: acc.deaths,
                 assists: acc.assists,
