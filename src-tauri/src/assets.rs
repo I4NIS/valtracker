@@ -83,7 +83,11 @@ pub async fn refresh_if_needed(state: &AppState) -> AppResult<()> {
         let conn = state.conn()?;
         let last = db::get_setting(&conn, REFRESHED_SETTING)?.and_then(|value| value.parse::<i64>().ok());
         let total: i64 = conn.query_row("SELECT COUNT(*) FROM maps", [], |row| row.get(0))?;
-        let missing: i64 = conn.query_row("SELECT COUNT(*) FROM maps WHERE splash IS NULL", [], |row| row.get(0))?;
+        let missing: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM maps WHERE splash IS NULL OR display_icon NOT LIKE '%?v=%'",
+            [],
+            |row| row.get(0),
+        )?;
         total == 0 || missing > 0 || last.is_none_or(|last| now - last > REFRESH_EVERY_SECS)
     };
     if !stale {
@@ -93,7 +97,7 @@ pub async fn refresh_if_needed(state: &AppState) -> AppResult<()> {
     let maps = fetch(&client, MAPS_URL).await?;
     let agents = fetch(&client, AGENTS_URL).await?;
     let mut conn = state.conn()?;
-    store(&mut conn, &maps, &agents)?;
+    store(&mut conn, &maps, &agents, now)?;
     db::set_setting(&conn, REFRESHED_SETTING, &now.to_string())
 }
 
@@ -102,7 +106,7 @@ async fn fetch(client: &Client, url: &str) -> AppResult<Value> {
     serde_json::from_slice(&body).map_err(|err| AppError::Api(err.to_string()))
 }
 
-fn store(conn: &mut Connection, maps: &Value, agents: &Value) -> AppResult<()> {
+fn store(conn: &mut Connection, maps: &Value, agents: &Value, version: i64) -> AppResult<()> {
     let tx = conn.transaction()?;
     for map in maps.pointer("/data").and_then(Value::as_array).into_iter().flatten() {
         let (Some(uuid), Some(name)) = (map["uuid"].as_str(), map["displayName"].as_str()) else {
@@ -129,7 +133,7 @@ fn store(conn: &mut Connection, maps: &Value, agents: &Value) -> AppResult<()> {
             params![
                 uuid,
                 name,
-                image_field(&map["displayIcon"]),
+                image_field(&map["displayIcon"]).map(|url| format!("{url}?v={version}")),
                 map["xMultiplier"].as_f64().unwrap_or(0.0),
                 map["yMultiplier"].as_f64().unwrap_or(0.0),
                 map["xScalarToAdd"].as_f64().unwrap_or(0.0),
