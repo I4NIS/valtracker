@@ -42,6 +42,7 @@ pub struct PlayerLine {
     pub adr: f64,
     pub hs_pct: f64,
     pub first_bloods: i64,
+    pub first_deaths: i64,
     pub score: i64,
     pub place: usize,
     pub badge: Option<String>,
@@ -114,6 +115,8 @@ pub struct RoundLine {
     pub enemy_loadout: i64,
     pub my_kills: i64,
     pub died: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub opening: Option<&'static str>,
     pub result: String,
     pub ceremony: Option<String>,
     pub events: Vec<RoundEvent>,
@@ -351,9 +354,13 @@ pub fn analyze(
         }
     }
     let mut first_bloods: HashMap<&str, i64> = HashMap::new();
+    let mut first_deaths: HashMap<&str, i64> = HashMap::new();
     for kill in first_kills.values() {
         if let Some(killer) = text(kill, "/killer/puuid") {
             *first_bloods.entry(killer).or_default() += 1;
+        }
+        if let Some(victim) = text(kill, "/victim/puuid") {
+            *first_deaths.entry(victim).or_default() += 1;
         }
     }
 
@@ -379,6 +386,7 @@ pub fn analyze(
                 adr: int(player, "/stats/damage/dealt") as f64 / rounds_f,
                 hs_pct: if shots > 0 { int(player, "/stats/headshots") as f64 * 100.0 / shots as f64 } else { 0.0 },
                 first_bloods: first_bloods.get(id).copied().unwrap_or(0),
+                first_deaths: first_deaths.get(id).copied().unwrap_or(0),
                 score: 0,
                 place: 0,
                 badge: None,
@@ -592,6 +600,15 @@ pub fn analyze(
                 enemy_loadout: if enemy_total.1 > 0 { enemy_total.0 / enemy_total.1 } else { 0 },
                 my_kills: mine.1,
                 died: died_in.contains(&index),
+                opening: first_kills.get(&(index as i64)).and_then(|kill| {
+                    if text(kill, "/killer/puuid") == Some(puuid) {
+                        Some("kill")
+                    } else if text(kill, "/victim/puuid") == Some(puuid) {
+                        Some("death")
+                    } else {
+                        None
+                    }
+                }),
                 result: result_label(text(round, "/result").unwrap_or_default()),
                 ceremony,
                 events,
@@ -1099,6 +1116,15 @@ mod tests {
             .map(|spot| (spot.name.clone(), spot.ally, spot.me, ((spot.x * 100.0).round(), (spot.y * 100.0).round())))
             .collect();
         assert_eq!(at_plant, [("foe".into(), false, false, (50.0, 60.0)), ("me".into(), true, true, (60.0, 50.0))]);
+    }
+
+    #[test]
+    fn counts_round_openings() {
+        let game = sample();
+        let detail = analyze(&game, "me", None, &HashMap::new(), &Thresholds::default()).expect("sample match");
+        let players: Vec<(String, i64, i64)> = detail.teams.iter().flat_map(|team| team.players.iter()).map(|player| (player.puuid.clone(), player.first_bloods, player.first_deaths)).collect();
+        assert!(players.contains(&("me".into(), 0, 1)) && players.contains(&("foe".into(), 1, 0)));
+        assert_eq!(detail.rounds[0].opening, Some("death"));
     }
 
     #[test]
