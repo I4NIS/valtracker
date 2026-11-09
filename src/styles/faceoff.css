@@ -1,0 +1,77 @@
+.faceoff-row {
+  display: grid;
+  grid-template-columns: 30px minmax(120px, 1.4fr) 76px minmax(120px, 1.6fr) 76px 104px 104px;
+  align-items: center;
+  gap: 14px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.faceoff-row.head {
+  padding-top: 2px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  color: var(--text-3);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.faceoff-row:not(.head):hover {
+  background: var(--raised);
+}
+
+.faceoff-row > img {
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  object-fit: cover;
+  background: var(--raised);
+}
+
+.faceoff-row > :nth-child(3),
+.faceoff-row > :nth-child(5),
+.faceoff-row > :nth-child(6),
+.faceoff-row > :nth-child(7) {
+  text-align: right;
+}
+
+.faceoff-split {
+  display: flex;
+  gap: 3px;
+  height: 10px;
+  min-width: 0;
+}
+
+.faceoff-split > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+}
+
+.faceoff-win {
+  background: var(--good);
+}
+
+.faceoff-loss {
+  background: var(--bad);
+}
+
+.faceoff-empty {
+  width: 100%;
+  background: var(--field);
+}
+
+@container (max-width: 640px) {
+  .faceoff-row {
+    grid-template-columns: 30px minmax(0, 1.4fr) 44px minmax(60px, 1fr) 44px;
+    gap: 10px;
+  }
+
+  .faceoff-row > :nth-child(6),
+  .faceoff-row > :nth-child(7) {
+    display: none;
+  }
+}

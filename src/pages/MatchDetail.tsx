@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { DeathReview } from "../components/DeathReview";
 import { ExportRecapButton } from "../components/ExportRecap";
+import { FaceOff } from "../components/FaceOff";
 import { FavoriteButton } from "../components/FavoriteButton";
 import { fadeIn } from "../components/GameArt";
 import { Icon } from "../components/Icon";
@@ -243,6 +244,8 @@ export function MatchDetail({ account, matchId, initialRound, initialDeath, back
               </section>
             ))}
           </div>
+
+          <FaceOff lines={detail.faceOff ?? []} />
 
           <section className="stack" style={{ gap: 12 }}>
             <div className="section-head">

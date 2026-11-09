@@ -282,6 +282,18 @@ export type MatchDetail = {
   riot?: RiotPerformance;
   behavior?: Fact[];
   mvp?: { player: Who | null; teams: Who[] };
+  faceOff?: FaceOffLine[];
+};
+
+export type FaceOffLine = {
+  puuid: string;
+  name: string;
+  agentId: string | null;
+  agentName: string | null;
+  kills: number;
+  deaths: number;
+  damageDealt: number;
+  damageReceived: number;
 };
 
 export type Fact = { tone: "bad" | "neutral" | "gold"; text: string };
