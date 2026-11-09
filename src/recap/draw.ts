@@ -1,6 +1,6 @@
 import type { Account } from "../lib/api";
 import { tierIcon, tierLabel, tierNameById } from "../lib/assets";
-import { fmt, formatDate } from "../lib/format";
+import { fmt, formatDate, playtime } from "../lib/format";
 import { lang, t } from "../lib/i18n";
 import type { RankPoint } from "../lib/recap";
 
@@ -293,14 +293,7 @@ export function signedRr(value: number): string {
   return `${value > 0 ? "+" : "-"}${Math.abs(value)} RR`;
 }
 
-export function playTime(ms: number): string {
-  const minutes = Math.round(ms / 60000);
-  if (minutes < 60) return `${minutes} min`;
-  const hours = Math.floor(minutes / 60);
-  const rest = minutes % 60;
-  if (lang() === "en") return rest ? `${hours}h ${String(rest).padStart(2, "0")}m` : `${hours}h`;
-  return rest ? `${hours} h ${String(rest).padStart(2, "0")}` : `${hours} h`;
-}
+export const playTime = playtime;
 
 const DAY: Intl.DateTimeFormatOptions = { day: "numeric", month: "long" };
 const LONG_DAY: Intl.DateTimeFormatOptions = { day: "numeric", month: "long", year: "numeric" };

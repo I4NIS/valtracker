@@ -16,6 +16,7 @@ export type AgentMap = {
   wins: number;
   winPct: number;
   acs: number;
+  playedMs: number;
 };
 
 export type AgentStat = {
@@ -27,6 +28,7 @@ export type AgentStat = {
   losses: number;
   winPct: number;
   rounds: number;
+  playedMs: number;
   kills: number;
   deaths: number;
   assists: number;

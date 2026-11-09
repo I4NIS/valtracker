@@ -10,7 +10,7 @@ import type { Account } from "../lib/api";
 import type { AgentMap, AgentStat } from "../lib/agents";
 import type { AgentMastery } from "../lib/career";
 import { agentIcon, seasonLabel } from "../lib/assets";
-import { fmt, pct, roleLabel, scoreTone, signed } from "../lib/format";
+import { fmt, pct, playtime, roleLabel, scoreTone, signed } from "../lib/format";
 import { agentArt, agentColor, useAgentCatalog, type AgentInfo } from "../lib/gameAssets";
 import { t } from "../lib/i18n";
 import { useBackLabel } from "../lib/navigation";
@@ -278,6 +278,7 @@ function AgentCard({ agent, share, info, mastery, large, onSelect }: CardProps) 
           <span className="faint">{roleLabel(agent.role) || t("Rôle inconnu", "Unknown role")}</span>
           <span className="muted agent-card-matches ellipsis" title={t(`${fmt(share)} % de tes matchs`, `${fmt(share)}% of your matches`)}>
             {matchCount(agent.matches)}
+            {agent.playedMs > 0 && `, ${playtime(agent.playedMs)}`}
           </span>
         </div>
         <WinRing value={agent.winPct} size={large ? 64 : 54} />
@@ -424,6 +425,7 @@ function AgentDetail({ agent, info, mastery, puuid, season, onOpenMatch }: Detai
             <span className="agent-hero-meta">
               {matchCount(agent.matches)}, <span className="agent-hero-win">{agent.wins} {t("V", "W")}</span>{" "}
               <span className="agent-hero-loss">{agent.losses} {t("D", "L")}</span>, {agent.rounds} {t("rounds", agent.rounds === 1 ? "round" : "rounds")}
+              {agent.playedMs > 0 && <>, {t(`${playtime(agent.playedMs)} de jeu`, `${playtime(agent.playedMs)} played`)}</>}
             </span>
             <MasteryLine mastery={mastery} />
             {abilities.length > 0 && (

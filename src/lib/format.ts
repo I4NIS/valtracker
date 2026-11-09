@@ -1,4 +1,4 @@
-import { locale, t } from "./i18n";
+import { lang, locale, t } from "./i18n";
 
 const numbers = new Map<string, Intl.NumberFormat>();
 const dates = new Map<string, Intl.DateTimeFormat>();
@@ -74,6 +74,15 @@ export function scoreTone(score: number): "gold" | "good" | "bad" | "muted" {
   if (score >= 50) return "good";
   if (score < 40) return "bad";
   return "muted";
+}
+
+export function playtime(ms: number): string {
+  const minutes = Math.round(ms / 60000);
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  if (hours >= 100 || !rest) return lang() === "en" ? `${fmt(hours)}h` : `${fmt(hours)} h`;
+  return lang() === "en" ? `${hours}h ${String(rest).padStart(2, "0")}m` : `${hours} h ${String(rest).padStart(2, "0")}`;
 }
 
 export function duration(ms: number | null | undefined): string {

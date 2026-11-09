@@ -32,6 +32,7 @@ export type MapStat = {
   rrNet: number;
   rrMatches: number;
   rounds: number;
+  playedMs: number;
   analyzed: number;
   attackPlayed: number;
   attackWon: number;

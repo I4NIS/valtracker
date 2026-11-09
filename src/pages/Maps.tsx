@@ -7,7 +7,7 @@ import { MapHistoryView } from "../components/MapHistoryView";
 import { SeasonPicker } from "../components/SeasonPicker";
 import type { Account } from "../lib/api";
 import { agentIcon, seasonLabel } from "../lib/assets";
-import { fmt, pct, signed } from "../lib/format";
+import { fmt, pct, playtime, signed } from "../lib/format";
 import { mapArt } from "../lib/gameAssets";
 import { inRotation, type MapStat } from "../lib/mapStats";
 import { rotatePoint, rotationStyle } from "../lib/minimap";
@@ -38,6 +38,7 @@ const rrTone = (value: number) => (value > 0 ? "win" : value < 0 ? "bad" : "mute
 function record(map: MapStat) {
   const parts = [t(`${map.wins} V`, `${map.wins} W`), t(`${map.losses} D`, `${map.losses} L`)];
   if (map.draws > 0) parts.push(t(`${map.draws} N`, `${map.draws} D`));
+  if (map.playedMs > 0) parts.push(t(`${playtime(map.playedMs)} de jeu`, `${playtime(map.playedMs)} played`));
   return parts.join(", ");
 }
 
@@ -139,7 +140,10 @@ export function Maps({ account, onOpenRound }: Props) {
                 <span className="mapstat-card-body">
                   <strong className="mapstat-card-name">{map.name}</strong>
                   <span className="mapstat-card-meta">
-                    <span>{matchCount(map.matches)}</span>
+                    <span>
+                      {matchCount(map.matches)}
+                      {map.playedMs > 0 && `, ${playtime(map.playedMs)}`}
+                    </span>
                     <span className={`mapstat-card-pct ${tone(map.winPct)}`}>{pct(map.winPct, 0)}</span>
                   </span>
                   {large && (

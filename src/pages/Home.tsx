@@ -9,7 +9,7 @@ import { SeasonPicker } from "../components/SeasonPicker";
 import { repeat, SkeletonBlock, SkeletonGroup, SkeletonLine } from "../components/Skeleton";
 import type { Account, RecentMatch } from "../lib/api";
 import { seasonLabel, tierLabel } from "../lib/assets";
-import { fmt, greeting, pct, signed, tradeWindowText } from "../lib/format";
+import { fmt, greeting, pct, playtime, signed, tradeWindowText } from "../lib/format";
 import { t } from "../lib/i18n";
 import { useQuery } from "../lib/query";
 import { ALL_ACCOUNTS, defaultSeason, queries, RECENT_PAGE } from "../lib/queries";
@@ -205,7 +205,16 @@ export function Home({ account, accounts, onOpenMatch }: Props) {
               </span>
               <span className="faint" style={{ fontSize: 13 }}>
                 {t(`${overview.matches} match${overview.matches > 1 ? "s" : ""} joué${overview.matches > 1 ? "s" : ""}`, `${overview.matches} ${overview.matches === 1 ? "match" : "matches"} played`)}
+                {overview.playedMs > 0 && t(`, ${playtime(overview.playedMs)} de jeu`, `, ${playtime(overview.playedMs)} of play`)}
               </span>
+              {overview.riotMatches !== null && overview.riotMatches > overview.matches && (
+                <span className="faint" style={{ fontSize: 13 }}>
+                  {t(
+                    `${fmt(overview.riotMatches)} matchs classés selon Riot, ${fmt(overview.matches)} enregistrés ici`,
+                    `${fmt(overview.riotMatches)} ranked matches according to Riot, ${fmt(overview.matches)} recorded here`,
+                  )}
+                </span>
+              )}
             </div>
           </div>
         )}

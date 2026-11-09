@@ -47,6 +47,7 @@ export type Overview = {
   wins: number;
   losses: number;
   rounds: number;
+  playedMs: number;
   kills: number;
   deaths: number;
   assists: number;
@@ -58,6 +59,7 @@ export type Overview = {
   winPct: number;
   killsPerRound: number;
   lobby: LobbyAverages;
+  riotMatches: number | null;
 };
 
 export type Party = "solo" | "group";
