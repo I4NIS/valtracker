@@ -7,16 +7,18 @@ import { Icon } from "../components/Icon";
 import { MatchRrDetail } from "../components/MatchRrDetail";
 import { NoteEditor } from "../components/NoteEditor";
 import { MatchAccolades } from "../components/RiotRecords";
-import type { Account, MatchDetail as MatchDetailData, PlayerLine, RoundLine } from "../lib/api";
+import type { Account, MatchDetail as MatchDetailData, PlayerLine, RoundLine, TeamBlock } from "../lib/api";
 import { RankBadge } from "../components/RankBadge";
 import { GradeBadge, MatchRiot, MvpBadge } from "../components/RiotFacts";
 import { RoundDetail } from "../components/RoundDetail";
+import { SortHeader } from "../components/SortHeader";
 import { repeat, SkeletonBlock, SkeletonGroup, SkeletonLine } from "../components/Skeleton";
 import { agentIcon } from "../lib/assets";
 import { duration, fmt, fullDate, pct, placeLabel, roleLabel, scoreTone, signed } from "../lib/format";
 import { t } from "../lib/i18n";
 import { useQuery } from "../lib/query";
 import { queries } from "../lib/queries";
+import { useSort, type SortColumns } from "../lib/sort";
 import { useViewport } from "../lib/viewport";
 
 type Tab = "summary" | "rounds" | "review" | "note";
@@ -236,43 +238,7 @@ export function MatchDetail({ account, matchId, initialRound, initialDeath, back
                     )}
                   </span>
                 </div>
-                <div className="list-scroll">
-                  <div>
-                    <div className="score-row head">
-                      <span />
-                      <span>{t("Joueur", "Player")}</span>
-                      <span />
-                      <span>{t("Score", "Score")}</span>
-                      <span>K / D / A</span>
-                      <span>ACS</span>
-                      <span>ADR</span>
-                      <span>HS</span>
-                    </div>
-                    {team.players.map((player) => (
-                      <div className={`score-row${player.isMe ? " me" : ""}`} key={player.puuid}>
-                        {agentIcon(player.agentId) ? <img src={agentIcon(player.agentId)} alt={player.agentName ?? ""} width={36} height={36} loading="lazy" decoding="async" {...fadeIn} /> : <span />}
-                        <span className="stack" style={{ gap: 0, minWidth: 0 }}>
-                          <span className="name-line">
-                            <strong className="ellipsis">{player.name}</strong>
-                            <GradeBadge grade={player.riotGrade} />
-                            <MvpBadge rank={player.riotMvp} />
-                          </span>
-                          <span className="faint ellipsis" style={{ fontSize: 12 }}>
-                            {player.badge ?? roleLabel(player.role)}
-                          </span>
-                        </span>
-                        <RankBadge tier={player.tier} size={26} />
-                        <strong className={scoreTone(player.score)}>{player.score}</strong>
-                        <span>
-                          {player.kills} / {player.deaths} / {player.assists}
-                        </span>
-                        <span>{fmt(player.acs)}</span>
-                        <span className="muted">{fmt(player.adr)}</span>
-                        <span className="muted">{pct(player.hsPct, 0)}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                <TeamTable team={team} />
               </section>
             ))}
           </div>
@@ -308,6 +274,58 @@ export function MatchDetail({ account, matchId, initialRound, initialDeath, back
           <MatchAccolades accolades={detail.accolades} />
         </>
       )}
+    </div>
+  );
+}
+
+const PLAYER_COLUMNS: SortColumns<PlayerLine> = {
+  name: { value: (player) => player.name },
+  score: { value: (player) => player.score },
+  kda: { value: (player) => player.kills / Math.max(1, player.deaths) },
+  acs: { value: (player) => player.acs },
+  adr: { value: (player) => player.adr },
+  hs: { value: (player) => player.hsPct },
+};
+
+function TeamTable({ team }: { team: TeamBlock }) {
+  const table = useSort(team.mine ? "team-mine" : "team-enemy", team.players, PLAYER_COLUMNS, { key: "score", dir: "desc" });
+  return (
+    <div className="list-scroll">
+      <div>
+        <div className="score-row head">
+          <span />
+          <SortHeader table={table} column="name">{t("Joueur", "Player")}</SortHeader>
+          <span />
+          <SortHeader table={table} column="score">{t("Score", "Score")}</SortHeader>
+          <SortHeader table={table} column="kda">K / D / A</SortHeader>
+          <SortHeader table={table} column="acs">ACS</SortHeader>
+          <SortHeader table={table} column="adr">ADR</SortHeader>
+          <SortHeader table={table} column="hs">HS</SortHeader>
+        </div>
+        {table.rows.map((player) => (
+          <div className={`score-row${player.isMe ? " me" : ""}`} key={player.puuid}>
+            {agentIcon(player.agentId) ? <img src={agentIcon(player.agentId)} alt={player.agentName ?? ""} width={36} height={36} loading="lazy" decoding="async" {...fadeIn} /> : <span />}
+            <span className="stack" style={{ gap: 0, minWidth: 0 }}>
+              <span className="name-line">
+                <strong className="ellipsis">{player.name}</strong>
+                <GradeBadge grade={player.riotGrade} />
+                <MvpBadge rank={player.riotMvp} />
+              </span>
+              <span className="faint ellipsis" style={{ fontSize: 12 }}>
+                {player.badge ?? roleLabel(player.role)}
+              </span>
+            </span>
+            <RankBadge tier={player.tier} size={26} />
+            <strong className={scoreTone(player.score)}>{player.score}</strong>
+            <span>
+              {player.kills} / {player.deaths} / {player.assists}
+            </span>
+            <span>{fmt(player.acs)}</span>
+            <span className="muted">{fmt(player.adr)}</span>
+            <span className="muted">{pct(player.hsPct, 0)}</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

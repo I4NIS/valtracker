@@ -5,6 +5,7 @@ import { AbilityArt, Art, SpikeGlyph } from "../components/GameArt";
 import { Icon } from "../components/Icon";
 import { repeat, SkeletonBlock, SkeletonGroup, SkeletonLine } from "../components/Skeleton";
 import { SeasonPicker } from "../components/SeasonPicker";
+import { SortHeader } from "../components/SortHeader";
 import type { Account } from "../lib/api";
 import { agentIcon, seasonLabel } from "../lib/assets";
 import { fmt, fullDate, pct } from "../lib/format";
@@ -12,6 +13,7 @@ import { findAbility, mapArt, useAgentCatalog, weaponArt, type Catalog } from ".
 import { lang, t } from "../lib/i18n";
 import { useBackLabel } from "../lib/navigation";
 import { useQuery } from "../lib/query";
+import { useSort, type SortColumns } from "../lib/sort";
 import { defaultSeason, queries } from "../lib/queries";
 import {
   RANGES,
@@ -38,6 +40,16 @@ const SPIKE = "Spike";
 const FALL = "Chute";
 const STACK_LIMIT = 3;
 const HISTORY_PAGE = 10;
+
+const NO_WEAPONS: WeaponLine[] = [];
+
+const WEAPON_COLUMNS: SortColumns<WeaponLine> = {
+  name: { value: (item) => displayName(item.name) },
+  kills: { value: (item) => item.kills },
+  hs: { value: (item) => item.hsPct },
+  distance: { value: (item) => item.avgKillDistance },
+  perRound: { value: (item) => item.killsPerRoundHeld },
+};
 
 const meters = (value: number | null) => (value === null ? "-" : `${fmt(value, 1)} m`);
 const plural = (count: number, one: string, many: string) => `${fmt(count)} ${(lang() === "en" ? count !== 1 : count > 1) ? many : one}`;
@@ -208,6 +220,7 @@ export function Weapons({ account, onOpenRound }: Props) {
   const abilityKillers = data?.killers.find((item) => item.name === ABILITIES)?.parts ?? [];
   const historyName = historyOpen && tracked ? displayName(tracked.name) : null;
   useBackLabel(historyName ? t(`Retour à ${historyName}`, `Back to ${historyName}`) : null);
+  const arsenal = useSort("weapons", data?.weapons ?? NO_WEAPONS, WEAPON_COLUMNS, { key: "kills", dir: "desc" });
   const empty = data !== null && data.kills === 0 && data.weapons.length === 0 && data.killers.length === 0;
 
   if (historyOpen && data && tracked && season !== undefined) {
@@ -337,15 +350,15 @@ export function Weapons({ account, onOpenRound }: Props) {
                 <div className="weapons-layout">
                   <div className="stack" style={{ gap: 10, minWidth: 0 }}>
                     <div className="weapons-table weapons-pane" role="list">
-                      <div className="weapon-row head" aria-hidden="true">
-                        <span>{t("Arme", "Weapon")}</span>
-                        <span className="weapon-col-kills">Kills</span>
-                        <span className="weapon-col-share">{t("Part", "Share")}</span>
-                        <span className="weapon-col-hs">HS</span>
-                        <span className="weapon-col-dist">Distance</span>
-                        <span>K/round</span>
+                      <div className="weapon-row head">
+                        <SortHeader table={arsenal} column="name">{t("Arme", "Weapon")}</SortHeader>
+                        <SortHeader table={arsenal} column="kills" className="weapon-col-kills">Kills</SortHeader>
+                        <SortHeader table={arsenal} column="kills" className="weapon-col-share">{t("Part", "Share")}</SortHeader>
+                        <SortHeader table={arsenal} column="hs" className="weapon-col-hs">HS</SortHeader>
+                        <SortHeader table={arsenal} column="distance" className="weapon-col-dist">Distance</SortHeader>
+                        <SortHeader table={arsenal} column="perRound">K/round</SortHeader>
                       </div>
-                      {data.weapons.map((item) => {
+                      {arsenal.rows.map((item) => {
                         const active = weapon?.name === item.name;
                         return (
                           <div role="listitem" key={item.name}>

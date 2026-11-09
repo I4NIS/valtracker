@@ -2,7 +2,9 @@ import "../styles/duels.css";
 import { useMemo, useState } from "react";
 import { Art } from "../components/GameArt";
 import { SeasonPicker } from "../components/SeasonPicker";
+import { SortHeader } from "../components/SortHeader";
 import { repeat, SkeletonBlock, SkeletonGroup, SkeletonLine } from "../components/Skeleton";
+import type { AgentStat } from "../lib/agents";
 import type { Account } from "../lib/api";
 import { agentIcon } from "../lib/assets";
 import type { ClutchEntry, ClutchSize, DistanceBucket, DuelReport, Matchup, OpeningSide, Rival } from "../lib/duels";
@@ -10,6 +12,7 @@ import { fmt, fullDate, pct, roleLabel } from "../lib/format";
 import { cardArt, mapArt } from "../lib/gameAssets";
 import { t } from "../lib/i18n";
 import { useQuery } from "../lib/query";
+import { useSort, type SortColumns } from "../lib/sort";
 import { defaultSeason, queries } from "../lib/queries";
 import { useViewport } from "../lib/viewport";
 
@@ -19,7 +22,6 @@ type Props = {
   onOpenRound?: (matchId: string, roundIndex: number) => void;
 };
 
-type Sort = "matches" | "rate";
 
 const MATCHUP_PREVIEW = 12;
 const MATCHUP_ROW = 44;
@@ -468,18 +470,17 @@ function ClutchRow({ entry, onOpenRound }: { entry: ClutchEntry; onOpenRound?: (
   );
 }
 
+const MATCHUP_COLUMNS: SortColumns<Matchup> = {
+  agent: { value: (matchup) => matchup.agentName },
+  matches: { value: (matchup) => matchup.matches },
+  kills: { value: (matchup) => matchup.kills - matchup.deaths },
+  rate: { value: (matchup) => matchup.winRate },
+};
+
 function MatchupSection({ matchups }: { matchups: Matchup[] }) {
-  const [sort, setSort] = useState<Sort>("matches");
   const [expanded, setExpanded] = useState(false);
-  const sorted = useMemo(() => {
-    const list = [...matchups];
-    if (sort === "rate") {
-      list.sort((a, b) => b.winRate - a.winRate || b.kills + b.deaths - (a.kills + a.deaths));
-    } else {
-      list.sort((a, b) => b.matches - a.matches || a.agentName.localeCompare(b.agentName));
-    }
-    return list;
-  }, [matchups, sort]);
+  const table = useSort("duel-matchups", matchups, MATCHUP_COLUMNS, { key: "matches", dir: "desc" });
+  const sorted = table.rows;
   const height = useViewport().height;
   const preview = Math.max(MATCHUP_PREVIEW, Math.floor((height - 360) / MATCHUP_ROW));
   const shown = expanded ? sorted : sorted.slice(0, preview);
@@ -494,28 +495,18 @@ function MatchupSection({ matchups }: { matchups: Matchup[] }) {
               {expanded ? t("Afficher moins", "Show less") : t(`Afficher les ${sorted.length} agents`, `Show all ${sorted.length} agents`)}
             </button>
           )}
-          {matchups.length > 1 && (
-            <div className="segmented" role="group" aria-label={t("Trier par", "Sort by")}>
-              <button type="button" className={sort === "matches" ? "active" : ""} onClick={() => setSort("matches")}>
-                {t("Rencontres", "Encounters")}
-              </button>
-              <button type="button" className={sort === "rate" ? "active" : ""} onClick={() => setSort("rate")}>
-                {t("Duels gagnés", "Duels won")}
-              </button>
-            </div>
-          )}
         </div>
       </div>
       {matchups.length === 0 ? (
         <div className="empty">{t("Aucun agent ennemi rencontré sur cette période.", "No enemy agents faced in this period.")}</div>
       ) : (
         <div className="duel-table">
-          <div className="duel-matchup head" aria-hidden="true">
+          <div className="duel-matchup head">
             <span />
-            <span>Agent</span>
-            <span className="duel-num">{t("Matchs", "Matches")}</span>
-            <span className="duel-num duel-kd">{t("Kills / morts", "Kills / deaths")}</span>
-            <span>{t("Duels gagnés", "Duels won")}</span>
+            <SortHeader table={table} column="agent">Agent</SortHeader>
+            <SortHeader table={table} column="matches" className="duel-num">{t("Matchs", "Matches")}</SortHeader>
+            <SortHeader table={table} column="kills" className="duel-num duel-kd">{t("Kills / morts", "Kills / deaths")}</SortHeader>
+            <SortHeader table={table} column="rate">{t("Duels gagnés", "Duels won")}</SortHeader>
           </div>
           {shown.map((matchup) => (
             <MatchupRow key={matchup.agentId} matchup={matchup} />
@@ -526,9 +517,16 @@ function MatchupSection({ matchups }: { matchups: Matchup[] }) {
   );
 }
 
+const OPENING_COLUMNS: SortColumns<AgentStat> = {
+  agent: { value: (agent) => agent.name },
+  matches: { value: (agent) => agent.matches },
+  duels: { value: (agent) => agent.firstBloods + agent.firstDeaths },
+  rate: { value: (agent) => (agent.firstBloods * 100) / Math.max(1, agent.firstBloods + agent.firstDeaths) },
+};
+
 function OpeningsByAgent({ puuid, season, rows }: { puuid: string; season: string | null; rows: number }) {
   const agents = useQuery(queries.agents(puuid, season)).data ?? null;
-  const list = useMemo(
+  const played = useMemo(
     () =>
       (agents ?? [])
         .filter((agent) => agent.firstBloods + agent.firstDeaths > 0)
@@ -536,17 +534,19 @@ function OpeningsByAgent({ puuid, season, rows }: { puuid: string; season: strin
         .slice(0, Math.max(0, rows)),
     [agents, rows],
   );
+  const table = useSort("duel-openings", played, OPENING_COLUMNS, { key: "duels", dir: "desc" });
+  const list = table.rows;
   if (rows < 2 || list.length === 0) return null;
   return (
     <section className="stack" style={{ gap: 12 }}>
       <SectionHead title={t("Ouvertures par agent joué", "Openings by agent played")} note={t("Agents triés par nombre de duels d'ouverture", "Agents sorted by opening duels")} />
       <div className="duel-table">
-        <div className="duel-matchup head" aria-hidden="true">
+        <div className="duel-matchup head">
           <span />
-          <span>Agent</span>
-          <span className="duel-num">{t("Matchs", "Matches")}</span>
-          <span className="duel-num duel-kd">{t("FK / FD", "FK / FD")}</span>
-          <span>{t("Duels d'ouverture gagnés", "Opening duels won")}</span>
+          <SortHeader table={table} column="agent">Agent</SortHeader>
+          <SortHeader table={table} column="matches" className="duel-num">{t("Matchs", "Matches")}</SortHeader>
+          <SortHeader table={table} column="duels" className="duel-num duel-kd">{t("FK / FD", "FK / FD")}</SortHeader>
+          <SortHeader table={table} column="rate">{t("Duels d'ouverture gagnés", "Opening duels won")}</SortHeader>
         </div>
         {list.map((agent) => {
           const total = agent.firstBloods + agent.firstDeaths;
