@@ -38,6 +38,7 @@ type Props = {
   onAccountsChanged: (activePuuid?: string) => void;
   onCombined: () => void;
   onReplayTour: () => void;
+  onShowChangelog: () => void;
 };
 
 export function Settings({
@@ -53,6 +54,7 @@ export function Settings({
   onAccountsChanged,
   onCombined,
   onReplayTour,
+  onShowChangelog,
 }: Props) {
   const [key, setKey] = useState("");
   const [keyMessage, setKeyMessage] = useState<string | null>(null);
@@ -204,9 +206,14 @@ export function Settings({
                       )}
                     </span>
                   </span>
-                  <button type="button" className="btn btn-secondary" onClick={() => void openUrl(RELEASES_URL)}>
-                    {t("Notes de version", "Release notes")}
-                  </button>
+                  <span className="row wrap" style={{ gap: 8 }}>
+                    <button type="button" className="btn btn-secondary" onClick={onShowChangelog}>
+                      {t("Nouveautés", "What's new")}
+                    </button>
+                    <button type="button" className="btn btn-secondary" onClick={() => void openUrl(RELEASES_URL)}>
+                      {t("Sur GitHub", "On GitHub")}
+                    </button>
+                  </span>
                 </div>
               </section>
             </>

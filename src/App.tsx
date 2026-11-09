@@ -1,3 +1,4 @@
+import { getVersion } from "@tauri-apps/api/app";
 import { Fragment, lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { CommandPalette, useCommandPaletteShortcut } from "./components/CommandPalette";
 import { loadExportDialog } from "./components/ExportRecap";
@@ -5,6 +6,8 @@ import { PickAccount } from "./components/PickAccount";
 import { Shell, type Page, type TourTarget } from "./components/Shell";
 import { TitleBar } from "./components/TitleBar";
 import { UpdateBanner } from "./components/UpdateBanner";
+import { WhatsNew } from "./components/WhatsNew";
+import { CHANGELOG, compareVersions, FIRST_TRACKED, releasesSince, type Release } from "./lib/changelog";
 import { whenIdle } from "./lib/idle";
 import { listen } from "@tauri-apps/api/event";
 import { asLang, setLang, t, type Lang } from "./lib/i18n";
@@ -36,6 +39,8 @@ function preloadRareScreens() {
   const steps: (() => Promise<unknown>)[] = [loadSettings, loadExportDialog, loadTour, loadOnboarding];
   steps.reduce<Promise<unknown>>((chain, step) => chain.then(() => whenIdle()).then(step).catch(() => undefined), Promise.resolve());
 }
+
+type News = { releases: Release[]; installed: string | null };
 
 type OpenMatch = { id: string; round?: number; owner: string | null; death: boolean };
 
@@ -92,6 +97,8 @@ export default function App() {
   const [tourOpen, setTourOpen] = useState(false);
   const [tourTarget, setTourTarget] = useState<TourTarget | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [news, setNews] = useState<News | null>(null);
+  const newsChecked = useRef(false);
   const launched = useRef(false);
   const themeRef = useRef<Theme>("dark");
 
@@ -193,6 +200,29 @@ export default function App() {
   }, [account, combined]);
 
   useEffect(() => {
+    if (!boot || needsSetup || newsChecked.current) return;
+    newsChecked.current = true;
+    getVersion()
+      .then((current) => {
+        const seen = boot.seenVersion ?? FIRST_TRACKED;
+        if (compareVersions(current, seen) <= 0) return;
+        const releases = releasesSince(seen, current);
+        if (releases.length > 0) setNews({ releases, installed: current });
+        else api.setPreference("seen_version", current).catch(() => undefined);
+      })
+      .catch(() => undefined);
+  }, [boot, needsSetup]);
+
+  const closeNews = useCallback(() => {
+    setNews((current) => {
+      if (current?.installed) api.setPreference("seen_version", current.installed).catch(() => undefined);
+      return null;
+    });
+  }, []);
+
+  const showChangelog = useCallback(() => setNews({ releases: CHANGELOG(), installed: null }), []);
+
+  useEffect(() => {
     if (!boot || needsSetup || launched.current || !account) return;
     launched.current = true;
     runSync();
@@ -228,6 +258,10 @@ export default function App() {
 
   const finishSetup = async () => {
     launched.current = true;
+    newsChecked.current = true;
+    getVersion()
+      .then((current) => api.setPreference("seen_version", current))
+      .catch(() => undefined);
     const data = await load();
     setPage("home");
     if (!data.tutorialDone) setTourOpen(true);
@@ -314,6 +348,7 @@ export default function App() {
                   onAccountsChanged={accountsChanged}
                   onCombined={showCombined}
                   onReplayTour={replayTour}
+                  onShowChangelog={showChangelog}
                 />
               </Suspense>
             )}
@@ -347,6 +382,7 @@ export default function App() {
         onSync={runSync}
         onReplayTour={replayTour}
       />
+      {news && !tourOpen && <WhatsNew releases={news.releases} installed={news.installed} onNavigate={navigate} onClose={closeNews} />}
       <UpdateBanner />
     </Fragment>
   );
