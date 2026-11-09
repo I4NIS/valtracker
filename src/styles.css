@@ -673,7 +673,7 @@ a {
 
 .track {
   display: grid;
-  grid-template-columns: 24px 40px minmax(0, 1.4fr) minmax(0, 1fr) 84px minmax(0, 1fr) minmax(0, 0.6fr) minmax(0, 0.6fr) minmax(0, 0.6fr) 48px;
+  grid-template-columns: 24px 40px minmax(0, 1.4fr) minmax(max-content, 1fr) 84px minmax(max-content, 1fr) minmax(0, 0.6fr) minmax(0, 0.6fr) minmax(0, 0.6fr) 48px;
   align-items: center;
   gap: 16px;
   padding: 8px 12px;
@@ -742,9 +742,21 @@ a {
   min-width: 0;
 }
 
+@container (max-width: 760px) {
+  .track {
+    grid-template-columns: 40px minmax(0, 1.3fr) minmax(max-content, 1fr) 76px minmax(max-content, 1fr) minmax(0, 0.6fr) minmax(0, 0.6fr) 40px;
+    gap: 12px;
+  }
+
+  .track > :nth-child(1),
+  .track > :nth-child(8) {
+    display: none;
+  }
+}
+
 @container (max-width: 600px) {
   .track {
-    grid-template-columns: 36px minmax(0, 1.3fr) minmax(0, 1fr) 72px minmax(0, 0.9fr) minmax(0, 0.6fr) 40px;
+    grid-template-columns: 36px minmax(0, 1.3fr) minmax(max-content, 1fr) 72px minmax(max-content, 0.9fr) minmax(0, 0.6fr) 40px;
     gap: 12px;
   }
 
@@ -1051,7 +1063,8 @@ a {
   text-align: left;
 }
 
-.track > strong:nth-child(4) {
+.track > strong:nth-child(4),
+.track > :nth-child(6) {
   white-space: nowrap;
 }
 
