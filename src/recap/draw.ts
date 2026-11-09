@@ -273,7 +273,8 @@ export function footer(ctx: Ctx, account: Account, dateText: string, card: HTMLI
   const name = text(ctx, account.name, x, y + 55, { font: font(700, 22) });
   const tag = text(ctx, `#${account.tag}`, x + name + 6, y + 55, { font: font(500, 22), color: C.text3 });
   if (account.tierName) {
-    text(ctx, tierLabel(account.tierName), x + name + 6 + tag + 18, y + 55, { font: font(600, 20), color: C.text2 });
+    const rankText = account.rr !== null ? `${tierLabel(account.tierName)}, ${account.rr} RR` : tierLabel(account.tierName);
+    text(ctx, rankText, x + name + 6 + tag + 18, y + 55, { font: font(600, 20), color: C.text2 });
   }
   text(ctx, dateText, W - M, y + 55, { font: font(500, 20), color: C.text3, align: "right" });
 }

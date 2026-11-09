@@ -200,7 +200,8 @@ export async function renderMatchRecap(detail: MatchDetail, account: Account): P
   const rowY = 476;
   if (art.rank) contain(ctx, art.rank, x, rowY, 64);
   label(ctx, t("Rang", "Rank"), x + 80, rowY + 22);
-  const rankWidth = text(ctx, tierNameById(me.tier), x + 80, rowY + 52, { font: font(700, 24) });
+  let rankWidth = text(ctx, tierNameById(me.tier), x + 80, rowY + 52, { font: font(700, 24) });
+  if (detail.rrAfter !== null) rankWidth += 10 + text(ctx, `${detail.rrAfter} RR`, x + 90 + rankWidth, rowY + 52, { font: font(600, 20), color: C.text2 });
   x += 80 + Math.max(rankWidth, 60) + 36;
   label(ctx, "Agent", x, rowY + 22);
   const agentWidth = text(ctx, detail.agentName ?? t("Inconnu", "Unknown"), x, rowY + 52, { font: font(700, 24) });
