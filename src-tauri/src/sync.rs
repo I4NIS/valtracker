@@ -1,5 +1,6 @@
 use serde_json::Value;
 use serde_json::value::RawValue;
+use std::sync::atomic::{AtomicU8, Ordering};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter, Manager};
 
@@ -21,6 +22,11 @@ const PAGE_SIZE: usize = 10;
 const MAX_MATCHES_PER_MODE: usize = 2000;
 const MAX_CONSECUTIVE_MISSING: usize = 5;
 const AUTO_SYNC_INTERVAL: Duration = Duration::from_secs(10 * 60);
+const RR_RETRY_DELAY: Duration = Duration::from_secs(3 * 60);
+const RR_RETRIES: u8 = 3;
+const MAX_CONSECUTIVE_ERRORS: usize = 3;
+
+static RR_PENDING: AtomicU8 = AtomicU8::new(0);
 const COMPETITIVE: &str = "competitive";
 
 pub async fn run(app: &AppHandle, puuid: &str) -> AppResult<SyncReport> {
@@ -41,8 +47,37 @@ pub async fn run(app: &AppHandle, puuid: &str) -> AppResult<SyncReport> {
     if result.is_ok() {
         crate::career::spawn_refresh(app, puuid);
         crate::extras::schedule(app, puuid);
+        let missing = state.conn().ok().is_some_and(|conn| latest_without_rr(&conn, puuid));
+        retry_missing_rr(app, puuid, missing);
     }
     result
+}
+
+fn retry_missing_rr(app: &AppHandle, puuid: &str, missing: bool) {
+    if !missing {
+        RR_PENDING.store(0, Ordering::Relaxed);
+        return;
+    }
+    if RR_PENDING.fetch_add(1, Ordering::Relaxed) >= RR_RETRIES {
+        return;
+    }
+    let (app, puuid) = (app.clone(), puuid.to_string());
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(RR_RETRY_DELAY).await;
+        let _ = Box::pin(run(&app, &puuid)).await;
+    });
+}
+
+fn latest_without_rr(conn: &rusqlite::Connection, puuid: &str) -> bool {
+    conn.query_row(
+        "SELECT NOT EXISTS (SELECT 1 FROM mmr_history h WHERE h.puuid = p.puuid AND h.match_id = p.match_id)
+         FROM match_players p JOIN matches m ON m.match_id = p.match_id
+         WHERE p.puuid = ?1 AND m.queue = ?2 AND julianday('now') - julianday(m.started_at) < 1
+         ORDER BY m.started_at DESC LIMIT 1",
+        rusqlite::params![puuid, COMPETITIVE],
+        |row| row.get(0),
+    )
+    .unwrap_or(false)
 }
 
 async fn sync(app: &AppHandle, state: &AppState, puuid: &str) -> AppResult<SyncReport> {
@@ -63,27 +98,27 @@ async fn sync(app: &AppHandle, state: &AppState, puuid: &str) -> AppResult<SyncR
     emit(app, puuid, tr("Données des maps", "Map data"), 0, true, None);
     let _ = assets::refresh_if_needed(state).await;
 
-    emit(app, puuid, tr("Rang", "Rank"), 0, true, None);
+    let mut new_matches = sync_mode(app, &api, region, platform, puuid, COMPETITIVE, tr("Matchs compétitifs", "Competitive matches"), 0).await?;
+
+    emit(app, puuid, tr("Rang", "Rank"), new_matches, true, None);
     let mmr = api.mmr(region, platform, puuid).await?;
     let seasons_changed = {
         let conn = state.conn()?;
         repo::update_rank(&conn, puuid, &mmr)?
     };
 
-    emit(app, puuid, tr("Historique de RR", "RR history"), 0, true, None);
+    emit(app, puuid, tr("Historique de RR", "RR history"), new_matches, true, None);
     let history = api.mmr_history(region, platform, puuid).await?;
     let history_changed = {
         let mut conn = state.conn()?;
         repo::upsert_mmr_history(&mut conn, puuid, &history)? > 0
     };
-    let _ = crate::patches::refresh(state, &api).await;
-
-    let mut new_matches = sync_mode(app, &api, region, platform, puuid, COMPETITIVE, tr("Matchs compétitifs", "Competitive matches"), 0).await?;
     if new_matches > 0 && had_matches {
         if let Ok(conn) = state.conn() {
             let _ = notify::new_matches(app, &conn, puuid, new_matches);
         }
     }
+    let _ = crate::patches::refresh(state, &api).await;
     new_matches += backfill(app, state, &api, region, puuid, new_matches).await;
     if new_matches > 0 || history_changed || seasons_changed {
         refreshed(app, state, puuid);
@@ -174,6 +209,7 @@ async fn backfill(app: &AppHandle, state: &AppState, api: &Henrik, region: &str,
     };
     let mut added = 0;
     let mut consecutive_missing = 0;
+    let mut consecutive_errors = 0;
     for (index, match_id) in missing.iter().enumerate() {
         let stage = if english() {
             format!("Older matches, {} of {}", index + 1, missing.len())
@@ -184,6 +220,7 @@ async fn backfill(app: &AppHandle, state: &AppState, api: &Henrik, region: &str,
         match api.match_detail(region, match_id).await {
             Ok(game) => {
                 consecutive_missing = 0;
+                consecutive_errors = 0;
                 match store(app, vec![Page::Parsed(game)]).await {
                     Ok(1) => added += 1,
                     _ => {
@@ -200,6 +237,12 @@ async fn backfill(app: &AppHandle, state: &AppState, api: &Henrik, region: &str,
                 }
                 consecutive_missing += 1;
                 if consecutive_missing >= MAX_CONSECUTIVE_MISSING {
+                    break;
+                }
+            }
+            Err(AppError::Unavailable | AppError::Http(_)) => {
+                consecutive_errors += 1;
+                if consecutive_errors >= MAX_CONSECUTIVE_ERRORS {
                     break;
                 }
             }
