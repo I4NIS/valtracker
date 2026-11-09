@@ -18,6 +18,21 @@ export const FIRST_TRACKED = "1.0.4";
 
 export const CHANGELOG = (): Release[] => [
   {
+    version: "1.0.7",
+    date: "2026-11-09",
+    changes: [
+      {
+        title: t("First kills et first deaths dans les matchs", "First kills and first deaths in matches"),
+        text: t(
+          "Le résumé d'un match affiche tes first kills et first deaths comparés au lobby, une colonne FK / FD pour chaque joueur et les rounds où tu as ouvert ou subi l'ouverture.",
+          "A match summary shows your first kills and first deaths compared with the lobby, an FK / FD column for every player and the rounds you opened or were opened on.",
+        ),
+        howTo: t("Ouvre un match : FK et FD sont sous chaque round de la frise.", "Open a match: FK and FD sit under each round of the timeline."),
+        page: "matches",
+      },
+    ],
+  },
+  {
     version: "1.0.6",
     date: "2026-11-09",
     changes: [
