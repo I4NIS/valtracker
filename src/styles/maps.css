@@ -722,6 +722,28 @@
   box-shadow: inset 0 0 0 1.5px var(--accent);
 }
 
+.maphist-played {
+  padding: 14px 10px 0;
+  border-top: 1px solid var(--line);
+}
+
+.maphist-played-sides {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 16px;
+}
+
+.maphist-played-side {
+  font-size: 13px;
+}
+
+.maphist-played-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+}
+
 .maphist-list {
   display: flex;
   flex-direction: column;

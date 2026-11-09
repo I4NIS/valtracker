@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { agentIcon, seasonLabel } from "../lib/assets";
-import { clock, fmt, fullDate, shortDate } from "../lib/format";
+import { clock, fmt, fullDate, pct, shortDate } from "../lib/format";
 import { findAbility, useAgentCatalog, type Catalog } from "../lib/gameAssets";
 import { t } from "../lib/i18n";
 import { usePageVisible } from "../lib/navigation";
-import type { MapAction, MapGame, MapHistory } from "../lib/mapStats";
+import type { MapAction, MapGame, MapHistory, MapPresence } from "../lib/mapStats";
 import { rotatePoint, rotationStyle, type Point } from "../lib/minimap";
 import { FilterPill, type PillOption } from "./FilterPill";
 import { Art, fadeIn, KillMeans, meansLabel } from "./GameArt";
@@ -158,10 +158,6 @@ export function MapHistoryView({ history, mapName, season, onOpenRound }: Props)
     deaths: { value: (name) => zoneStats.get(name)?.deaths ?? 0 },
     kills: { value: (name) => zoneStats.get(name)?.kills ?? 0 },
   }, { key: kind === "death" ? "deaths" : "kills", dir: "desc" });
-  const bubbles = history.zones
-    .filter((zone) => countOf(zone.name) > 0)
-    .map((zone) => ({ ...zone, ...rotatePoint(zone, history.rotation), count: countOf(zone.name) }))
-    .sort((a, b) => a.count - b.count);
   const dots = useMemo(
     () =>
       ofKind
@@ -170,6 +166,22 @@ export function MapHistoryView({ history, mapName, season, onOpenRound }: Props)
         .map(({ action, point }) => ({ zone: action.zone, ...rotatePoint(point, history.rotation) })),
     [ofKind, history.rotation],
   );
+  const centers = useMemo(() => {
+    const sums = new Map<string, { x: number; y: number; count: number }>();
+    dots.forEach((dot) => {
+      if (!dot.zone) return;
+      const sum = sums.get(dot.zone) ?? { x: 0, y: 0, count: 0 };
+      sum.x += dot.x;
+      sum.y += dot.y;
+      sum.count += 1;
+      sums.set(dot.zone, sum);
+    });
+    return new Map([...sums].map(([zone, sum]) => [zone, { x: sum.x / sum.count, y: sum.y / sum.count }]));
+  }, [dots]);
+  const bubbles = history.zones
+    .filter((zone) => countOf(zone.name) > 0)
+    .map((zone) => ({ ...zone, ...(centers.get(zone.name) ?? rotatePoint(zone, history.rotation)), count: countOf(zone.name) }))
+    .sort((a, b) => a.count - b.count);
 
   const zoneOptions: PillOption<string>[] = ranked.map((name) => ({ value: name, label: name, count: countOf(name) }));
   if (filters.zone !== null && !ranked.includes(filters.zone)) zoneOptions.push({ value: filters.zone, label: filters.zone, count: 0 });
@@ -242,6 +254,8 @@ export function MapHistoryView({ history, mapName, season, onOpenRound }: Props)
             );
           })}
         </div>
+
+        <PlayedZones presence={history.presence} filters={filters} />
       </div>
 
       <div className="maphist-main">
@@ -325,6 +339,65 @@ export function MapHistoryView({ history, mapName, season, onOpenRound }: Props)
         />
       )}
     </div>
+  );
+}
+
+const PLAYED_ZONES = 4;
+
+function PlayedZones({ presence, filters }: { presence: MapPresence[]; filters: Filters }) {
+  const sides = [true, false]
+    .filter((attack) => filters.side === null || attack === (filters.side === "attack"))
+    .map((attack) => {
+      const zones = new Map<string, { samples: number; rounds: number }>();
+      presence
+        .filter(
+          (entry) =>
+            entry.attack === attack &&
+            (filters.act === null || entry.season === filters.act) &&
+            (filters.agent === null || entry.agentId?.toLowerCase() === filters.agent.toLowerCase()),
+        )
+        .forEach((entry) => {
+          const seen = filters.phase === "post" ? entry.after : filters.phase === null ? entry.all : entry.before;
+          if (seen.samples === 0) return;
+          const zone = zones.get(entry.zone) ?? { samples: 0, rounds: 0 };
+          zone.samples += seen.samples;
+          zone.rounds += seen.rounds;
+          zones.set(entry.zone, zone);
+        });
+      const total = [...zones.values()].reduce((sum, zone) => sum + zone.samples, 0);
+      const top = [...zones.entries()].sort((a, b) => b[1].samples - a[1].samples).slice(0, PLAYED_ZONES);
+      return { attack, total, top };
+    });
+  if (sides.every((side) => side.total === 0)) return null;
+  return (
+    <section className="stack maphist-played" style={{ gap: 10 }}>
+      <span className="label">{t("Où tu joues", "Where you play")}</span>
+      <div className="maphist-played-sides">
+        {sides.map((side) => (
+          <div className="stack" style={{ gap: 6, minWidth: 0 }} key={side.attack ? "atk" : "def"}>
+            <strong className="maphist-played-side">{sideLabel(side.attack)}</strong>
+            {side.total === 0 && <span className="faint">{t("Pas de position relevée.", "No position recorded.")}</span>}
+            {side.top.map(([zone, seen]) => {
+              const share = (seen.samples * 100) / side.total;
+              return (
+                <div className="maphist-played-row" key={zone} title={t(`Vu ${seen.samples} fois dans ${seen.rounds} rounds`, `Seen ${seen.samples} times in ${seen.rounds} rounds`)}>
+                  <span className="row between" style={{ gap: 8 }}>
+                    <span className="ellipsis">{zone}</span>
+                    <strong>{pct(share, 0)}</strong>
+                  </span>
+                  <span className="bar" aria-hidden="true">
+                    <span style={{ width: `${share}%` }} />
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+      <span className="faint" style={{ fontSize: 12 }}>
+        {t("Ta position à chaque kill, plant et défuse du round, tant que tu es en vie.", "Your position at each kill, plant and defuse of the round, while you are alive.")}
+      </span>
+    </section>
   );
 }
 

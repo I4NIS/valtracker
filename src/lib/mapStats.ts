@@ -106,6 +106,19 @@ export type MapHistory = {
   zones: MapZone[];
   games: MapGame[];
   actions: MapAction[];
+  presence: MapPresence[];
+};
+
+export type MapSeen = { samples: number; rounds: number };
+
+export type MapPresence = {
+  season: string | null;
+  agentId: string | null;
+  attack: boolean;
+  zone: string;
+  all: MapSeen;
+  before: MapSeen;
+  after: MapSeen;
 };
 
 export function getMapHistory(puuid: string, mapId: string): Promise<MapHistory> {
