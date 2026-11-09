@@ -93,7 +93,7 @@ export function MatchDetail({ account, matchId, initialRound, initialDeath, back
         </header>
         <SkeletonBlock width={380} height={36} radius={999} />
         <div className="match-stats">
-          {repeat(6, (index) => (
+          {repeat(7, (index) => (
             <div className="stack" key={index}>
               <SkeletonLine width="44%" size={13} />
               <SkeletonLine width="38%" size={24} />
@@ -131,6 +131,7 @@ export function MatchDetail({ account, matchId, initialRound, initialDeath, back
                   <SkeletonLine width={30} size={14} />
                   <SkeletonLine width={30} size={14} />
                   <SkeletonLine width={32} size={14} />
+                  <SkeletonLine width={36} size={14} />
                 </div>
               ))}
             </section>
@@ -215,8 +216,8 @@ export function MatchDetail({ account, matchId, initialRound, initialDeath, back
               <h2 className="section-title">{t("Rounds", "Rounds")}</h2>
               <span className="faint" style={{ fontSize: 12 }}>
                 {t(
-                  "Barres : équipement de ton équipe et en face. Point orange : tu es mort. Clique sur un round pour son détail.",
-                  "Bars: your team's loadout and the enemy's. Orange dot: you died. Click a round for its details.",
+                  "Barres : équipement de ton équipe et en face. Point orange : tu es mort. FK : premier kill du round, FD : première mort du round. Clique sur un round pour son détail.",
+                  "Bars: your team's loadout and the enemy's. Orange dot: you died. FK: first kill of the round, FD: first death of the round. Click a round for its details.",
                 )}
               </span>
             </div>
@@ -285,6 +286,7 @@ const PLAYER_COLUMNS: SortColumns<PlayerLine> = {
   acs: { value: (player) => player.acs },
   adr: { value: (player) => player.adr },
   hs: { value: (player) => player.hsPct },
+  openings: { value: (player) => player.firstBloods - player.firstDeaths },
 };
 
 function TeamTable({ team }: { team: TeamBlock }) {
@@ -301,6 +303,7 @@ function TeamTable({ team }: { team: TeamBlock }) {
           <SortHeader table={table} column="acs">ACS</SortHeader>
           <SortHeader table={table} column="adr">ADR</SortHeader>
           <SortHeader table={table} column="hs">HS</SortHeader>
+          <SortHeader table={table} column="openings">FK / FD</SortHeader>
         </div>
         {table.rows.map((player) => (
           <div className={`score-row${player.isMe ? " me" : ""}`} key={player.puuid}>
@@ -308,11 +311,13 @@ function TeamTable({ team }: { team: TeamBlock }) {
             <span className="stack" style={{ gap: 0, minWidth: 0 }}>
               <span className="name-line">
                 <strong className="ellipsis">{player.name}</strong>
-                <GradeBadge grade={player.riotGrade} />
                 <MvpBadge rank={player.riotMvp} />
               </span>
-              <span className="faint ellipsis" style={{ fontSize: 12 }}>
-                {player.badge ?? roleLabel(player.role)}
+              <span className="name-line">
+                <GradeBadge grade={player.riotGrade} />
+                <span className="faint ellipsis" style={{ fontSize: 12 }}>
+                  {player.badge ?? roleLabel(player.role)}
+                </span>
               </span>
             </span>
             <RankBadge tier={player.tier} size={26} />
@@ -323,6 +328,11 @@ function TeamTable({ team }: { team: TeamBlock }) {
             <span>{fmt(player.acs)}</span>
             <span className="muted">{fmt(player.adr)}</span>
             <span className="muted">{pct(player.hsPct, 0)}</span>
+            <span>
+              <span className={player.firstBloods > 0 ? "good" : "faint"}>{player.firstBloods}</span>
+              <span className="faint"> / </span>
+              <span className={player.firstDeaths > 0 ? "bad" : "faint"}>{player.firstDeaths}</span>
+            </span>
           </div>
         ))}
       </div>
@@ -342,6 +352,12 @@ function KeyStats({ detail }: { detail: MatchDetailData }) {
   const hs = me ? versus(me.hsPct, lobby((player) => player.hsPct), (value) => pct(value, 0)) : null;
   const adr = versus(detail.adr, lobby((player) => player.adr), (value) => fmt(value));
   const acs = versus(detail.acs, lobby((player) => player.acs), (value) => fmt(value));
+  const lobbyFirstKills = lobby((player) => player.firstBloods);
+  const lobbyFirstDeaths = lobby((player) => player.firstDeaths);
+  const openingsSub =
+    lobbyFirstKills === null || lobbyFirstDeaths === null
+      ? t(`sur ${detail.rounds.length} rounds`, `over ${detail.rounds.length} rounds`)
+      : t(`lobby ${fmt(lobbyFirstKills, 1)} / ${fmt(lobbyFirstDeaths, 1)}`, `lobby ${fmt(lobbyFirstKills, 1)} / ${fmt(lobbyFirstDeaths, 1)}`);
   const rr = detail.rrDetail;
   const bonus = rr?.performanceBonus ? t(`, dont ${signed(rr.performanceBonus)} de bonus`, `, ${signed(rr.performanceBonus)} bonus`) : "";
   const rrSub =
@@ -358,6 +374,14 @@ function KeyStats({ detail }: { detail: MatchDetailData }) {
         sub={`K/D ${fmt(detail.kills / Math.max(detail.deaths, 1), 2)}`}
       />
       {me && hs && <HeadStat label={t("Headshots", "Headshots")} value={pct(me.hsPct, 0)} tone={hs.tone} sub={hs.sub} />}
+      {me && (
+        <HeadStat
+          label={t("First kills / deaths", "First kills / deaths")}
+          value={`${me.firstBloods} / ${me.firstDeaths}`}
+          tone={me.firstBloods === me.firstDeaths ? undefined : me.firstBloods > me.firstDeaths ? "good" : "bad"}
+          sub={openingsSub}
+        />
+      )}
       <HeadStat label="ADR" value={fmt(detail.adr)} tone={adr.tone} sub={adr.sub} />
       <HeadStat label="ACS" value={fmt(detail.acs)} tone={acs.tone} sub={acs.sub} />
       {detail.rrChange !== null && <HeadStat label="RR" value={signed(detail.rrChange)} tone={detail.rrChange >= 0 ? "good" : "bad"} sub={rrSub} />}
@@ -470,6 +494,7 @@ function Timeline({ rounds, onSelect }: { rounds: RoundLine[]; onSelect: (index:
               {round.number}
             </button>
             <span className={`death-dot${round.died ? " on" : ""}`} />
+            <span className={`opening${round.opening ? ` ${round.opening}` : ""}`}>{round.opening === "kill" ? "FK" : round.opening === "death" ? "FD" : ""}</span>
           </div>
         ))}
       </div>

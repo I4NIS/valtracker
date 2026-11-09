@@ -1,6 +1,7 @@
 .sort-button {
-  position: relative;
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
   max-width: 100%;
   margin: 0;
   padding: 0;
@@ -23,9 +24,6 @@
 }
 
 .sort-arrow {
-  position: absolute;
-  top: 50%;
-  left: calc(100% + 3px);
-  transform: translateY(-50%);
+  flex-shrink: 0;
   pointer-events: none;
 }

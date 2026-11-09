@@ -774,7 +774,8 @@ a {
   }
 
   .score-row > :nth-child(7),
-  .score-row > :nth-child(8) {
+  .score-row > :nth-child(8),
+  .score-row > :nth-child(9) {
     display: none;
   }
 }
@@ -1166,9 +1167,9 @@ a {
 }
 
 .summary-teams .score-row {
-  grid-template-columns: 30px minmax(0, 1.8fr) 24px 34px minmax(86px, 0.9fr) 36px 34px 40px;
+  grid-template-columns: 30px minmax(0, 1.8fr) 24px 46px minmax(80px, 0.9fr) 36px 34px 40px 44px;
   padding: 3px 10px;
-  gap: 10px;
+  gap: 8px;
   white-space: nowrap;
 }
 
@@ -1373,9 +1374,25 @@ a {
   background: var(--bad);
 }
 
+.opening {
+  min-height: 14px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 14px;
+}
+
+.opening.kill {
+  color: var(--good);
+}
+
+.opening.death {
+  color: var(--bad);
+}
+
 .score-row {
   display: grid;
-  grid-template-columns: 36px minmax(0, 1.8fr) 24px 40px minmax(72px, 0.9fr) 40px 40px 44px;
+  grid-template-columns: 36px minmax(0, 1.8fr) 24px 50px minmax(72px, 0.9fr) 40px 40px 44px 56px;
   align-items: center;
   gap: 12px;
   padding: 8px 12px;

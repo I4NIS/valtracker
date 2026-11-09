@@ -142,6 +142,7 @@ export type PlayerLine = {
   adr: number;
   hsPct: number;
   firstBloods: number;
+  firstDeaths: number;
   score: number;
   place: number;
   badge: string | null;
@@ -205,6 +206,7 @@ export type RoundLine = {
   enemyLoadout: number;
   myKills: number;
   died: boolean;
+  opening?: "kill" | "death";
   result: string;
   ceremony: string | null;
   events: RoundEvent[];
