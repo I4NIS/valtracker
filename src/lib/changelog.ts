@@ -18,6 +18,21 @@ export const FIRST_TRACKED = "1.0.4";
 
 export const CHANGELOG = (): Release[] => [
   {
+    version: "1.0.8",
+    date: "2026-11-10",
+    changes: [
+      {
+        title: t("Face à face dans les matchs", "Head to head in matches"),
+        text: t(
+          "Le résumé d'un match montre, pour chaque adversaire, combien de fois tu l'as tué, combien de fois il t'a tué et les dégâts échangés.",
+          "A match summary shows, for each opponent, how many times you killed them, how many times they killed you and the damage traded.",
+        ),
+        howTo: t("Ouvre un match : la section est sous les tableaux des équipes.", "Open a match: the section is below the team tables."),
+        page: "matches",
+      },
+    ],
+  },
+  {
     version: "1.0.7",
     date: "2026-11-09",
     changes: [
