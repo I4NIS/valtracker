@@ -11,6 +11,8 @@ import { FilterPill, type PillOption } from "./FilterPill";
 import { Art, fadeIn, KillMeans, meansLabel } from "./GameArt";
 import { Icon } from "./Icon";
 import { PointCanvas } from "./PointCanvas";
+import { SortHeader } from "./SortHeader";
+import { useSort } from "../lib/sort";
 
 type Kind = MapAction["kind"];
 type Side = "attack" | "defense";
@@ -151,6 +153,11 @@ export function MapHistoryView({ history, mapName, season, onOpenRound }: Props)
   };
   const ranked = [...zoneStats.keys()].filter((name) => countOf(name) > 0).sort((a, b) => countOf(b) - countOf(a));
   const top = countOf(ranked[0] ?? "") || 1;
+  const zoneTable = useSort(`map-zones-${kind}`, ranked, {
+    zone: { value: (name) => name },
+    deaths: { value: (name) => zoneStats.get(name)?.deaths ?? 0 },
+    kills: { value: (name) => zoneStats.get(name)?.kills ?? 0 },
+  }, { key: kind === "death" ? "deaths" : "kills", dir: "desc" });
   const bubbles = history.zones
     .filter((zone) => countOf(zone.name) > 0)
     .map((zone) => ({ ...zone, ...rotatePoint(zone, history.rotation), count: countOf(zone.name) }))
@@ -207,14 +214,16 @@ export function MapHistoryView({ history, mapName, season, onOpenRound }: Props)
 
         <div className="stack" style={{ gap: 2 }}>
           <div className="row between maphist-zones-head">
-            <span className="label">{kind === "death" ? t("Où tu meurs le plus", "Where you die most") : t("Où tu tues le plus", "Where you kill most")}</span>
+            <SortHeader table={zoneTable} column="zone" className="label">
+              {kind === "death" ? t("Où tu meurs le plus", "Where you die most") : t("Où tu tues le plus", "Where you kill most")}
+            </SortHeader>
             <span className="faint maphist-zones-cols">
-              <span>{t("Morts", "Deaths")}</span>
-              <span>Kills</span>
+              <SortHeader table={zoneTable} column="deaths">{t("Morts", "Deaths")}</SortHeader>
+              <SortHeader table={zoneTable} column="kills">Kills</SortHeader>
             </span>
           </div>
           {ranked.length === 0 && <span className="faint">{t("Aucune zone avec ces filtres.", "No zone with these filters.")}</span>}
-          {ranked.slice(0, TOP_ZONES).map((name) => {
+          {zoneTable.rows.slice(0, TOP_ZONES).map((name) => {
             const stats = zoneStats.get(name);
             return (
               <button

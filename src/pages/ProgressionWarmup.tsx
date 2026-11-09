@@ -1,11 +1,13 @@
 import "../styles/warmup.css";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { repeat, SkeletonBlock, SkeletonGroup, SkeletonLine } from "../components/Skeleton";
+import { SortHeader } from "../components/SortHeader";
 import { fmt, formatDate, pct } from "../lib/format";
 import { t } from "../lib/i18n";
 import { useQuery } from "../lib/query";
 import { queries } from "../lib/queries";
-import { daily, rankedLink, totals, type DayPoint, type DaySide, type WarmupMode } from "../lib/warmup";
+import { useSort, type SortColumns } from "../lib/sort";
+import { daily, rankedLink, totals, type DayPoint, type DaySide, type WarmedDay, type WarmupMode } from "../lib/warmup";
 
 const CHART_HEIGHT = 170;
 const CHART_INSET = 10;
@@ -20,6 +22,14 @@ const rate = (side: DaySide) => (side.matches > 0 ? (side.wins * 100) / side.mat
 
 type Filter = WarmupMode | null;
 
+const DAY_COLUMNS: SortColumns<WarmedDay> = {
+  day: { value: (day) => day.day },
+  warmups: { value: (day) => day.warmups },
+  warmupKd: { value: (day) => day.warmupKd },
+  wins: { value: (day) => (day.ranked ? day.wins / day.ranked : null) },
+  rankedKd: { value: (day) => day.rankedKd },
+};
+
 export function Warmup({ puuid, season }: { puuid: string; season: string | null }) {
   const query = useQuery(queries.warmup(puuid, season));
   const report = query.data ?? null;
@@ -33,6 +43,7 @@ export function Warmup({ puuid, season }: { puuid: string; season: string | null
   const sums = useMemo(() => totals(games), [games]);
   const points = useMemo(() => daily(games), [games]);
   const link = useMemo(() => rankedLink(games, report?.ranked ?? []), [games, report]);
+  const dayTable = useSort("warmup-days", link.days, DAY_COLUMNS, { key: "day", dir: "desc" });
 
   if (query.error && !report) return <p className="form-error">{query.error}</p>;
   if (!report) return <WarmupSkeleton />;
@@ -126,13 +137,13 @@ export function Warmup({ puuid, season }: { puuid: string; season: string | null
             {link.days.length > 0 && (
               <div className="warmup-days" role="table" aria-label={t("Jours avec échauffement", "Days with a warmup")}>
                 <div className="warmup-day head" role="row">
-                  <span role="columnheader">{t("Jour", "Day")}</span>
-                  <span role="columnheader">{t("Échauffement", "Warmup")}</span>
-                  <span role="columnheader">{t("K/D échauffement", "Warmup K/D")}</span>
-                  <span role="columnheader">{t("Classé", "Ranked")}</span>
-                  <span role="columnheader">{t("K/D classé", "Ranked K/D")}</span>
+                  <SortHeader table={dayTable} column="day">{t("Jour", "Day")}</SortHeader>
+                  <SortHeader table={dayTable} column="warmups">{t("Échauffement", "Warmup")}</SortHeader>
+                  <SortHeader table={dayTable} column="warmupKd">{t("K/D échauffement", "Warmup K/D")}</SortHeader>
+                  <SortHeader table={dayTable} column="wins">{t("Classé", "Ranked")}</SortHeader>
+                  <SortHeader table={dayTable} column="rankedKd">{t("K/D classé", "Ranked K/D")}</SortHeader>
                 </div>
-                {link.days.slice(0, DAY_ROWS).map((day) => (
+                {dayTable.rows.slice(0, DAY_ROWS).map((day) => (
                   <div className="warmup-day" role="row" key={day.day}>
                     <span role="cell">{formatDate(asDate(day.day), DAY_LONG)}</span>
                     <span role="cell" className="muted">

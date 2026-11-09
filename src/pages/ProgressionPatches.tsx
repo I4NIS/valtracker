@@ -1,10 +1,15 @@
 import "../styles/riot.css";
+import { useMemo } from "react";
 import { repeat, SkeletonBlock, SkeletonGroup, SkeletonLine } from "../components/Skeleton";
+import { SortHeader } from "../components/SortHeader";
 import { onSyncProgress, type PatchLine } from "../lib/api";
 import { fmt, formatDate, pct, signed } from "../lib/format";
 import { t } from "../lib/i18n";
 import { invalidate, useQuery } from "../lib/query";
 import { queries } from "../lib/queries";
+import { useSort, type SortColumns } from "../lib/sort";
+
+const NO_PATCHES: PatchLine[] = [];
 
 const PUBLISHED: Intl.DateTimeFormatOptions = { day: "numeric", month: "short", year: "numeric" };
 
@@ -97,6 +102,14 @@ export function Patches({ puuid, season }: { puuid: string; season: string | nul
   const query = useQuery(queries.patches(puuid, season));
   const data = query.data;
   const columns = COLUMNS();
+  const patches = data?.patches ?? NO_PATCHES;
+  const order = useMemo(() => new Map(patches.map((line, index) => [line, index])), [patches]);
+  const sortColumns: SortColumns<PatchLine> = {
+    patch: { value: (line) => order.get(line) ?? 0, first: "asc" },
+    matches: { value: (line) => line.matches },
+    ...Object.fromEntries(columns.map((column, index) => [String(index), { value: column.value }])),
+  };
+  const table = useSort("patches", patches, sortColumns, { key: "patch", dir: "asc" });
 
   if (query.error && !data) return <p className="form-error">{query.error}</p>;
   if (!data) return <PatchesSkeleton />;
@@ -118,15 +131,15 @@ export function Patches({ puuid, season }: { puuid: string; season: string | nul
         <div className="list-scroll">
           <div className="patch-table" role="table" aria-label={t("Statistiques par patch", "Stats by patch")}>
             <div className="patch-row head" role="row">
-              <span role="columnheader">Patch</span>
-              <span role="columnheader">{t("Matchs", "Matches")}</span>
-              {columns.map((column) => (
-                <span role="columnheader" key={column.label}>
+              <SortHeader table={table} column="patch">Patch</SortHeader>
+              <SortHeader table={table} column="matches">{t("Matchs", "Matches")}</SortHeader>
+              {columns.map((column, index) => (
+                <SortHeader table={table} column={String(index)} key={column.label}>
                   {column.label}
-                </span>
+                </SortHeader>
               ))}
             </div>
-            {data.patches.map((line) => (
+            {table.rows.map((line) => (
               <PatchRow key={line.version ?? "unknown"} line={line} previous={line.version ? known[known.indexOf(line) + 1] : undefined} columns={columns} />
             ))}
           </div>
