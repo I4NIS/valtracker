@@ -237,6 +237,70 @@ pub struct MatchDetail {
     pub behavior: Option<Vec<riot::Fact>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mvp: Option<riot::Mvp>,
+    pub face_off: Vec<FaceOff>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FaceOff {
+    pub puuid: String,
+    pub name: String,
+    pub agent_id: Option<String>,
+    pub agent_name: Option<String>,
+    pub kills: i64,
+    pub deaths: i64,
+    pub damage_dealt: i64,
+    pub damage_received: i64,
+}
+
+fn face_off(players: &[Value], rounds: &[Value], kills: &[&Value], puuid: &str, my_team: &str) -> Vec<FaceOff> {
+    let mut list: Vec<FaceOff> = players
+        .iter()
+        .filter(|player| text(player, "/team_id").is_some_and(|team| team != my_team))
+        .filter_map(|player| {
+            Some(FaceOff {
+                puuid: text(player, "/puuid")?.to_string(),
+                name: text(player, "/name").unwrap_or_default().to_string(),
+                agent_id: text(player, "/agent/id").map(str::to_string),
+                agent_name: text(player, "/agent/name").map(str::to_string),
+                kills: 0,
+                deaths: 0,
+                damage_dealt: 0,
+                damage_received: 0,
+            })
+        })
+        .collect();
+    let index: HashMap<String, usize> = list.iter().enumerate().map(|(position, entry)| (entry.puuid.clone(), position)).collect();
+    for kill in kills {
+        let (killer, victim) = (text(kill, "/killer/puuid"), text(kill, "/victim/puuid"));
+        if killer == Some(puuid) {
+            if let Some(&position) = victim.and_then(|id| index.get(id)) {
+                list[position].kills += 1;
+            }
+        } else if victim == Some(puuid) {
+            if let Some(&position) = killer.and_then(|id| index.get(id)) {
+                list[position].deaths += 1;
+            }
+        }
+    }
+    for stat in rounds.iter().filter_map(|round| round.pointer("/stats").and_then(Value::as_array)).flatten() {
+        let dealer = text(stat, "/player/puuid");
+        for event in stat.pointer("/damage_events").and_then(Value::as_array).into_iter().flatten() {
+            let receiver = text(event, "/player/puuid");
+            let damage = int(event, "/damage");
+            if dealer == Some(puuid) {
+                if let Some(&position) = receiver.and_then(|id| index.get(id)) {
+                    list[position].damage_dealt += damage;
+                }
+            } else if receiver == Some(puuid) {
+                if let Some(&position) = dealer.and_then(|id| index.get(id)) {
+                    list[position].damage_received += damage;
+                }
+            }
+        }
+    }
+    list.sort_by(|a, b| (b.kills + b.deaths).cmp(&(a.kills + a.deaths)).then(b.damage_dealt.cmp(&a.damage_dealt)));
+    list
 }
 
 pub fn text<'a>(value: &'a Value, pointer: &str) -> Option<&'a str> {
@@ -836,6 +900,7 @@ pub fn analyze(
         riot: riot::performance(me),
         behavior: riot::behavior(game, puuid),
         mvp,
+        face_off: face_off(players, rounds, &kills, puuid, &my_team),
     })
 }
 
@@ -1116,6 +1181,19 @@ mod tests {
             .map(|spot| (spot.name.clone(), spot.ally, spot.me, ((spot.x * 100.0).round(), (spot.y * 100.0).round())))
             .collect();
         assert_eq!(at_plant, [("foe".into(), false, false, (50.0, 60.0)), ("me".into(), true, true, (60.0, 50.0))]);
+    }
+
+    #[test]
+    fn counts_face_off_with_each_enemy() {
+        let mut game = sample();
+        game["rounds"][0]["stats"] = json!([
+            { "player": { "puuid": "me" }, "damage_events": [{ "player": { "puuid": "foe" }, "damage": 120 }, { "player": { "puuid": "mate" }, "damage": 5 }] },
+            { "player": { "puuid": "foe" }, "damage_events": [{ "player": { "puuid": "me" }, "damage": 150 }] },
+        ]);
+        let detail = analyze(&game, "me", None, &HashMap::new(), &Thresholds::default()).expect("sample match");
+        let foe = detail.face_off.iter().find(|entry| entry.puuid == "foe").expect("foe in face off");
+        assert_eq!((foe.kills, foe.deaths, foe.damage_dealt, foe.damage_received), (0, 1, 120, 150));
+        assert!(detail.face_off.iter().all(|entry| entry.puuid != "me"));
     }
 
     #[test]
