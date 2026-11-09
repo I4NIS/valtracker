@@ -22,7 +22,8 @@ use crate::sync::{self, ACTIVE_ACCOUNT_SETTING, API_KEY_SETTING, COMBINED_SETTIN
 use crate::thresholds::Thresholds;
 
 const REGIONS: [&str; 6] = ["eu", "na", "ap", "kr", "latam", "br"];
-const PREFERENCES: [&str; 4] = ["theme", "language", "tutorial_done", notify::NOTIFY_SETTING];
+const SEEN_VERSION_SETTING: &str = "seen_version";
+const PREFERENCES: [&str; 5] = ["theme", "language", "tutorial_done", notify::NOTIFY_SETTING, SEEN_VERSION_SETTING];
 const MAX_API_KEY_LEN: usize = 128;
 
 #[derive(Serialize)]
@@ -36,6 +37,7 @@ pub struct Bootstrap {
     tutorial_done: bool,
     notify_matches: bool,
     combined: bool,
+    seen_version: Option<String>,
 }
 
 #[tauri::command(async)]
@@ -55,6 +57,7 @@ pub fn bootstrap(state: State<'_, AppState>) -> AppResult<Bootstrap> {
         tutorial_done: db::get_setting(&conn, "tutorial_done")?.as_deref() == Some("true"),
         notify_matches: notify::enabled(&conn)?,
         combined,
+        seen_version: db::get_setting(&conn, SEEN_VERSION_SETTING)?,
     })
 }
 
@@ -70,6 +73,11 @@ pub fn save_api_key(state: State<'_, AppState>, key: String) -> AppResult<()> {
         ));
     }
     db::set_setting(&*state.conn()?, API_KEY_SETTING, key)
+}
+
+fn valid_version(value: &str) -> bool {
+    let parts: Vec<&str> = value.split('.').collect();
+    parts.len() == 3 && parts.iter().all(|part| !part.is_empty() && part.len() <= 5 && part.chars().all(|c| c.is_ascii_digit()))
 }
 
 fn valid_api_key(key: &str) -> bool {
@@ -246,6 +254,9 @@ pub fn set_preference(app: AppHandle, state: State<'_, AppState>, key: String, v
     if !PREFERENCES.contains(&key.as_str()) {
         return Err(AppError::Invalid(tr("Préférence inconnue", "Unknown preference").into()));
     }
+    if key == SEEN_VERSION_SETTING && !valid_version(&value) {
+        return Err(AppError::Invalid(tr("Version invalide", "Invalid version").into()));
+    }
     let conn = state.conn()?;
     db::set_setting(&conn, &key, &value)?;
     if key == crate::i18n::LANGUAGE_SETTING {
@@ -272,5 +283,14 @@ mod tests {
         assert!(!valid_api_key("HDEV-1a2b\r\nX-Injected: oui"));
         assert!(!valid_api_key("clé"));
         assert!(!valid_api_key(&"a".repeat(MAX_API_KEY_LEN + 1)));
+    }
+
+    #[test]
+    fn accepts_only_version_numbers() {
+        assert!(valid_version("1.0.6"));
+        assert!(valid_version("12.10.300"));
+        assert!(!valid_version("1.0"));
+        assert!(!valid_version("1.0.6-beta"));
+        assert!(!valid_version("1..6"));
     }
 }

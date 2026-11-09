@@ -33,6 +33,7 @@ export type Bootstrap = {
   tutorialDone: boolean;
   notifyMatches: boolean;
   combined: boolean;
+  seenVersion: string | null;
 };
 
 export type LobbyAverages = {
@@ -438,7 +439,7 @@ export const api = {
   getProgression: (puuid: string, season: string | null) => invoke<Progression>("get_progression", { puuid, season }),
   getRecentFlaws: (puuid: string) => invoke<RecentFlaws>("get_recent_flaws", { puuid }),
   getSeasons: (puuid: string) => invoke<Season[]>("get_seasons", { puuid }),
-  setPreference: (key: "theme" | "language" | "tutorial_done" | "notify_matches", value: string) =>
+  setPreference: (key: "theme" | "language" | "tutorial_done" | "notify_matches" | "seen_version", value: string) =>
     invoke<void>("set_preference", { key, value }),
   exportDatabase: (fileName: string) => invoke<string | null>("export_database", { fileName }),
   pickDatabaseImport: () => invoke<ImportCandidate | null>("pick_database_import"),
