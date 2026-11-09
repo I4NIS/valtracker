@@ -1,26 +1,47 @@
-import { Fragment } from "react";
+import { Fragment, useMemo, type CSSProperties, type ReactNode } from "react";
 import type { Account, RecentMatch } from "../lib/api";
 import { agentIcon, seasonLabel, tierIcon, tierNameById } from "../lib/assets";
 import { fmt, pct, placeLabel, signed, timeAgo } from "../lib/format";
 import { t } from "../lib/i18n";
+import { useSort, type Sort, type SortColumns, type Sorter } from "../lib/sort";
 import { Art, fadeIn } from "./GameArt";
 import { repeat, SkeletonBlock, SkeletonGroup, SkeletonLine } from "./Skeleton";
+import { SortHeader } from "./SortHeader";
 
 type Props = {
   matches: RecentMatch[];
   onOpen: (matchId: string, puuid: string) => void;
   startIndex?: number;
   accounts?: Account[] | null;
+  sortId?: string;
 };
 
-export function MatchList({ matches, onOpen, startIndex = 0, accounts }: Props) {
+type Row = { game: RecentMatch; index: number };
+
+const COLUMNS: SortColumns<Row> = {
+  index: { value: (row) => row.index, first: "asc" },
+  map: { value: (row) => row.game.mapName },
+  result: { value: ({ game }) => (game.won ? 100 : -100) + game.roundsWon - game.roundsLost },
+  rank: { value: ({ game }) => game.rrChange },
+  kda: { value: ({ game }) => game.kills / Math.max(1, game.deaths) },
+  hs: { value: ({ game }) => game.hsPct },
+  adr: { value: ({ game }) => game.adr },
+  acs: { value: ({ game }) => game.acs },
+  place: { value: ({ game }) => game.place, first: "asc" },
+};
+
+const CHRONO: Sort = { key: "index", dir: "asc" };
+
+export function MatchList({ matches, onOpen, startIndex = 0, accounts, sortId = "matches" }: Props) {
+  const rows = useMemo(() => matches.map((game, index) => ({ game, index })), [matches]);
+  const table = useSort(sortId, rows, COLUMNS, CHRONO);
   return (
     <div className="list-scroll">
       <div>
-        <TrackHead />
-        {matches.map((game, index) => (
+        <TrackHead table={table} />
+        {table.rows.map(({ game, index }) => (
           <Fragment key={`${game.matchId}|${game.puuid}`}>
-            {game.seasonShort && index > 0 && game.seasonShort !== matches[index - 1].seasonShort && (
+            {table.isDefault && game.seasonShort && index > 0 && game.seasonShort !== matches[index - 1].seasonShort && (
               <div className="match-act" role="separator">
                 <span>{seasonLabel(game.seasonShort)}</span>
               </div>
@@ -53,19 +74,27 @@ export function MatchList({ matches, onOpen, startIndex = 0, accounts }: Props) 
   );
 }
 
-function TrackHead() {
+function TrackHead({ table }: { table?: Sorter }) {
+  const cell = (column: string, label: ReactNode, style?: CSSProperties) =>
+    table ? (
+      <SortHeader table={table} column={column} style={style}>
+        {label}
+      </SortHeader>
+    ) : (
+      <span style={style}>{label}</span>
+    );
   return (
     <div className="track head">
-      <span>#</span>
+      {cell("index", "#")}
       <span />
-      <span>{t("Map", "Map")}</span>
-      <span>{t("Résultat", "Result")}</span>
-      <span>{t("Rang", "Rank")}</span>
-      <span>K / D / A</span>
-      <span>HS</span>
-      <span>ADR</span>
-      <span>ACS</span>
-      <span style={{ textAlign: "right" }}>{t("Place", "Place")}</span>
+      {cell("map", t("Map", "Map"))}
+      {cell("result", t("Résultat", "Result"))}
+      {cell("rank", t("Rang", "Rank"))}
+      {cell("kda", "K / D / A")}
+      {cell("hs", "HS")}
+      {cell("adr", "ADR")}
+      {cell("acs", "ACS")}
+      {cell("place", t("Place", "Place"), { textAlign: "right" })}
     </div>
   );
 }

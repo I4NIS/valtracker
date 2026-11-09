@@ -1,0 +1,31 @@
+.sort-button {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  line-height: inherit;
+  text-align: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 0.12s ease;
+}
+
+.sort-button:hover,
+.sort-button.active {
+  color: var(--text-2);
+}
+
+.sort-arrow {
+  position: absolute;
+  top: 50%;
+  left: calc(100% + 3px);
+  transform: translateY(-50%);
+  pointer-events: none;
+}

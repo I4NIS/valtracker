@@ -5,8 +5,9 @@ import { MatchList, MatchListSkeleton } from "../components/MatchList";
 import { repeat, SkeletonBlock, SkeletonGroup, SkeletonLine } from "../components/Skeleton";
 import { Icon } from "../components/Icon";
 import { SeasonPicker } from "../components/SeasonPicker";
+import { SortHeader } from "../components/SortHeader";
 import type { Account } from "../lib/api";
-import type { AgentStat } from "../lib/agents";
+import type { AgentMap, AgentStat } from "../lib/agents";
 import type { AgentMastery } from "../lib/career";
 import { agentIcon, seasonLabel } from "../lib/assets";
 import { fmt, pct, roleLabel, scoreTone, signed } from "../lib/format";
@@ -14,6 +15,7 @@ import { agentArt, agentColor, useAgentCatalog, type AgentInfo } from "../lib/ga
 import { t } from "../lib/i18n";
 import { useBackLabel } from "../lib/navigation";
 import { useQuery } from "../lib/query";
+import { useSort, type SortColumns } from "../lib/sort";
 import { defaultSeason, NO_FILTERS, queries } from "../lib/queries";
 import { useViewport } from "../lib/viewport";
 import type { GameSummary } from "../lib/api";
@@ -327,6 +329,50 @@ function AgentCard({ agent, share, info, mastery, large, onSelect }: CardProps) 
   );
 }
 
+const MAP_COLUMNS: SortColumns<AgentMap> = {
+  map: { value: (map) => map.mapName },
+  matches: { value: (map) => map.matches },
+  win: { value: (map) => map.winPct },
+  acs: { value: (map) => map.acs },
+};
+
+function AgentMaps({ agent }: { agent: AgentStat }) {
+  const table = useSort("agent-maps", agent.maps, MAP_COLUMNS, { key: "matches", dir: "desc" });
+  return (
+    <div className="agent-maps">
+      <div className="agent-map-row head">
+        <span />
+        <SortHeader table={table} column="map">{t("Carte", "Map")}</SortHeader>
+        <SortHeader table={table} column="matches">{t("Matchs", "Matches")}</SortHeader>
+        <SortHeader table={table} column="win">{t("Victoires", "Win rate")}</SortHeader>
+        <SortHeader table={table} column="acs">ACS</SortHeader>
+      </div>
+      {table.rows.map((map) => (
+        <div key={map.mapName} className={`agent-map-row${agent.bestMap?.name === map.mapName ? " best" : ""}`}>
+          <span className="agent-map-thumb">
+            <Art src={map.image ?? undefined} width={72} height={36} alt="" />
+          </span>
+          <strong className="ellipsis">{map.mapName}</strong>
+          <span className="muted">
+            {map.matches}
+            <span className="faint">
+              {" "}
+              {t(`(${map.wins} V, ${map.matches - map.wins} D)`, `(${map.wins} W, ${map.matches - map.wins} L)`)}
+            </span>
+          </span>
+          <div className="agent-map-win">
+            <div className="agent-winbar">
+              <span className={winTone(map.winPct)} style={{ width: `${Math.max(map.winPct, 2)}%` }} />
+            </div>
+            <span className={winTone(map.winPct)}>{pct(map.winPct, 0)}</span>
+          </div>
+          <span className={agent.lobbyAcs !== null ? (map.acs >= agent.lobbyAcs ? "good" : "bad") : ""}>{fmt(map.acs)}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 type DetailProps = {
   agent: AgentStat;
   info: AgentInfo | null;
@@ -480,37 +526,7 @@ function AgentDetail({ agent, info, mastery, puuid, season, onOpenMatch }: Detai
                 : t("Pas assez de matchs pour une meilleure carte", "Not enough matches for a best map")}
             </span>
           </div>
-          <div className="agent-maps">
-            <div className="agent-map-row head">
-              <span />
-              <span>{t("Carte", "Map")}</span>
-              <span>{t("Matchs", "Matches")}</span>
-              <span>{t("Victoires", "Win rate")}</span>
-              <span>ACS</span>
-            </div>
-            {agent.maps.map((map) => (
-              <div key={map.mapName} className={`agent-map-row${agent.bestMap?.name === map.mapName ? " best" : ""}`}>
-                <span className="agent-map-thumb">
-                  <Art src={map.image ?? undefined} width={72} height={36} alt="" />
-                </span>
-                <strong className="ellipsis">{map.mapName}</strong>
-                <span className="muted">
-                  {map.matches}
-                  <span className="faint">
-                    {" "}
-                    {t(`(${map.wins} V, ${map.matches - map.wins} D)`, `(${map.wins} W, ${map.matches - map.wins} L)`)}
-                  </span>
-                </span>
-                <div className="agent-map-win">
-                  <div className="agent-winbar">
-                    <span className={winTone(map.winPct)} style={{ width: `${Math.max(map.winPct, 2)}%` }} />
-                  </div>
-                  <span className={winTone(map.winPct)}>{pct(map.winPct, 0)}</span>
-                </div>
-                <span className={agent.lobbyAcs !== null ? (map.acs >= agent.lobbyAcs ? "good" : "bad") : ""}>{fmt(map.acs)}</span>
-              </div>
-            ))}
-          </div>
+          <AgentMaps agent={agent} />
         </div>
 
         {showRecent && (
@@ -522,7 +538,7 @@ function AgentDetail({ agent, info, mastery, puuid, season, onOpenMatch }: Detai
               </span>
             </div>
             {recent.data ? (
-              <MatchList matches={recent.data.slice(0, rows)} onOpen={(matchId) => onOpenMatch?.(matchId)} />
+              <MatchList matches={recent.data.slice(0, rows)} sortId="agent-matches" onOpen={(matchId) => onOpenMatch?.(matchId)} />
             ) : (
               <MatchListSkeleton rows={Math.min(rows, agent.matches)} />
             )}

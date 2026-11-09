@@ -302,7 +302,7 @@ export function Home({ account, accounts, onOpenMatch }: Props) {
           ) : recent.length === 0 ? (
             <div className="empty">{t("Tes matchs apparaîtront ici dès la fin de la synchro.", "Your matches will show up here once the sync is done.")}</div>
           ) : (
-            <MatchList matches={recent} accounts={accounts} onOpen={(matchId, owner) => onOpenMatch(matchId, undefined, owner)} />
+            <MatchList matches={recent} accounts={accounts} sortId="home" onOpen={(matchId, owner) => onOpenMatch(matchId, undefined, owner)} />
           )}
         </section>
 
