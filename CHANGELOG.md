@@ -2,6 +2,10 @@
 
 Les nouveautés de chaque version de Valtracker. Elles s'affichent aussi dans l'application après une mise à jour, et dans Paramètres, Général, Version, Nouveautés.
 
+## 1.1.0
+
+- **Chance de victoire sur l'accueil.** Le bouton Prochaine game affiche directement ta chance de victoire estimée, calculée en arrière-plan avec ton dernier agent et ton groupe actuel.
+
 ## 1.0.9
 
 - **Prochaine game.** Un bouton sur l'accueil estime ta chance de victoire à partir de la map, de ton agent, de ton groupe et des agents alliés et adverses, avec la fiabilité du modèle mesurée sur tes matchs. Il montre aussi ton taux de victoire dans des conditions pareilles : heure, jour, session, série et pause.

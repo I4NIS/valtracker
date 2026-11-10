@@ -18,6 +18,21 @@ export const FIRST_TRACKED = "1.0.4";
 
 export const CHANGELOG = (): Release[] => [
   {
+    version: "1.1.0",
+    date: "2026-11-11",
+    changes: [
+      {
+        title: t("Chance de victoire sur l'accueil", "Chance to win on the home page"),
+        text: t(
+          "Le bouton Prochaine game affiche directement ta chance de victoire estimée, calculée en arrière-plan avec ton dernier agent et ton groupe actuel.",
+          "The Next game button shows your estimated chance to win right away, computed in the background with your last agent and your current group.",
+        ),
+        howTo: t("Ouvre le bouton pour changer la map, l'agent, le groupe ou les agents.", "Open the button to change the map, agent, group or agents."),
+        page: "home",
+      },
+    ],
+  },
+  {
     version: "1.0.9",
     date: "2026-11-10",
     changes: [
