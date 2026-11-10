@@ -1,6 +1,7 @@
 import "../styles/home.css";
 import { useEffect, useMemo, useState } from "react";
 import { ExportRecapButton } from "../components/ExportRecap";
+import { NextGameButton } from "../components/NextGame";
 import { type ExtraFilters, hasExtra, MatchFilters, NO_EXTRA } from "../components/MatchFilters";
 import { MatchList, MatchListSkeleton } from "../components/MatchList";
 import { RankBadge } from "../components/RankBadge";
@@ -138,6 +139,7 @@ export function Home({ account, accounts, onOpenMatch }: Props) {
         </div>
         {!accounts && timeline.length > 0 && (
           <div className="page-head-tools">
+            <NextGameButton puuid={account.puuid} />
             <ExportRecapButton kind="session" account={account} label={t("Exporter ma dernière session", "Export my last session")} />
           </div>
         )}
