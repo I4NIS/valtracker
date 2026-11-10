@@ -33,6 +33,7 @@ mod riot;
 mod scan;
 mod repo;
 mod state;
+mod next_game;
 mod stats;
 mod storage;
 mod sync;
@@ -98,6 +99,7 @@ pub fn run() {
             commands::get_overview,
             commands::get_filter_options,
             commands::get_recent_matches,
+            next_game::get_next_game,
             commands::get_match,
             commands::get_progression,
             commands::get_recent_flaws,
