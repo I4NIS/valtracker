@@ -4,6 +4,7 @@ Les nouveautés de chaque version de Valtracker. Elles s'affichent aussi dans l'
 
 ## 1.1.0
 
+- **Prochaine map.** Un bouton sur l'accueil montre la map qui a le plus de chance de tomber à ta prochaine game, et la chance de chaque map en rotation, d'après les maps de tes dernières games.
 - **Chance de victoire sur l'accueil.** Le bouton Prochaine game affiche directement ta chance de victoire estimée, calculée en arrière-plan avec ton dernier agent et ton groupe actuel.
 
 ## 1.0.9

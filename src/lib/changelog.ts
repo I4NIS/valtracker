@@ -22,6 +22,15 @@ export const CHANGELOG = (): Release[] => [
     date: "2026-11-11",
     changes: [
       {
+        title: t("Prochaine map", "Next map"),
+        text: t(
+          "Un bouton sur l'accueil montre la map qui a le plus de chance de tomber à ta prochaine game, et la chance de chaque map en rotation, d'après les maps de tes dernières games.",
+          "A home page button shows the map most likely to come up in your next game, and the chance of each map in rotation, based on the maps of your last games.",
+        ),
+        howTo: t("Accueil, bouton Prochaine map, à côté de Prochaine game.", "Home page, Next map button, next to Next game."),
+        page: "home",
+      },
+      {
         title: t("Chance de victoire sur l'accueil", "Chance to win on the home page"),
         text: t(
           "Le bouton Prochaine game affiche directement ta chance de victoire estimée, calculée en arrière-plan avec ton dernier agent et ton groupe actuel.",
