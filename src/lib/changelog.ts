@@ -24,10 +24,10 @@ export const CHANGELOG = (): Release[] => [
       {
         title: t("Prochaine game", "Next game"),
         text: t(
-          "Un bouton sur l'accueil montre ton taux de victoire dans des conditions pareilles à ta prochaine game : map, agent, heure, jour, place dans la session, série en cours, pause et niveau de tes derniers lobbies.",
-          "A home page button shows your win rate in conditions like your next game: map, agent, hour, day, place in the session, current streak, break and the level of your last lobbies.",
+          "Un bouton sur l'accueil estime ta chance de victoire à partir de la map, de ton agent, de ton groupe et des agents alliés et adverses, avec la fiabilité du modèle mesurée sur tes matchs. Il montre aussi ton taux de victoire dans des conditions pareilles : heure, jour, session, série et pause.",
+          "A home page button estimates your chance to win from the map, your agent, your group and the allied and enemy agents, with the model's reliability measured on your matches. It also shows your win rate in similar conditions: hour, day, session, streak and break.",
         ),
-        howTo: t("Accueil, bouton Prochaine game. La map et l'agent sont facultatifs.", "Home page, Next game button. Map and agent are optional."),
+        howTo: t("Accueil, bouton Prochaine game. Tous les choix sont facultatifs.", "Home page, Next game button. Every choice is optional."),
         page: "home",
       },
     ],

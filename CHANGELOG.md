@@ -4,7 +4,7 @@ Les nouveautés de chaque version de Valtracker. Elles s'affichent aussi dans l'
 
 ## 1.0.9
 
-- **Prochaine game.** Un bouton sur l'accueil montre ton taux de victoire dans des conditions pareilles à ta prochaine game : map, agent, heure, jour, place dans la session, série en cours, pause et niveau de tes derniers lobbies.
+- **Prochaine game.** Un bouton sur l'accueil estime ta chance de victoire à partir de la map, de ton agent, de ton groupe et des agents alliés et adverses, avec la fiabilité du modèle mesurée sur tes matchs. Il montre aussi ton taux de victoire dans des conditions pareilles : heure, jour, session, série et pause.
 
 ## 1.0.8
 
