@@ -2,6 +2,10 @@
 
 Les nouveautés de chaque version de Valtracker. Elles s'affichent aussi dans l'application après une mise à jour, et dans Paramètres, Général, Version, Nouveautés.
 
+## 1.0.9
+
+- **Prochaine game.** Un bouton sur l'accueil montre ton taux de victoire dans des conditions pareilles à ta prochaine game : map, agent, heure, jour, place dans la session, série en cours, pause et niveau de tes derniers lobbies.
+
 ## 1.0.8
 
 - **Face à face dans les matchs.** Le résumé d'un match montre, pour chaque adversaire, combien de fois tu l'as tué, combien de fois il t'a tué et les dégâts échangés.

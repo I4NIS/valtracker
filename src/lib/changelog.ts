@@ -18,6 +18,21 @@ export const FIRST_TRACKED = "1.0.4";
 
 export const CHANGELOG = (): Release[] => [
   {
+    version: "1.0.9",
+    date: "2026-11-10",
+    changes: [
+      {
+        title: t("Prochaine game", "Next game"),
+        text: t(
+          "Un bouton sur l'accueil montre ton taux de victoire dans des conditions pareilles à ta prochaine game : map, agent, heure, jour, place dans la session, série en cours, pause et niveau de tes derniers lobbies.",
+          "A home page button shows your win rate in conditions like your next game: map, agent, hour, day, place in the session, current streak, break and the level of your last lobbies.",
+        ),
+        howTo: t("Accueil, bouton Prochaine game. La map et l'agent sont facultatifs.", "Home page, Next game button. Map and agent are optional."),
+        page: "home",
+      },
+    ],
+  },
+  {
     version: "1.0.8",
     date: "2026-11-10",
     changes: [
