@@ -8,13 +8,27 @@ import { t } from "../lib/i18n";
 import { buildReport, getNextGame, MIN_SAMPLE, PARTY_LABELS, partyLabel, pickOptions, tierGap, winShare, type PastGame, type Rate } from "../lib/nextGame";
 import { useQuery } from "../lib/query";
 import { MIN_GAMES, trainWinModel, type Effect, type Inputs, type WinModel } from "../lib/winModel";
+import { whenIdle } from "../lib/idle";
 import { Icon } from "./Icon";
 
 const ANY = "";
 const MAX_ALLIES = 4;
 const MAX_ENEMIES = 5;
 
-const remembered = { mapId: ANY, agentId: ANY, party: 1, allies: [] as string[], enemies: [] as string[] };
+const SESSION_GAP_MS = 2 * 3600 * 1000;
+
+const remembered = { touched: false, mapId: ANY, agentId: ANY, party: 1, allies: [] as string[], enemies: [] as string[] };
+
+function defaultInputs(history: PastGame[]): Inputs {
+  const last = [...history].reverse().find((game) => !game.draw);
+  const inSession = last !== undefined && Date.now() - new Date(last.startedAt).getTime() < SESSION_GAP_MS;
+  return { mapId: null, agentId: last?.agentId?.toLowerCase() ?? null, party: inSession ? last.party : 1, allies: [], enemies: [] };
+}
+
+function currentInputs(history: PastGame[]): Inputs {
+  if (!remembered.touched) return defaultInputs(history);
+  return { mapId: remembered.mapId || null, agentId: remembered.agentId || null, party: remembered.party, allies: remembered.allies, enemies: remembered.enemies };
+}
 
 const trainedModels = new WeakMap<PastGame[], WinModel | null>();
 
@@ -27,10 +41,24 @@ const record = (rate: Rate) => t(`${rate.wins} V ${rate.losses} D`, `${rate.wins
 
 export function NextGameButton({ puuid }: { puuid: string }) {
   const [open, setOpen] = useState(false);
+  const query = useQuery({ key: `nextGame|${puuid}`, fetch: () => getNextGame(puuid) });
+  const history = query.data ?? null;
+  const catalog = useAgentCatalog();
+  const { model } = useWinModel(history, catalog);
+  const inputs = history ? currentInputs(history) : null;
+  const probability = model && inputs ? model.predict(inputs).probability : null;
+  const agent = inputs?.agentId ? (catalog?.agents.get(inputs.agentId)?.name ?? "") : "";
+  const hint = inputs
+    ? t(
+        `Estimation ${agent ? `avec ${agent}, ` : ""}${partyLabel(inputs.party).toLowerCase()}, sans map choisie. Clique pour changer les choix.`,
+        `Estimate ${agent ? `with ${agent}, ` : ""}${partyLabel(inputs.party).toLowerCase()}, no map picked. Click to change the choices.`,
+      )
+    : undefined;
   return (
     <>
-      <button type="button" className="btn btn-secondary" onClick={() => setOpen(true)}>
+      <button type="button" className="btn btn-secondary nextgame-button" onClick={() => setOpen(true)} title={hint}>
         {t("Prochaine game", "Next game")}
+        {probability !== null && <span className={`nextgame-badge ${probability >= 0.5 ? "good" : "bad"}`}>{pct(probability * 100, 0)}</span>}
       </button>
       {open && <NextGameDialog puuid={puuid} onClose={() => setOpen(false)} />}
     </>
@@ -46,12 +74,18 @@ function useWinModel(history: PastGame[] | null, catalog: Catalog | null): { mod
       return;
     }
     setState({ model: null, ready: false });
-    const timer = window.setTimeout(() => {
-      const model = trainWinModel(history, (agent) => catalog.agents.get(agent.toLowerCase())?.role ?? null);
+    let cancelled = false;
+    whenIdle().then(() => {
+      if (cancelled) return;
+      const model = trainedModels.has(history)
+        ? (trainedModels.get(history) ?? null)
+        : trainWinModel(history, (agent) => catalog.agents.get(agent.toLowerCase())?.role ?? null);
       trainedModels.set(history, model);
-      setState({ model, ready: true });
-    }, 30);
-    return () => window.clearTimeout(timer);
+      if (!cancelled) setState({ model, ready: true });
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [history, catalog]);
   return state;
 }
@@ -60,11 +94,13 @@ function NextGameDialog({ puuid, onClose }: { puuid: string; onClose: () => void
   const query = useQuery({ key: `nextGame|${puuid}`, fetch: () => getNextGame(puuid) });
   const history = query.data ?? null;
   const catalog = useAgentCatalog();
-  const [mapId, setMapId] = useState(remembered.mapId);
-  const [agentId, setAgentId] = useState(remembered.agentId);
-  const [party, setParty] = useState(remembered.party);
-  const [allies, setAllies] = useState<string[]>(remembered.allies);
-  const [enemies, setEnemies] = useState<string[]>(remembered.enemies);
+  const start = history ? currentInputs(history) : null;
+  const [mapId, setMapId] = useState(start?.mapId ?? ANY);
+  const [agentId, setAgentId] = useState(start?.agentId ?? ANY);
+  const [party, setParty] = useState(start?.party ?? 1);
+  const [allies, setAllies] = useState<string[]>(start?.allies ?? []);
+  const [enemies, setEnemies] = useState<string[]>(start?.enemies ?? []);
+  const changed = useRef(false);
   const [picking, setPicking] = useState<"allies" | "enemies" | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const options = useMemo(() => (history ? pickOptions(history) : { maps: [], agents: [] }), [history]);
@@ -72,7 +108,11 @@ function NextGameDialog({ puuid, onClose }: { puuid: string; onClose: () => void
   const { model, ready } = useWinModel(history, catalog);
 
   useEffect(() => {
-    Object.assign(remembered, { mapId, agentId, party, allies, enemies });
+    if (!changed.current) {
+      changed.current = true;
+      return;
+    }
+    Object.assign(remembered, { touched: true, mapId, agentId, party, allies, enemies });
   }, [mapId, agentId, party, allies, enemies]);
 
   useEffect(() => {

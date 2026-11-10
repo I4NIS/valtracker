@@ -1,3 +1,18 @@
+.nextgame-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.nextgame-badge {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--field);
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
 .nextgame-backdrop {
   position: fixed;
   inset: 0;
