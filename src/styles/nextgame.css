@@ -14,9 +14,10 @@
 .nextgame-dialog {
   display: flex;
   flex-direction: column;
-  width: min(620px, 100%);
-  max-height: min(760px, calc(100vh - 48px));
-  overflow: hidden;
+  width: min(720px, 100%);
+  max-height: min(800px, calc(100vh - 48px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
   border: 1px solid var(--line);
   border-radius: 20px;
   background: var(--panel);
@@ -52,13 +53,135 @@
   border-bottom: 1px solid var(--line);
 }
 
+.nextgame-wide {
+  grid-column: 1 / -1;
+}
+
+.nextgame-slots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.nextgame-slot {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 4px 10px 4px 4px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--raised);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.nextgame-slot img {
+  border-radius: 50%;
+}
+
+.nextgame-slot.add {
+  padding: 4px 14px;
+  border-style: dashed;
+  color: var(--text-2);
+}
+
+.nextgame-slot:hover {
+  border-color: var(--text-3);
+}
+
+.nextgame-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+  gap: 6px;
+  max-height: 210px;
+  padding: 8px;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--app);
+}
+
+.nextgame-pick {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  padding: 6px 4px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-2);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.nextgame-pick:hover {
+  background: var(--raised);
+  color: var(--text);
+}
+
+.nextgame-pick img {
+  border-radius: 8px;
+}
+
+.nextgame-pick span {
+  max-width: 100%;
+}
+
+.nextgame-chance {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 18px;
+  border-radius: 16px;
+  background: var(--raised);
+}
+
+.nextgame-chance-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.nextgame-chance-head strong {
+  font-size: 40px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+
+.nextgame-effects {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 10px 0 0;
+  border-top: 1px solid var(--line);
+  list-style: none;
+  font-size: 13px;
+}
+
+.nextgame-effects li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.nextgame-effects strong {
+  flex-shrink: 0;
+}
+
 .nextgame-body {
   display: flex;
   flex-direction: column;
   gap: 14px;
   padding: 18px 24px 22px;
-  overflow-y: auto;
-  overscroll-behavior: contain;
 }
 
 .nextgame-overall {

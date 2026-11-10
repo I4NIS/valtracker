@@ -13,6 +13,9 @@ export type PastGame = {
   tier: number | null;
   allies: number | null;
   enemies: number | null;
+  party: number;
+  allyAgents: string[];
+  enemyAgents: string[];
 };
 
 export function getNextGame(puuid: string): Promise<PastGame[]> {
@@ -129,7 +132,13 @@ export function tierGap(value: number | null): string {
     : t(`${amount} rang${size >= 2 ? "s" : ""} en dessous de toi`, `${amount} ${plural(Math.round(size), "rank", "ranks")} below you`);
 }
 
-export function buildReport(history: PastGame[], mapId: string | null, agentId: string | null, now: Date): NextGameReport {
+export const PARTY_LABELS = () => [t("Solo", "Solo"), t("Duo", "Duo"), t("Trio", "Trio"), t("À 4", "Four"), t("À 5", "Five stack")];
+
+export function partyLabel(size: number): string {
+  return size <= 1 ? t("En solo", "Solo") : size === 2 ? t("En duo", "In a duo") : size === 3 ? t("En trio", "In a trio") : size === 4 ? t("À 4", "In a group of four") : t("À 5", "In a five stack");
+}
+
+export function buildReport(history: PastGame[], mapId: string | null, agentId: string | null, party: number, now: Date): NextGameReport {
   const games = history.filter((game) => !game.draw);
   const overall = rateOf(games);
   const conditions: Condition[] = [];
@@ -149,6 +158,13 @@ export function buildReport(history: PastGame[], mapId: string | null, agentId: 
       conditions.push({ key: "map-agent", title: t("Cette map avec cet agent", "This map with this agent"), detail: t("Les deux à la fois", "Both at once"), rate: rateOf(both) });
     }
   }
+
+  conditions.push({
+    key: "party",
+    title: partyLabel(party),
+    detail: t("Tes matchs joués avec un groupe de cette taille", "Your matches played with a group of this size"),
+    rate: rateOf(games.filter((game) => game.party === party)),
+  });
 
   const nowBand = band(now.getHours());
   conditions.push({
