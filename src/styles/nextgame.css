@@ -13,6 +13,60 @@
   font-variant-numeric: tabular-nums;
 }
 
+.nextmap-dialog {
+  width: min(560px, 100%);
+}
+
+.nextmap-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.nextmap-row {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr) minmax(80px, 140px) 48px;
+  align-items: center;
+  gap: 14px;
+  padding: 8px 12px 8px 8px;
+  border-radius: 12px;
+  background: var(--raised);
+  font-size: 14px;
+}
+
+.nextmap-row .faint {
+  font-size: 12px;
+}
+
+.nextmap-thumb {
+  width: 96px;
+  height: 32px;
+  border-radius: 6px;
+  object-fit: cover;
+}
+
+.nextmap-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--field);
+  overflow: hidden;
+}
+
+.nextmap-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent);
+}
+
+.nextmap-value {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
 .nextgame-backdrop {
   position: fixed;
   inset: 0;
