@@ -4,6 +4,7 @@ import { lang, t } from "./i18n";
 
 export type PastGame = {
   startedAt: string;
+  season: string | null;
   mapId: string | null;
   mapName: string | null;
   agentId: string | null;

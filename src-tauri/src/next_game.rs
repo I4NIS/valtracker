@@ -14,6 +14,7 @@ const RANKED_FROM: i64 = 3;
 #[serde(rename_all = "camelCase")]
 pub struct PastGame {
     pub started_at: String,
+    pub season: Option<String>,
     pub map_id: Option<String>,
     pub map_name: Option<String>,
     pub agent_id: Option<String>,
@@ -65,7 +66,7 @@ pub fn history(conn: &Connection, puuid: &str) -> AppResult<Vec<PastGame>> {
                 (SELECT AVG(q.tier) FROM match_players q WHERE q.match_id = p.match_id AND q.team <> p.team AND q.tier >= ?3),
                 (SELECT GROUP_CONCAT(LOWER(q.agent_id)) FROM match_players q WHERE q.match_id = p.match_id AND q.team = p.team AND q.puuid <> p.puuid),
                 (SELECT GROUP_CONCAT(LOWER(q.agent_id)) FROM match_players q WHERE q.match_id = p.match_id AND q.team <> p.team),
-                m.raw
+                m.raw, m.season_short
          FROM match_players p JOIN matches m ON m.match_id = p.match_id
          WHERE p.puuid = ?1 AND m.queue = ?2
          ORDER BY m.started_at",
@@ -74,6 +75,7 @@ pub fn history(conn: &Connection, puuid: &str) -> AppResult<Vec<PastGame>> {
         .query_map(params![puuid, COMPETITIVE, RANKED_FROM], |row| {
             Ok(PastGame {
                 started_at: row.get(0)?,
+                season: row.get(13)?,
                 map_id: row.get(1)?,
                 map_name: row.get(2)?,
                 agent_id: row.get(3)?,
@@ -105,11 +107,11 @@ mod tests {
     fn averages_teammates_and_opponents_without_me() {
         let conn = Connection::open_in_memory().unwrap();
         conn.execute_batch(
-            "CREATE TABLE matches (match_id TEXT PRIMARY KEY, started_at TEXT, map_id TEXT, map_name TEXT, queue TEXT, raw BLOB);
+            "CREATE TABLE matches (match_id TEXT PRIMARY KEY, started_at TEXT, map_id TEXT, map_name TEXT, queue TEXT, raw BLOB, season_short TEXT);
              CREATE TABLE match_players (match_id TEXT, puuid TEXT, team TEXT, agent_id TEXT, agent_name TEXT, tier INTEGER, won INTEGER, rounds_won INTEGER, rounds_lost INTEGER);
-             INSERT INTO matches VALUES ('b', '2026-01-02', 'bind', 'Bind', 'competitive', NULL),
-               ('a', '2026-01-01', 'ascent', 'Ascent', 'competitive', '{\"players\":[{\"puuid\":\"me\",\"team_id\":\"Red\",\"party_id\":\"p\"},{\"puuid\":\"mate\",\"team_id\":\"Red\",\"party_id\":\"p\"},{\"puuid\":\"foe1\",\"team_id\":\"Blue\",\"party_id\":\"p\"}]}'),
-               ('d', '2026-01-03', 'ascent', 'Ascent', 'deathmatch', NULL);
+             INSERT INTO matches VALUES ('b', '2026-01-02', 'bind', 'Bind', 'competitive', NULL, 'e1a1'),
+               ('a', '2026-01-01', 'ascent', 'Ascent', 'competitive', '{\"players\":[{\"puuid\":\"me\",\"team_id\":\"Red\",\"party_id\":\"p\"},{\"puuid\":\"mate\",\"team_id\":\"Red\",\"party_id\":\"p\"},{\"puuid\":\"foe1\",\"team_id\":\"Blue\",\"party_id\":\"p\"}]}', 'e1a1'),
+               ('d', '2026-01-03', 'ascent', 'Ascent', 'deathmatch', NULL, 'e1a1');
              INSERT INTO match_players VALUES
                ('a', 'me', 'Red', 'jett', 'Jett', 20, 1, 13, 7), ('a', 'mate', 'Red', 'sova', 'Sova', 22, 1, 13, 7), ('a', 'low', 'Red', 'omen', 'Omen', 0, 1, 13, 7),
                ('a', 'foe1', 'Blue', 'neon', 'Neon', 18, 0, 7, 13), ('a', 'foe2', 'Blue', 'kayo', 'KAY/O', 24, 0, 7, 13),
