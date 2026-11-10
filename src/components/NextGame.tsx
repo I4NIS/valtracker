@@ -50,8 +50,8 @@ export function NextGameButton({ puuid }: { puuid: string }) {
   const agent = inputs?.agentId ? (catalog?.agents.get(inputs.agentId)?.name ?? "") : "";
   const hint = inputs
     ? t(
-        `Estimation ${agent ? `avec ${agent}, ` : ""}${partyLabel(inputs.party).toLowerCase()}, sans map choisie. Clique pour changer les choix.`,
-        `Estimate ${agent ? `with ${agent}, ` : ""}${partyLabel(inputs.party).toLowerCase()}, no map picked. Click to change the choices.`,
+        `Chance de victoire estimée ${agent ? `avec ${agent}, ` : ""}${partyLabel(inputs.party).toLowerCase()}, sans map choisie. Clique pour changer les choix.`,
+        `Estimated chance to win ${agent ? `with ${agent}, ` : ""}${partyLabel(inputs.party).toLowerCase()}, no map picked. Click to change the choices.`,
       )
     : undefined;
   return (
